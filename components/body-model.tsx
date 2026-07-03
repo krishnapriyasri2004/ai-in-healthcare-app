@@ -72,21 +72,30 @@ const ORGAN_SYSTEM_MAP: Record<string, keyof SystemToggles> = {
   'intestines': 'digestive',
 }
 
-// Realistic organ positions calibrated for AvatarBody rendered at y=-1, scale=2.2
+// Original organ positions in the procedural fallback
 const ORGANS: BodyOrgan[] = [
-  { id: 'brain', name: 'Brain', position: [0, 2.35, 0], size: [0.26, 0.22, 0.26], geometry: 'sphere', baseColor: '#f5d0c5' },
-  { id: 'throat', name: 'Throat', position: [0, 1.75, 0.02], size: [0.08, 0.25, 0.08], geometry: 'capsule', baseColor: '#d68b85' },
-  { id: 'nasal_cavity', name: 'Nasal Cavity', position: [0, 2.1, 0.12], size: [0.08, 0.08, 0.08], geometry: 'box', baseColor: '#d68b85' },
-  { id: 'trachea', name: 'Trachea', position: [0, 1.4, 0.02], size: [0.06, 0.35, 0.06], geometry: 'capsule', baseColor: '#f0ece1' },
-  { id: 'lung_left', name: 'Left Lung', position: [-0.22, 1.0, 0.02], size: [0.2, 0.45, 0.2], geometry: 'capsule', baseColor: '#f7b0a8' },
-  { id: 'lung_right', name: 'Right Lung', position: [0.22, 1.0, 0.02], size: [0.2, 0.45, 0.2], geometry: 'capsule', baseColor: '#f7b0a8' },
-  { id: 'heart', name: 'Heart', position: [-0.08, 0.95, 0.08], size: [0.15, 0.15, 0.12], geometry: 'sphere', baseColor: '#a63434' },
-  { id: 'liver', name: 'Liver', position: [0.18, 0.55, 0.06], size: [0.32, 0.18, 0.2], geometry: 'box', baseColor: '#5c2d27' },
-  { id: 'stomach', name: 'Stomach', position: [-0.16, 0.48, 0.08], size: [0.2, 0.18, 0.16], geometry: 'sphere', baseColor: '#d48888' },
-  { id: 'kidney_left', name: 'Left Kidney', position: [-0.18, 0.5, -0.1], size: [0.1, 0.16, 0.1], geometry: 'capsule', baseColor: '#6e3831' },
-  { id: 'kidney_right', name: 'Right Kidney', position: [0.18, 0.5, -0.1], size: [0.1, 0.16, 0.1], geometry: 'capsule', baseColor: '#6e3831' },
-  { id: 'intestines', name: 'Intestines', position: [0, 0.1, 0.04], size: [0.32, 0.32, 0.2], geometry: 'sphere', baseColor: '#d9a69a' },
+  { id: 'brain', name: 'Brain', position: [0, 2.5, 0], size: [0.3, 0.25, 0.3], geometry: 'sphere', baseColor: '#f5d0c5' },
+  { id: 'throat', name: 'Throat', position: [0, 1.9, 0], size: [0.1, 0.3, 0.1], geometry: 'capsule', baseColor: '#d68b85' },
+  { id: 'nasal_cavity', name: 'Nasal Cavity', position: [0, 2.3, 0.15], size: [0.1, 0.1, 0.1], geometry: 'box', baseColor: '#d68b85' },
+  { id: 'trachea', name: 'Trachea', position: [0, 1.5, 0], size: [0.08, 0.4, 0.08], geometry: 'capsule', baseColor: '#f0ece1' },
+  { id: 'lung_left', name: 'Left Lung', position: [-0.3, 1.1, 0], size: [0.25, 0.5, 0.25], geometry: 'capsule', baseColor: '#f7b0a8' },
+  { id: 'lung_right', name: 'Right Lung', position: [0.3, 1.1, 0], size: [0.25, 0.5, 0.25], geometry: 'capsule', baseColor: '#f7b0a8' },
+  { id: 'heart', name: 'Heart', position: [-0.1, 1.0, 0.1], size: [0.2, 0.2, 0.15], geometry: 'sphere', baseColor: '#a63434' },
+  { id: 'liver', name: 'Liver', position: [0.2, 0.5, 0.1], size: [0.4, 0.2, 0.25], geometry: 'box', baseColor: '#5c2d27' },
+  { id: 'stomach', name: 'Stomach', position: [-0.2, 0.4, 0.1], size: [0.25, 0.2, 0.2], geometry: 'sphere', baseColor: '#d48888' },
+  { id: 'kidney_left', name: 'Left Kidney', position: [-0.2, 0.5, -0.15], size: [0.12, 0.2, 0.12], geometry: 'capsule', baseColor: '#6e3831' },
+  { id: 'kidney_right', name: 'Right Kidney', position: [0.2, 0.5, -0.15], size: [0.12, 0.2, 0.12], geometry: 'capsule', baseColor: '#6e3831' },
+  { id: 'intestines', name: 'Intestines', position: [0, 0, 0], size: [0.4, 0.4, 0.25], geometry: 'sphere', baseColor: '#d9a69a' },
 ]
+
+// Convert procedural coordinates to scale 1.0 absolute coordinates
+function getScale1Coords(pos: [number, number, number]): [number, number, number] {
+  return [
+    pos[0] / 2.2,
+    -1.0 + (pos[1] + 1.0) / 2.2,
+    pos[2] / 2.2
+  ]
+}
 
 // ---------------------------------------------------------
 // Error Boundary to gracefully fallback when /anatomy.glb is missing
@@ -114,36 +123,57 @@ class ModelErrorBoundary extends Component<{ children: ReactNode, fallback: Reac
 }
 
 // ---------------------------------------------------------
-// Humanoid Avatar Wrapper (Realistic Transparent Body)
+// Real Anatomy GLTF Loader (Restores original colored details)
 // ---------------------------------------------------------
-function AvatarBody({ opacity = 1, wireframe = false }: { opacity?: number, wireframe?: boolean }) {
+function RealAnatomyModel({ 
+  opacity = 1,
+  wireframe = false,
+  activeOrganIds
+}: { 
+  opacity?: number,
+  wireframe?: boolean,
+  activeOrganIds: string[]
+}) {
   const { scene } = useGLTF('/anatomy.glb')
   
-  const realisticSkinMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: wireframe ? '#0ea5e9' : '#f5d0c5',
-    transmission: wireframe ? 0 : 1.0,
-    opacity: wireframe ? 0.35 : opacity,
-    metalness: 0.1,
-    roughness: 0.3,
-    ior: 1.4,
-    thickness: 1.5,
-    clearcoat: wireframe ? 0 : 0.2,
-    clearcoatRoughness: 0.3,
-    side: THREE.DoubleSide,
-    transparent: true,
-    wireframe: wireframe
-  }), [opacity, wireframe])
+  const colors = useMemo(() => ({
+    high: new THREE.Color('#ff0033'),
+    medium: new THREE.Color('#ff7700'),
+    low: new THREE.Color('#ffdd00')
+  }), [])
 
-  useFrame(() => {
+  const holoSkinMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color: wireframe ? '#0ea5e9' : '#0022ff',
+    transmission: wireframe ? 0 : 0.95,
+    opacity: wireframe ? 0.3 : 0.2, // Keep skin transparent so skeleton is visible
+    metalness: 0.8,
+    roughness: 0.1,
+    ior: 1.2,
+    thickness: 0.5,
+    transparent: true,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  }), [wireframe])
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime
+    const intensity = (Math.sin(t * 5) * 0.5 + 0.5) * 2
+
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        child.material = realisticSkinMaterial
+        const name = child.name.toLowerCase()
+        
+        // Check if skin/outer body
+        if (name.includes('body') || name.includes('skin') || name.includes('human') || name.includes('mesh') || name.includes('geometry_0')) {
+          child.material = holoSkinMaterial
+        }
       }
     })
   })
 
-  // Scale 2.2 and shift -1.0 perfectly aligns with our organ positions
-  return <primitive object={scene} position={[0, -1.0, 0]} scale={2.2} />
+  // Render the original GLB at scale 1, position [0, -1, 0]
+  return <primitive object={scene} position={[0, -1, 0]} scale={1} />
 }
 
 // ---------------------------------------------------------
@@ -175,16 +205,15 @@ function PulsingMarker({
       }
   })
 
-  // Determine HUD label offset dynamically on the left or right of the body to prevent overlaps
   const isRight = position[0] >= 0
-  const lineLen = isRight ? 0.7 : -0.7
-  const labelOffset: [number, number, number] = [lineLen, 0.2, 0]
+  const lineLen = isRight ? 0.35 : -0.35
+  const labelOffset: [number, number, number] = [lineLen, 0.08, 0]
 
   return (
     <group position={position}>
        {/* 3D Core Dot on Organ */}
        <mesh ref={markerRef}>
-         <sphereGeometry args={[0.045, 16, 16]} />
+         <sphereGeometry args={[0.02, 16, 16]} />
          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.5} transparent opacity={0.95} />
        </mesh>
 
@@ -196,9 +225,9 @@ function PulsingMarker({
        />
 
        {/* HUD Details Panel */}
-       <Html distanceFactor={5} position={labelOffset} zIndexRange={[100, 0]}>
+       <Html distanceFactor={3.5} position={labelOffset} zIndexRange={[100, 0]}>
           <div 
-            className="w-56 p-3 rounded bg-black/95 border-t-2 shadow-[0_0_20px_rgba(0,0,0,0.85)] text-white pointer-events-auto flex flex-col gap-1 transition-all duration-300 font-sans"
+            className="w-48 p-2 rounded bg-black/95 border-t-2 shadow-[0_0_20px_rgba(0,0,0,0.85)] text-white pointer-events-auto flex flex-col gap-1 transition-all duration-300 font-sans"
             style={{ 
               borderColor: color, 
               borderLeft: isRight ? `1px solid ${color}33` : 'none',
@@ -206,22 +235,22 @@ function PulsingMarker({
               boxShadow: `0 0 15px ${glowColor}`
             }}
           >
-             <div className="flex justify-between items-center border-b border-white/10 pb-1">
-                <span className="font-mono text-[8px] tracking-widest text-gray-400 uppercase">SYSTEM ANOMALY</span>
-                <span className="text-[8px] font-mono font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-white/15" style={{ color }}>
+             <div className="flex justify-between items-center border-b border-white/10 pb-0.5">
+                <span className="font-mono text-[7px] tracking-widest text-gray-400 uppercase">SYSTEM ANOMALY</span>
+                <span className="text-[7px] font-mono font-bold tracking-widest uppercase px-1 py-0.5 rounded bg-white/15" style={{ color }}>
                    {confidence}
                 </span>
              </div>
              
-             <h3 className="font-bold text-[10px] uppercase tracking-wider text-white mt-0.5">
+             <h3 className="font-bold text-[9px] uppercase tracking-wider text-white mt-0.5">
                 {organName.replace('_', ' ')}
              </h3>
 
-             <div className="font-semibold text-xs leading-tight mt-0.5" style={{ color }}>
+             <div className="font-semibold text-[10px] leading-tight" style={{ color }}>
                 {condition}
              </div>
 
-             <p className="text-[10px] text-gray-400 leading-snug mt-1 border-t border-white/5 pt-1 line-clamp-3">
+             <p className="text-[8px] text-gray-400 leading-snug mt-0.5 border-t border-white/5 pt-0.5 line-clamp-3">
                 {reasoning}
              </p>
           </div>
@@ -231,62 +260,39 @@ function PulsingMarker({
 }
 
 // ---------------------------------------------------------
-// Organ Node (Procedural Geometry)
+// Organ Label Component
 // ---------------------------------------------------------
-function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffected: boolean; showLabel: boolean }) {
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null)
+function OrganLabel({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffected: boolean; showLabel: boolean }) {
   const [hovered, setHovered] = useState(false)
-  
-  const baseColor = useMemo(() => new THREE.Color(organ.baseColor), [organ.baseColor])
-  
-  useFrame((state) => {
-    if (materialRef.current && !isAffected) {
-      materialRef.current.emissive = new THREE.Color('#000000')
-      materialRef.current.emissiveIntensity = 0
-      materialRef.current.color = baseColor
-    } else if (materialRef.current && isAffected) {
-      const t = state.clock.elapsedTime
-      const intensity = (Math.sin(t * 6) * 0.4 + 0.6) * 1.5
-      materialRef.current.emissive = new THREE.Color('#ff0033')
-      materialRef.current.emissiveIntensity = intensity
-    }
-  })
+  const pos = useMemo(() => getScale1Coords(organ.position), [organ.position])
+  const size = organ.size[0] / 2.2
 
-  const lineLen = 0.6
-  const isRight = organ.position[0] >= 0
-  const labelOffset: [number, number, number] = [lineLen * (isRight ? 1 : -1), 0.1, 0]
+  const lineLen = 0.3
+  const isRight = pos[0] >= 0
+  const labelOffset: [number, number, number] = [lineLen * (isRight ? 1 : -1), 0.05, 0]
 
   return (
-    <group position={organ.position}>
+    <group position={pos}>
+      {/* Invisible hover helper */}
       <mesh
         onPointerOver={(e) => { e.stopPropagation(); setHovered(true) }}
         onPointerOut={(e) => { e.stopPropagation(); setHovered(false) }}
       >
-        {organ.geometry === 'sphere' && <sphereGeometry args={[organ.size[0], 32, 32]} />}
-        {organ.geometry === 'box' && <boxGeometry args={organ.size} />}
-        {organ.geometry === 'capsule' && <capsuleGeometry args={[organ.size[0], organ.size[1], 8, 16]} />}
-        
-        <meshStandardMaterial
-          ref={materialRef}
-          color={baseColor}
-          roughness={0.5}
-          metalness={0.2}
-          transparent
-          opacity={isAffected ? 0.4 : 0.85}
-        />
+        <sphereGeometry args={[size + 0.02, 16, 16]} />
+        <meshBasicMaterial visible={false} />
       </mesh>
 
       {(showLabel || hovered) && (
         <group>
-          <Html distanceFactor={5} position={labelOffset} zIndexRange={[50, 0]}>
+          <Html distanceFactor={3.5} position={labelOffset} zIndexRange={[50, 0]}>
             <div className={`
-              flex items-center gap-2 px-2.5 py-1 rounded border backdrop-blur-md shadow-lg 
-              whitespace-nowrap pointer-events-none transition-all duration-300 font-mono text-[9px] tracking-wider
+              flex items-center gap-2 px-2 py-0.5 rounded border backdrop-blur-md shadow-lg 
+              whitespace-nowrap pointer-events-none transition-all duration-300 font-mono text-[8px] tracking-wider
               ${isAffected 
-                ? 'bg-red-950/80 border-red-500/60 text-red-200 scale-110 shadow-[0_0_10px_rgba(239,68,68,0.3)]' 
+                ? 'bg-red-950/80 border-red-500/60 text-red-200 scale-105 shadow-[0_0_10px_rgba(239,68,68,0.3)]' 
                 : 'bg-black/85 border-cyan-800/60 text-cyan-300 scale-100'}
             `}>
-              {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
+              {isAffected && <div className="w-1 h-1 rounded-full bg-red-500 animate-ping" />}
               <span className="font-bold uppercase">{organ.name}</span>
             </div>
           </Html>
@@ -302,19 +308,9 @@ function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffec
 }
 
 // ---------------------------------------------------------
-// Integrated Anatomy Model
+// Main Canvas Component
 // ---------------------------------------------------------
-function AnatomyScene({ 
-  opacity, 
-  wireframe, 
-  activeSystems, 
-  affectedRegions 
-}: { 
-  opacity: number
-  wireframe: boolean
-  activeSystems?: SystemToggles
-  affectedRegions: RegionInfo[]
-}) {
+export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals }: BodyModelProps) {
   const activeOrganIds = useMemo(() => {
     return affectedRegions.flatMap((region) => {
       const regionId = region.bodyRegion.toLowerCase().replace(' ', '_');
@@ -323,67 +319,8 @@ function AnatomyScene({
   }, [affectedRegions])
 
   return (
-    <group position={[0, -0.6, 0]}>
-      {/* 3D Transparent Avatar Shell */}
-      <Suspense fallback={
-        <mesh position={[0, 1.1, 0]}>
-          <capsuleGeometry args={[0.45, 1.8, 16, 32]} />
-          <meshBasicMaterial color="#f5d0c5" wireframe={wireframe} transparent opacity={opacity * 0.3} />
-        </mesh>
-      }>
-        <AvatarBody opacity={opacity} wireframe={wireframe} />
-      </Suspense>
-
-      {/* Internal Organs */}
-      {ORGANS.map((organ) => {
-        const system = ORGAN_SYSTEM_MAP[organ.id]
-        const systemActive = activeSystems ? (system ? activeSystems[system] : false) : false
-        return (
-          <OrganNode
-            key={organ.id}
-            organ={organ}
-            isAffected={activeOrganIds.includes(organ.id)}
-            showLabel={systemActive}
-          />
-        )
-      })}
-
-      {/* Dynamic Diagnostic Markers */}
-      {affectedRegions.map((m, idx) => {
-        const regionId = m.bodyRegion.toLowerCase().replace(' ', '_');
-        const mappedIds = ORGAN_MAP[regionId] || [regionId]
-        
-        let pos: [number, number, number] = [0, 1.5, 0]
-        for (const mapId of mappedIds) {
-          const organ = ORGANS.find(o => o.id === mapId)
-          if (organ) {
-            pos = organ.position
-            break
-          }
-        }
-
-        return (
-          <PulsingMarker 
-            key={idx} 
-            position={pos} 
-            confidence={m.confidence} 
-            condition={m.condition} 
-            reasoning={m.reasoning}
-            organName={regionId}
-          />
-        )
-      })}
-    </group>
-  )
-}
-
-// ---------------------------------------------------------
-// Main Canvas Component
-// ---------------------------------------------------------
-export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals }: BodyModelProps) {
-  return (
     <div className="w-full h-full min-h-[100vh] relative group bg-[#030712] overflow-hidden">
-      <Canvas camera={{ position: [0, 0.7, 3.2], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+      <Canvas camera={{ position: [0, 0, 1.8], fov: 45 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
         <color attach="background" args={['#030712']} />
         
         {/* Holographic Cinematic Lighting */}
@@ -393,42 +330,73 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
         <spotLight position={[0, 10, 0]} intensity={3} angle={0.6} penumbra={1} color="#00ffff" />
         <spotLight position={[0, -10, 0]} intensity={2} angle={0.8} penumbra={1} color="#0088ff" />
 
+        {/* Load the original GLB scale 1, position [0, -1, 0] */}
         <Suspense fallback={null}>
-          <ModelErrorBoundary fallback={
-            <AnatomyScene 
-              opacity={opacity} 
-              wireframe={wireframe} 
-              activeSystems={activeSystems} 
-              affectedRegions={affectedRegions}
-            />
-          }>
-            <AnatomyScene 
-              opacity={opacity} 
-              wireframe={wireframe} 
-              activeSystems={activeSystems} 
-              affectedRegions={affectedRegions}
-            />
+          <ModelErrorBoundary fallback={null}>
+            <RealAnatomyModel opacity={opacity} wireframe={wireframe} activeOrganIds={activeOrganIds} />
           </ModelErrorBoundary>
         </Suspense>
+
+        {/* Organ labels mapped correctly to the scale 1.0 body */}
+        {ORGANS.map((organ) => {
+          const system = ORGAN_SYSTEM_MAP[organ.id]
+          const systemActive = activeSystems ? (system ? activeSystems[system] : false) : false
+          return (
+            <OrganLabel
+              key={organ.id}
+              organ={organ}
+              isAffected={activeOrganIds.includes(organ.id)}
+              showLabel={systemActive}
+            />
+          )
+        })}
+
+        {/* Diagnostic markers mapped correctly to the scale 1.0 body */}
+        {affectedRegions.map((m, idx) => {
+          const regionId = m.bodyRegion.toLowerCase().replace(' ', '_');
+          const mappedIds = ORGAN_MAP[regionId] || [regionId]
+          
+          let rawPos: [number, number, number] = [0, 1.5, 0]
+          for (const mapId of mappedIds) {
+            const organ = ORGANS.find(o => o.id === mapId)
+            if (organ) {
+              rawPos = organ.position
+              break
+            }
+          }
+          
+          const pos = getScale1Coords(rawPos)
+
+          return (
+            <PulsingMarker 
+              key={idx} 
+              position={pos} 
+              confidence={m.confidence} 
+              condition={m.condition} 
+              reasoning={m.reasoning}
+              organName={regionId}
+            />
+          )
+        })}
 
         <Environment preset="city" />
 
         <ContactShadows 
-          position={[0, -2.7, 0]} 
+          position={[0, -1.1, 0]} 
           opacity={0.8} 
-          scale={12} 
-          blur={3} 
-          far={4} 
+          scale={5} 
+          blur={2.5} 
+          far={3} 
           color="#00ffff"
         />
 
         <OrbitControls
           enablePan={false}
-          minPolarAngle={Math.PI / 6}
-          maxPolarAngle={Math.PI / 1.3}
-          minDistance={1.2}
-          maxDistance={6}
-          target={[0, 0.6, 0]}
+          minPolarAngle={Math.PI / 4}
+          maxPolarAngle={Math.PI / 1.5}
+          minDistance={0.8}
+          maxDistance={4}
+          target={[0, -0.1, 0]}
         />
       </Canvas>
 
