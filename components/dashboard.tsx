@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { BodyModel } from './body-model'
 import { SymptomInput } from './symptom-input'
 import { AnalysisResults } from './analysis-results'
