@@ -2,6 +2,8 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Script from 'next/script'
+import { Header } from '@/components/header'
+import { Sidebar } from '@/components/sidebar'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -48,13 +50,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="font-sans antialiased relative">
+      <body className="font-sans antialiased bg-[#020617] text-gray-100 min-h-screen flex flex-col overflow-hidden">
+        {/* Top Disclaimer Banner */}
         <div className="fixed top-0 left-0 w-full z-[100] bg-blue-900/90 text-white text-center py-1.5 text-xs font-mono font-bold tracking-widest backdrop-blur-md border-b border-blue-500/50 flex justify-center items-center shadow-lg pointer-events-none">
           <span className="text-blue-200 mr-2">⚠</span> AI-generated decision support — not a diagnosis.
         </div>
-        <div className="pt-8 w-full h-screen">
-          {children}
+
+        {/* Global Header */}
+        <Header />
+
+        {/* Console layout with Sidebar */}
+        <div className="flex-1 flex pt-28 h-screen overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 relative overflow-hidden">
+            {children}
+          </div>
         </div>
+
         {process.env.NODE_ENV === 'production' && <Analytics />}
         <Script id="register-sw" strategy="afterInteractive">
           {`
