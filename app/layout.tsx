@@ -72,7 +72,7 @@ export default function RootLayout({
           {`
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
-                const basePath = window.location.hostname === 'localhost' ? '' : '/ai-in-healthcare';
+                const basePath = '/ai-in-healthcare';
                 navigator.serviceWorker.register(basePath + '/sw.js').then(
                   function(registration) {
                     console.log('Service Worker registration successful with scope: ', registration.scope);

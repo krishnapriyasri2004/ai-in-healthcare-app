@@ -115,7 +115,7 @@ class ModelErrorBoundary extends Component<{ children: ReactNode, fallback: Reac
 // Humanoid Avatar Wrapper (Realistic Transparent Body)
 // ---------------------------------------------------------
 function AvatarBody({ opacity = 0.85, wireframe = false }: { opacity?: number, wireframe?: boolean }) {
-  const basePath = process.env.NODE_ENV === 'production' ? '/ai-in-healthcare' : ''
+  const basePath = '/ai-in-healthcare'
   const { scene } = useGLTF(`${basePath}/anatomy.glb`)
   
   const realisticSkinMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({

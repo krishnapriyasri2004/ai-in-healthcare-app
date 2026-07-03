@@ -113,7 +113,7 @@ export function Dashboard() {
   ) => {
     setIsLoading(true)
     let analysisData = null
-    const basePath = window.location.hostname === 'localhost' ? '' : '/ai-in-healthcare'
+    const basePath = '/ai-in-healthcare'
 
     try {
       const response = await fetch(`${basePath}/api/analyze-symptoms`, {
