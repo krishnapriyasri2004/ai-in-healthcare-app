@@ -434,7 +434,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
             </div>
             <div className="flex justify-between items-center border-t border-cyan-500/10 pt-1.5 mt-1 text-[9px] text-gray-500">
               <span>METABOLIC INDEX:</span>
-              <span>{Math.round(70 + Math.random() * 25)}%</span>
+              <span>{Math.min(100, Math.round(50 + (parseInt(vitals.hr) || 72) * 0.15 + (parseFloat(vitals.temp) || 37.0) * 0.4))}%</span>
             </div>
           </div>
         </div>
