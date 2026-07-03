@@ -8,7 +8,8 @@ export function Sidebar() {
   const pathname = usePathname()
 
   const navItems = [
-    { href: '/', label: '3D Scan Hub', icon: Layers },
+    { href: '/', label: 'Hospital Home', icon: Home },
+    { href: '/scan', label: '3D Scan Hub', icon: Layers },
     { href: '/patients', label: 'Patient Directory', icon: Users },
     { href: '/analytics', label: 'Clinical Stats', icon: FileText },
     { href: '/settings', label: 'System Config', icon: Settings },
