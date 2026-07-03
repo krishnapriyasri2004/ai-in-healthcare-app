@@ -29,6 +29,7 @@ interface BodyModelProps {
   opacity?: number
   wireframe?: boolean
   activeSystems?: SystemToggles
+  vitals?: { temp: string; hr: string; spo2: string; bp: string }
 }
 
 interface BodyOrgan {
@@ -128,9 +129,9 @@ function RealAnatomyModel({
   const [centers, setCenters] = useState<Record<string, [number, number, number]>>({})
   
   const colors = useMemo(() => ({
-    high: new THREE.Color('#ff0033'),   // Deep aggressive red
-    medium: new THREE.Color('#ff7700'), // Warning orange
-    low: new THREE.Color('#ffdd00')     // Minor yellow
+    high: new THREE.Color('#ff0033'),
+    medium: new THREE.Color('#ff7700'),
+    low: new THREE.Color('#ffdd00')
   }), [])
 
   useEffect(() => {
@@ -187,7 +188,6 @@ function RealAnatomyModel({
           }
           child.material = child.userData[materialKey]
         } else {
-             // Identify the main body/skin mesh
              if (name.includes('body') || name.includes('skin') || name.includes('human') || name.includes('mesh')) {
                 if (!child.userData.holoSkinMaterial) {
                   child.userData.holoSkinMaterial = new THREE.MeshPhysicalMaterial({
@@ -256,10 +256,9 @@ function RealAnatomyModel({
 
         const isAffected = activeOrgans.some(o => o.id === organ.id)
         const pos = centers[organ.id]
-        if (!pos) return null // Wait until center is computed
+        if (!pos) return null
 
-        const lineLen = 0.4
-        // Alternate label positioning left/right
+        const lineLen = 0.55
         const isRight = organ.position[0] >= 0
         const labelOffset: [number, number, number] = [lineLen * (isRight ? 1 : -1), 0.1, 0]
 
@@ -267,21 +266,20 @@ function RealAnatomyModel({
           <group key={organ.id} position={pos}>
             <Html distanceFactor={5} position={labelOffset} zIndexRange={[50, 0]}>
               <div className={`
-                flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg 
-                whitespace-nowrap pointer-events-none transition-all duration-300
+                flex items-center gap-2 px-2.5 py-1 rounded border backdrop-blur-md shadow-lg 
+                whitespace-nowrap pointer-events-none transition-all duration-300 font-mono text-[9px] tracking-wider
                 ${isAffected 
-                  ? 'bg-red-900/80 border border-red-500/60 text-red-200 scale-110' 
-                  : 'bg-black/70 border border-cyan-800/50 text-cyan-300 scale-100'}
+                  ? 'bg-red-950/80 border-red-500/60 text-red-200 scale-110 shadow-[0_0_10px_rgba(239,68,68,0.3)]' 
+                  : 'bg-black/85 border-cyan-800/60 text-cyan-300 scale-100'}
               `}>
                 {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
-                <span className="font-semibold text-[10px] uppercase tracking-wider">{organ.name}</span>
+                <span className="font-bold uppercase">{organ.name}</span>
               </div>
             </Html>
             <Line 
               points={[[0, 0, 0], labelOffset]} 
               color={isAffected ? '#ef4444' : '#00cccc'} 
               lineWidth={1}
-              dashed
             />
           </group>
         )
@@ -306,7 +304,8 @@ function RealAnatomyModel({
             position={pos} 
             confidence={m.confidence} 
             condition={m.condition} 
-            reasoning={m.reasoning} 
+            reasoning={m.reasoning}
+            organName={regionId}
           />
         )
       })}
@@ -331,7 +330,7 @@ function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffec
     }
   })
 
-  const lineLen = 0.4
+  const lineLen = 0.55
   const isRight = organ.position[0] >= 0
   const labelOffset: [number, number, number] = [lineLen * (isRight ? 1 : -1), 0.1, 0]
 
@@ -359,21 +358,20 @@ function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffec
         <group>
           <Html distanceFactor={5} position={labelOffset} zIndexRange={[50, 0]}>
             <div className={`
-              flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg 
-              whitespace-nowrap pointer-events-none transition-all duration-300
+              flex items-center gap-2 px-2.5 py-1 rounded border backdrop-blur-md shadow-lg 
+              whitespace-nowrap pointer-events-none transition-all duration-300 font-mono text-[9px] tracking-wider
               ${isAffected 
-                ? 'bg-red-900/80 border border-red-500/60 text-red-200 scale-110' 
-                : 'bg-black/70 border border-cyan-800/50 text-cyan-300 scale-100'}
+                ? 'bg-red-950/80 border-red-500/60 text-red-200 scale-110 shadow-[0_0_10px_rgba(239,68,68,0.3)]' 
+                : 'bg-black/85 border-cyan-800/60 text-cyan-300 scale-100'}
             `}>
               {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
-              <span className="font-semibold text-[10px] uppercase tracking-wider">{organ.name}</span>
+              <span className="font-bold uppercase">{organ.name}</span>
             </div>
           </Html>
           <Line 
             points={[[0, 0, 0], labelOffset]} 
             color={isAffected ? '#ef4444' : '#00cccc'} 
             lineWidth={1}
-            dashed
           />
         </group>
       )}
@@ -382,13 +380,25 @@ function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffec
 }
 
 // ---------------------------------------------------------
-// Pulsing Marker Component
+// HUD-style Pulsing Marker Component
 // ---------------------------------------------------------
-function PulsingMarker({ position, confidence, condition, reasoning }: { position: [number, number, number], confidence: string, condition: string, reasoning: string }) {
+function PulsingMarker({ 
+  position, 
+  confidence, 
+  condition, 
+  reasoning,
+  organName
+}: { 
+  position: [number, number, number]
+  confidence: string
+  condition: string
+  reasoning: string
+  organName: string
+}) {
   const markerRef = useRef<THREE.Mesh>(null)
   
   const color = confidence === 'high' ? '#ef4444' : confidence === 'medium' ? '#f97316' : '#eab308'
-  const glowColor = confidence === 'high' ? 'rgba(239, 68, 68, 0.8)' : confidence === 'medium' ? 'rgba(249, 115, 22, 0.8)' : 'rgba(234, 179, 8, 0.8)'
+  const glowColor = confidence === 'high' ? 'rgba(239, 68, 68, 0.6)' : confidence === 'medium' ? 'rgba(249, 115, 22, 0.6)' : 'rgba(234, 179, 8, 0.6)'
 
   useFrame((state) => {
       if (markerRef.current) {
@@ -398,27 +408,56 @@ function PulsingMarker({ position, confidence, condition, reasoning }: { positio
       }
   })
 
-  const adjustedPosition: [number, number, number] = [position[0], position[1], position[2] + 0.12]
+  // Format position slightly
+  const adjustedPosition: [number, number, number] = [position[0], position[1], position[2] + 0.1]
+  const isRight = position[0] >= 0
+  const lineLen = isRight ? 0.65 : -0.65
+  const labelOffset: [number, number, number] = [lineLen, 0.15, 0]
 
   return (
     <group position={adjustedPosition}>
+       {/* 3D Core Dot on Organ */}
        <mesh ref={markerRef}>
-         <sphereGeometry args={[0.06, 16, 16]} />
-         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} transparent opacity={0.9} />
+         <sphereGeometry args={[0.045, 16, 16]} />
+         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.5} transparent opacity={0.95} />
        </mesh>
 
-       <Html distanceFactor={5} position={[0.1, 0, 0]} zIndexRange={[100, 0]}>
-          <div className="relative group flex items-start gap-2">
-             <div className="w-4 h-4 rounded-full absolute -left-2 -top-2 animate-ping" style={{ backgroundColor: color }} />
-             <div className="w-2 h-2 rounded-full absolute -left-1 -top-1" style={{ backgroundColor: '#ffffff', boxShadow: `0 0 10px ${glowColor}` }} />
-             
-             <div className="ml-3 w-48 p-2 rounded-lg bg-black/85 backdrop-blur-md border shadow-[0_0_15px_rgba(0,0,0,0.5)] text-white pointer-events-auto" style={{ borderColor: color }}>
-                <h4 className="font-bold text-xs leading-tight text-white mb-1">{condition}</h4>
-                <div className={`text-[9px] font-mono tracking-widest uppercase mb-1.5`} style={{ color: color }}>
-                   Confidence: {confidence}
-                </div>
-                <p className="text-[10px] text-gray-300 leading-snug line-clamp-3">{reasoning}</p>
+       {/* HUD Diagonal pointer line */}
+       <Line 
+         points={[[0, 0, 0], [labelOffset[0], labelOffset[1], labelOffset[2]]]} 
+         color={color} 
+         lineWidth={1.5}
+       />
+
+       {/* HUD Details Panel */}
+       <Html distanceFactor={5} position={labelOffset} zIndexRange={[100, 0]}>
+          <div 
+            className="w-56 p-3 rounded bg-black/90 border-t-2 shadow-[0_0_20px_rgba(0,0,0,0.85)] text-white pointer-events-auto flex flex-col gap-1 transition-all duration-300 font-sans"
+            style={{ 
+              borderColor: color, 
+              borderLeft: isRight ? `1px solid ${color}33` : 'none',
+              borderRight: !isRight ? `1px solid ${color}33` : 'none',
+              boxShadow: `0 0 15px ${glowColor}`
+            }}
+          >
+             <div className="flex justify-between items-center border-b border-white/10 pb-1">
+                <span className="font-mono text-[8px] tracking-widest text-gray-400 uppercase">SYSTEM ANOMALY</span>
+                <span className="text-[8px] font-mono font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-white/15" style={{ color }}>
+                   {confidence}
+                </span>
              </div>
+             
+             <h3 className="font-bold text-[10px] uppercase tracking-wider text-white mt-0.5">
+                {organName.replace('_', ' ')}
+             </h3>
+
+             <div className="font-semibold text-xs leading-tight mt-0.5" style={{ color }}>
+                {condition}
+             </div>
+
+             <p className="text-[10px] text-gray-400 leading-snug mt-1 border-t border-white/5 pt-1 line-clamp-3">
+                {reasoning}
+             </p>
           </div>
        </Html>
     </group>
@@ -513,7 +552,8 @@ function ProceduralAnatomyModel({
             position={pos} 
             confidence={m.confidence} 
             condition={m.condition} 
-            reasoning={m.reasoning} 
+            reasoning={m.reasoning}
+            organName={regionId}
           />
         )
       })}
@@ -524,7 +564,7 @@ function ProceduralAnatomyModel({
 // ---------------------------------------------------------
 // Main Canvas Component
 // ---------------------------------------------------------
-export function BodyModel({ affectedRegions, opacity = 1, wireframe = false, activeSystems }: BodyModelProps) {
+export function BodyModel({ affectedRegions, opacity = 1, wireframe = false, activeSystems, vitals }: BodyModelProps) {
   const activeOrgans = affectedRegions.flatMap(
     (region) => {
       const regionId = region.bodyRegion.toLowerCase().replace(' ', '_');
@@ -593,6 +633,38 @@ export function BodyModel({ affectedRegions, opacity = 1, wireframe = false, act
           target={[0, 0.8, 0]}
         />
       </Canvas>
+
+      {/* Futuristic Biometrics HUD Overlay on bottom left of screen */}
+      {vitals && (
+        <div className="absolute bottom-6 left-6 z-20 pointer-events-auto bg-black/80 backdrop-blur-md border border-cyan-500/30 p-4 rounded shadow-[0_0_20px_rgba(6,182,212,0.15)] w-60 font-mono">
+          <div className="text-[10px] tracking-widest text-cyan-400 border-b border-cyan-500/20 pb-1.5 mb-2.5 font-bold flex justify-between">
+            <span>FULL BODY DIAGNOSTIC</span>
+            <span className="animate-pulse text-red-500">● LIVE</span>
+          </div>
+          <div className="space-y-2 text-[11px] text-gray-300">
+            <div className="flex justify-between items-center">
+              <span>HEART RATE:</span>
+              <span className="text-red-400 font-bold">{vitals.hr} BPM</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>BODY TEMP:</span>
+              <span className="text-orange-400 font-bold">{vitals.temp}°C</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>OXYGEN (SpO2):</span>
+              <span className="text-blue-400 font-bold">{vitals.spo2}%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>BLOOD PRESSURE:</span>
+              <span className="text-purple-400 font-bold">{vitals.bp}</span>
+            </div>
+            <div className="flex justify-between items-center border-t border-cyan-500/10 pt-1.5 mt-1 text-[9px] text-gray-500">
+              <span>METABOLIC INDEX:</span>
+              <span>{Math.round(70 + Math.random() * 25)}%</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

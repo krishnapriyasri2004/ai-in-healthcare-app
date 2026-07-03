@@ -28,6 +28,7 @@ export function Dashboard() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [patientGender, setPatientGender] = useState('Male')
+  const [vitals, setVitals] = useState<{ temp: string; hr: string; spo2: string; bp: string } | null>(null)
   
   // Anatomy Explorer State
   const [opacity, setOpacity] = useState(0.9)
@@ -51,15 +52,16 @@ export function Dashboard() {
     symptoms: string, 
     notes: string, 
     gender: string,
-    vitals?: { temp: string; hr: string; spo2: string; bp: string }
+    vitalsData?: { temp: string; hr: string; spo2: string; bp: string }
   ) => {
     setIsLoading(true)
     setPatientGender(gender)
+    setVitals(vitalsData || null)
     try {
       const response = await fetch('/api/analyze-symptoms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptoms, notes, gender, vitals }),
+        body: JSON.stringify({ symptoms, notes, gender, vitals: vitalsData }),
       })
 
       if (!response.ok) throw new Error('Analysis failed')
@@ -110,6 +112,7 @@ export function Dashboard() {
              opacity={opacity} 
              wireframe={wireframe}
              activeSystems={systems}
+             vitals={vitals || undefined}
            />
         </div>
 
