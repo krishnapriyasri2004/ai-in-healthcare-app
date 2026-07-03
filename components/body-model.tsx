@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Component, ErrorInfo, ReactNode, Suspense } from 'react'
+import React, { Component, ErrorInfo, ReactNode, Suspense, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Environment, ContactShadows, useGLTF, Html, Line } from '@react-three/drei'
 import { useRef, useMemo, useState } from 'react'
@@ -113,16 +113,47 @@ class ModelErrorBoundary extends Component<{ children: ReactNode, fallback: Reac
 }
 
 // ---------------------------------------------------------
-// Real Anatomy GLTF Loader
+// Real Anatomy GLTF Loader with Internal Label & Marker Rendering
 // ---------------------------------------------------------
-function RealAnatomyModel({ activeOrgans }: { activeOrgans: Array<{ id: string; severity: string }> }) {
+function RealAnatomyModel({ 
+  activeOrgans, 
+  activeSystems, 
+  affectedRegions 
+}: { 
+  activeOrgans: Array<{ id: string; severity: string }>, 
+  activeSystems?: SystemToggles,
+  affectedRegions: RegionInfo[] 
+}) {
   const { scene } = useGLTF('/anatomy.glb')
+  const [centers, setCenters] = useState<Record<string, [number, number, number]>>({})
   
   const colors = useMemo(() => ({
     high: new THREE.Color('#ff0033'),   // Deep aggressive red
     medium: new THREE.Color('#ff7700'), // Warning orange
     low: new THREE.Color('#ffdd00')     // Minor yellow
   }), [])
+
+  useEffect(() => {
+    if (!scene) return
+    scene.updateMatrixWorld(true)
+    const computedCenters: Record<string, [number, number, number]> = {}
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name.toLowerCase()
+        for (const organId of Object.keys(ORGAN_MAP)) {
+          const mappedNames = ORGAN_MAP[organId]
+          if (mappedNames.some(mName => name.includes(mName))) {
+            child.geometry.computeBoundingBox()
+            const center = new THREE.Vector3()
+            child.geometry.boundingBox!.getCenter(center)
+            center.applyMatrix4(child.matrixWorld)
+            computedCenters[organId] = [center.x, center.y, center.z]
+          }
+        }
+      }
+    })
+    setCenters(computedCenters)
+  }, [scene])
 
   useFrame((state) => {
     const t = state.clock.elapsedTime
@@ -182,21 +213,19 @@ function RealAnatomyModel({ activeOrgans }: { activeOrgans: Array<{ id: string; 
                 const isHeart = name.includes('heart')
 
                 if (isHeart) {
-                    // Realistic colors for the heart
                     if (!child.userData.realisticHeartMaterial) {
                         const origMat = child.userData.originalMaterial as THREE.MeshStandardMaterial;
                         const origColor = origMat.color ? origMat.color.clone() : new THREE.Color('#a63434');
                         child.userData.realisticHeartMaterial = new THREE.MeshStandardMaterial({
                           color: origColor,
                           emissive: origColor,
-                          emissiveIntensity: 0.1, // Subtle realistic lighting
+                          emissiveIntensity: 0.1,
                           roughness: 0.4,
                           metalness: 0.1,
                         })
                     }
                     child.material = child.userData.realisticHeartMaterial
                 } else {
-                    // Glows in cyan and electric blue for all other anatomy
                     if (!child.userData.holoOrganMaterial) {
                         child.userData.holoOrganMaterial = new THREE.MeshStandardMaterial({
                           color: new THREE.Color('#00ffff'),
@@ -216,8 +245,73 @@ function RealAnatomyModel({ activeOrgans }: { activeOrgans: Array<{ id: string; 
     })
   })
 
-  // GLB model origin is at the feet. Shift it up so the torso is at center.
-  return <primitive object={scene} position={[0, -0.2, 0]} scale={1} />
+  return (
+    <group position={[0, -0.2, 0]} scale={1}>
+      <primitive object={scene} />
+      
+      {/* 3D System Labels anchored precisely to mesh centers */}
+      {activeSystems && ORGANS.map((organ) => {
+        const system = ORGAN_SYSTEM_MAP[organ.id]
+        if (!system || !activeSystems[system]) return null
+
+        const isAffected = activeOrgans.some(o => o.id === organ.id)
+        const pos = centers[organ.id]
+        if (!pos) return null // Wait until center is computed
+
+        const lineLen = 0.4
+        // Alternate label positioning left/right
+        const isRight = organ.position[0] >= 0
+        const labelOffset: [number, number, number] = [lineLen * (isRight ? 1 : -1), 0.1, 0]
+
+        return (
+          <group key={organ.id} position={pos}>
+            <Html distanceFactor={5} position={labelOffset} zIndexRange={[50, 0]}>
+              <div className={`
+                flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg 
+                whitespace-nowrap pointer-events-none transition-all duration-300
+                ${isAffected 
+                  ? 'bg-red-900/80 border border-red-500/60 text-red-200 scale-110' 
+                  : 'bg-black/70 border border-cyan-800/50 text-cyan-300 scale-100'}
+              `}>
+                {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
+                <span className="font-semibold text-[10px] uppercase tracking-wider">{organ.name}</span>
+              </div>
+            </Html>
+            <Line 
+              points={[[0, 0, 0], labelOffset]} 
+              color={isAffected ? '#ef4444' : '#00cccc'} 
+              lineWidth={1}
+              dashed
+            />
+          </group>
+        )
+      })}
+
+      {/* Render interactive markers at precise mesh centers */}
+      {affectedRegions.map((m, idx) => {
+        const regionId = m.bodyRegion.toLowerCase().replace(' ', '_');
+        const mappedIds = ORGAN_MAP[regionId] || [regionId]
+        
+        let pos: [number, number, number] = [0, 1.5, 0]
+        for (const mapId of mappedIds) {
+          if (centers[mapId]) {
+            pos = centers[mapId]
+            break
+          }
+        }
+
+        return (
+          <PulsingMarker 
+            key={idx} 
+            position={pos} 
+            confidence={m.confidence} 
+            condition={m.condition} 
+            reasoning={m.reasoning} 
+          />
+        )
+      })}
+    </group>
+  )
 }
 
 // ---------------------------------------------------------
@@ -236,6 +330,10 @@ function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffec
       materialRef.current.color = baseColor
     }
   })
+
+  const lineLen = 0.4
+  const isRight = organ.position[0] >= 0
+  const labelOffset: [number, number, number] = [lineLen * (isRight ? 1 : -1), 0.1, 0]
 
   return (
     <group position={organ.position}>
@@ -257,30 +355,27 @@ function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffec
         />
       </mesh>
 
-      {/* Show organ name label when its system toggle is ON or when hovered */}
       {(showLabel || hovered) && (
-        <Html distanceFactor={5} position={[organ.size[0] + 0.15, 0, 0]} zIndexRange={[50, 0]}>
-          <div className={`
-            flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg 
-            whitespace-nowrap pointer-events-none transition-all duration-300
-            ${isAffected 
-              ? 'bg-red-900/80 border border-red-500/60 text-red-200 scale-110' 
-              : 'bg-black/70 border border-cyan-800/50 text-cyan-300 scale-100'}
-          `}>
-            {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
-            <span className="font-semibold text-[10px] uppercase tracking-wider">{organ.name}</span>
-          </div>
-        </Html>
-      )}
-
-      {/* Connecting line to label */}
-      {(showLabel || hovered) && (
-        <Line 
-          points={[[0, 0, 0], [organ.size[0] + 0.15, 0, 0]]} 
-          color={isAffected ? '#ef4444' : '#00cccc'} 
-          lineWidth={1}
-          dashed
-        />
+        <group>
+          <Html distanceFactor={5} position={labelOffset} zIndexRange={[50, 0]}>
+            <div className={`
+              flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg 
+              whitespace-nowrap pointer-events-none transition-all duration-300
+              ${isAffected 
+                ? 'bg-red-900/80 border border-red-500/60 text-red-200 scale-110' 
+                : 'bg-black/70 border border-cyan-800/50 text-cyan-300 scale-100'}
+            `}>
+              {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
+              <span className="font-semibold text-[10px] uppercase tracking-wider">{organ.name}</span>
+            </div>
+          </Html>
+          <Line 
+            points={[[0, 0, 0], labelOffset]} 
+            color={isAffected ? '#ef4444' : '#00cccc'} 
+            lineWidth={1}
+            dashed
+          />
+        </group>
       )}
     </group>
   )
@@ -303,25 +398,21 @@ function PulsingMarker({ position, confidence, condition, reasoning }: { positio
       }
   })
 
-  // We add a subtle y offset so it sits nicely in the middle of the organ
-  const adjustedPosition: [number, number, number] = [position[0], position[1], position[2] + 0.1]
+  const adjustedPosition: [number, number, number] = [position[0], position[1], position[2] + 0.12]
 
   return (
     <group position={adjustedPosition}>
-       {/* 3D Core Marker */}
        <mesh ref={markerRef}>
          <sphereGeometry args={[0.06, 16, 16]} />
          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} transparent opacity={0.9} />
        </mesh>
 
-       {/* HTML Overlay (Always visible) */}
        <Html distanceFactor={5} position={[0.1, 0, 0]} zIndexRange={[100, 0]}>
           <div className="relative group flex items-start gap-2">
              <div className="w-4 h-4 rounded-full absolute -left-2 -top-2 animate-ping" style={{ backgroundColor: color }} />
              <div className="w-2 h-2 rounded-full absolute -left-1 -top-1" style={{ backgroundColor: '#ffffff', boxShadow: `0 0 10px ${glowColor}` }} />
              
-             {/* Permanent Label Container */}
-             <div className="ml-3 w-48 p-2 rounded-lg bg-black/80 backdrop-blur-md border shadow-[0_0_15px_rgba(0,0,0,0.5)] text-white pointer-events-auto" style={{ borderColor: color }}>
+             <div className="ml-3 w-48 p-2 rounded-lg bg-black/85 backdrop-blur-md border shadow-[0_0_15px_rgba(0,0,0,0.5)] text-white pointer-events-auto" style={{ borderColor: color }}>
                 <h4 className="font-bold text-xs leading-tight text-white mb-1">{condition}</h4>
                 <div className={`text-[9px] font-mono tracking-widest uppercase mb-1.5`} style={{ color: color }}>
                    Confidence: {confidence}
@@ -335,90 +426,20 @@ function PulsingMarker({ position, confidence, condition, reasoning }: { positio
 }
 
 // ---------------------------------------------------------
-// System Labels Layer — renders organ name labels at their
-// fixed 3D positions calibrated to the real anatomy.glb model.
-// Works for BOTH the real GLB path and the procedural fallback.
-// ---------------------------------------------------------
-
-// Label positions calibrated for the anatomy.glb model rendered at y=-0.2, scale=1
-// These are world-space coordinates where each organ appears on the real GLB model.
-const GLB_LABEL_POSITIONS: Record<string, { position: [number, number, number]; side: 'left' | 'right' }> = {
-  'brain':        { position: [0,    1.55, 0.05],  side: 'right' },
-  'nasal_cavity': { position: [0,    1.38, 0.12],  side: 'right' },
-  'throat':       { position: [0,    1.18, 0.05],  side: 'right' },
-  'trachea':      { position: [0,    1.0,  0.05],  side: 'right' },
-  'lung_left':    { position: [-0.18, 0.82, 0.05], side: 'left'  },
-  'lung_right':   { position: [0.18,  0.82, 0.05], side: 'right' },
-  'heart':        { position: [-0.06, 0.75, 0.1],  side: 'left'  },
-  'liver':        { position: [0.15,  0.55, 0.08], side: 'right' },
-  'stomach':      { position: [-0.12, 0.52, 0.08], side: 'left'  },
-  'kidney_left':  { position: [-0.15, 0.48, -0.05],side: 'left'  },
-  'kidney_right': { position: [0.15,  0.48, -0.05],side: 'right' },
-  'intestines':   { position: [0,     0.32, 0.05], side: 'right' },
-}
-
-function SystemLabels({ activeSystems, activeOrganIds }: { activeSystems?: SystemToggles, activeOrganIds: string[] }) {
-  if (!activeSystems) return null
-
-  return (
-    <group>
-      {ORGANS.map((organ) => {
-        const system = ORGAN_SYSTEM_MAP[organ.id]
-        if (!system || !activeSystems[system]) return null
-
-        const isAffected = activeOrganIds.includes(organ.id)
-        const labelInfo = GLB_LABEL_POSITIONS[organ.id]
-        if (!labelInfo) return null
-
-        const lineLen = 0.35
-        const xDir = labelInfo.side === 'right' ? 1 : -1
-        const labelOffset: [number, number, number] = [lineLen * xDir, 0, 0]
-
-        return (
-          <group key={organ.id} position={labelInfo.position}>
-            {/* Label */}
-            <Html distanceFactor={5} position={labelOffset} zIndexRange={[50, 0]}>
-              <div className={`
-                flex items-center gap-2 px-2.5 py-1 rounded-md backdrop-blur-md shadow-lg 
-                whitespace-nowrap pointer-events-none transition-all duration-300
-                ${isAffected 
-                  ? 'bg-red-900/80 border border-red-500/60 text-red-200 scale-110' 
-                  : 'bg-black/70 border border-cyan-800/50 text-cyan-300 scale-100'}
-              `}>
-                {isAffected && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />}
-                <span className="font-semibold text-[10px] uppercase tracking-wider">{organ.name}</span>
-              </div>
-            </Html>
-
-            {/* Connecting line from body to label */}
-            <Line 
-              points={[[0, 0, 0], labelOffset]} 
-              color={isAffected ? '#ef4444' : '#00cccc'} 
-              lineWidth={1}
-              dashed
-            />
-          </group>
-        )
-      })}
-    </group>
-  )
-}
-
-// ---------------------------------------------------------
 // Humanoid Avatar Wrapper (Realistic Transparent Body)
 // ---------------------------------------------------------
 function AvatarBody({ opacity = 1, wireframe = false }: { opacity?: number, wireframe?: boolean }) {
   const { scene } = useGLTF('/anatomy.glb')
   
   const realisticSkinMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: wireframe ? '#0ea5e9' : '#f5d0c5', // Flesh tone
-    transmission: wireframe ? 0 : 1.0,        // Fully transmissive to see inside
+    color: wireframe ? '#0ea5e9' : '#f5d0c5',
+    transmission: wireframe ? 0 : 1.0,
     opacity: wireframe ? 0.3 : opacity,
     metalness: 0.1,
-    roughness: 0.25,                          // Slightly rough like skin
-    ior: 1.4,                                 // IOR of tissue/water
-    thickness: 1.5,                           // Gives a sense of depth to the flesh
-    clearcoat: wireframe ? 0 : 0.2,           // Slight sweat/gloss
+    roughness: 0.25,
+    ior: 1.4,
+    thickness: 1.5,
+    clearcoat: wireframe ? 0 : 0.2,
     clearcoatRoughness: 0.3,
     side: THREE.DoubleSide,
     transparent: true,
@@ -436,7 +457,19 @@ function AvatarBody({ opacity = 1, wireframe = false }: { opacity?: number, wire
   return <primitive object={scene} position={[0, -0.2, 0]} scale={2.2} />
 }
 
-function ProceduralAnatomyModel({ activeOrganIds, opacity, wireframe, activeSystems }: { activeOrganIds: string[], opacity?: number, wireframe?: boolean, activeSystems?: SystemToggles }) {
+function ProceduralAnatomyModel({ 
+  activeOrganIds, 
+  opacity, 
+  wireframe, 
+  activeSystems,
+  affectedRegions 
+}: { 
+  activeOrganIds: string[], 
+  opacity?: number, 
+  wireframe?: boolean, 
+  activeSystems?: SystemToggles,
+  affectedRegions: RegionInfo[]
+}) {
   return (
     <group position={[0, -0.5, 0]}>
       <Suspense fallback={
@@ -460,6 +493,30 @@ function ProceduralAnatomyModel({ activeOrganIds, opacity, wireframe, activeSyst
           />
         )
       })}
+
+      {affectedRegions.map((m, idx) => {
+        const regionId = m.bodyRegion.toLowerCase().replace(' ', '_');
+        const mappedIds = ORGAN_MAP[regionId] || [regionId]
+        
+        let pos: [number, number, number] = [0, 1.5, 0]
+        for (const mapId of mappedIds) {
+          const organ = ORGANS.find(o => o.id === mapId)
+          if (organ) {
+            pos = organ.position
+            break
+          }
+        }
+
+        return (
+          <PulsingMarker 
+            key={idx} 
+            position={pos} 
+            confidence={m.confidence} 
+            condition={m.condition} 
+            reasoning={m.reasoning} 
+          />
+        )
+      })}
     </group>
   )
 }
@@ -476,29 +533,9 @@ export function BodyModel({ affectedRegions, opacity = 1, wireframe = false, act
     }
   )
 
-  const markers = affectedRegions.map(region => {
-      const regionId = region.bodyRegion.toLowerCase().replace(' ', '_');
-      const mappedIds = ORGAN_MAP[regionId] || [regionId]
-      
-      let position: [number, number, number] = [0, 1.5, 0]
-      
-      for (const mapId of mappedIds) {
-         const organ = ORGANS.find(o => o.id === mapId) || ORGANS.find(o => o.name.toLowerCase().includes(mapId))
-         if (organ) {
-            position = [organ.position[0], organ.position[1] - 0.5, organ.position[2]]
-            break
-         }
-      }
-      
-      return {
-          ...region,
-          position
-      }
-  })
-
   return (
     <div className="w-full h-full min-h-[100vh] relative group bg-[#030712] overflow-hidden">
-      <Canvas camera={{ position: [0, 1.2, 4], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+      <Canvas camera={{ position: [0, 1.0, 3.2], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
         <color attach="background" args={['#030712']} />
         
         {/* Holographic Cinematic Lighting */}
@@ -509,25 +546,31 @@ export function BodyModel({ affectedRegions, opacity = 1, wireframe = false, act
         <spotLight position={[0, -10, 0]} intensity={2} angle={0.8} penumbra={1} color="#0088ff" />
 
         {/* Attempt to load /anatomy.glb, otherwise gracefully fallback to Procedural */}
-        <ModelErrorBoundary fallback={<ProceduralAnatomyModel activeOrganIds={activeOrgans.map(o => o.id)} opacity={opacity} wireframe={wireframe} activeSystems={activeSystems} />}>
-          <Suspense fallback={<ProceduralAnatomyModel activeOrganIds={activeOrgans.map(o => o.id)} opacity={opacity} wireframe={wireframe} activeSystems={activeSystems} />}>
-             <RealAnatomyModel activeOrgans={activeOrgans} />
+        <ModelErrorBoundary fallback={
+          <ProceduralAnatomyModel 
+            activeOrganIds={activeOrgans.map(o => o.id)} 
+            opacity={opacity} 
+            wireframe={wireframe} 
+            activeSystems={activeSystems} 
+            affectedRegions={affectedRegions}
+          />
+        }>
+          <Suspense fallback={
+            <ProceduralAnatomyModel 
+              activeOrganIds={activeOrgans.map(o => o.id)} 
+              opacity={opacity} 
+              wireframe={wireframe} 
+              activeSystems={activeSystems} 
+              affectedRegions={affectedRegions}
+            />
+          }>
+             <RealAnatomyModel 
+               activeOrgans={activeOrgans} 
+               activeSystems={activeSystems}
+               affectedRegions={affectedRegions}
+             />
           </Suspense>
         </ModelErrorBoundary>
-
-        {/* System labels — rendered at organ positions, works for both model paths */}
-        <SystemLabels activeSystems={activeSystems} activeOrganIds={activeOrgans.map(o => o.id)} />
-
-        {/* Render interactive markers on top of the models */}
-        {markers.map((m, i) => (
-           <PulsingMarker 
-             key={i} 
-             position={m.position} 
-             confidence={m.confidence} 
-             condition={m.condition} 
-             reasoning={m.reasoning} 
-           />
-        ))}
 
         <Environment preset="city" />
 
@@ -545,9 +588,9 @@ export function BodyModel({ affectedRegions, opacity = 1, wireframe = false, act
           enablePan={false}
           minPolarAngle={Math.PI / 6}
           maxPolarAngle={Math.PI / 1.3}
-          minDistance={2}
+          minDistance={1.5}
           maxDistance={7}
-          target={[0, 1.2, 0]}
+          target={[0, 0.8, 0]}
         />
       </Canvas>
     </div>

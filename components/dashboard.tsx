@@ -47,14 +47,19 @@ export function Dashboard() {
     setSystems(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const handleAnalyzeSymptoms = async (symptoms: string, notes: string, gender: string) => {
+  const handleAnalyzeSymptoms = async (
+    symptoms: string, 
+    notes: string, 
+    gender: string,
+    vitals?: { temp: string; hr: string; spo2: string; bp: string }
+  ) => {
     setIsLoading(true)
     setPatientGender(gender)
     try {
       const response = await fetch('/api/analyze-symptoms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptoms, notes, gender }),
+        body: JSON.stringify({ symptoms, notes, gender, vitals }),
       })
 
       if (!response.ok) throw new Error('Analysis failed')

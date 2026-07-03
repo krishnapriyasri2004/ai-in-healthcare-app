@@ -22,7 +22,7 @@ const analysisSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { symptoms, notes, gender } = await req.json()
+    const { symptoms, notes, gender, vitals } = await req.json()
 
     if (!symptoms || symptoms.trim().length === 0) {
       return new Response('Symptoms are required', { status: 400 })
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       // Continue with demo user
     }
 
-    const systemPrompt = `You are a medical AI assistant. Analyze symptoms and provide a single predicted condition.
+    const systemPrompt = `You are a medical AI assistant. Analyze symptoms and vitals telemetry to provide a single predicted condition.
 
 IMPORTANT DISCLAIMERS:
 - This is NOT a medical diagnosis. It is for educational purposes only.
@@ -55,7 +55,8 @@ Analyze the symptoms and return strict JSON with:
 5. recommendations: Array of general advice strings.
 6. severityScore: 0-100 scale.`
 
-    const userPrompt = `Patient Biological Sex: ${gender || 'Unknown'}\nPatient symptoms: ${symptoms}${notes ? `\nAdditional notes: ${notes}` : ''}`
+    const vitalsStr = vitals ? `\nPatient Vitals: Temperature: ${vitals.temp}°C, Heart Rate: ${vitals.hr} BPM, SpO2: ${vitals.spo2}%, Blood Pressure: ${vitals.bp}` : ''
+    const userPrompt = `Patient Biological Sex: ${gender || 'Unknown'}${vitalsStr}\nPatient symptoms: ${symptoms}${notes ? `\nAdditional notes: ${notes}` : ''}`
 
     let object
     try {
