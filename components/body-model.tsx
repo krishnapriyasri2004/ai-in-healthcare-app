@@ -37,8 +37,6 @@ interface BodyOrgan {
   name: string
   position: [number, number, number]
   size: [number, number, number]
-  geometry: 'sphere' | 'box' | 'capsule'
-  baseColor: string
 }
 
 // Map logical organ names from AI to our 3D nodes
@@ -72,20 +70,20 @@ const ORGAN_SYSTEM_MAP: Record<string, keyof SystemToggles> = {
   'intestines': 'digestive',
 }
 
-// Realistic organ colors and positions calibrated for AvatarBody rendered at y=-1, scale=2.2
+// Organ anchor positions calibrated for /anatomy.glb rendered at y=-1, scale=6.8
 const ORGANS: BodyOrgan[] = [
-  { id: 'brain', name: 'Brain', position: [0, 2.5, 0], size: [0.3, 0.25, 0.3], geometry: 'sphere', baseColor: '#f5d0c5' },
-  { id: 'throat', name: 'Throat', position: [0, 1.9, 0], size: [0.1, 0.3, 0.1], geometry: 'capsule', baseColor: '#d68b85' },
-  { id: 'nasal_cavity', name: 'Nasal Cavity', position: [0, 2.3, 0.15], size: [0.1, 0.1, 0.1], geometry: 'box', baseColor: '#d68b85' },
-  { id: 'trachea', name: 'Trachea', position: [0, 1.5, 0], size: [0.08, 0.4, 0.08], geometry: 'capsule', baseColor: '#f0ece1' },
-  { id: 'lung_left', name: 'Left Lung', position: [-0.3, 1.1, 0], size: [0.25, 0.5, 0.25], geometry: 'capsule', baseColor: '#f7b0a8' },
-  { id: 'lung_right', name: 'Right Lung', position: [0.3, 1.1, 0], size: [0.25, 0.5, 0.25], geometry: 'capsule', baseColor: '#f7b0a8' },
-  { id: 'heart', name: 'Heart', position: [-0.1, 1.0, 0.1], size: [0.2, 0.2, 0.15], geometry: 'sphere', baseColor: '#a63434' },
-  { id: 'liver', name: 'Liver', position: [0.2, 0.5, 0.1], size: [0.4, 0.2, 0.25], geometry: 'box', baseColor: '#5c2d27' },
-  { id: 'stomach', name: 'Stomach', position: [-0.2, 0.4, 0.1], size: [0.25, 0.2, 0.2], geometry: 'sphere', baseColor: '#d48888' },
-  { id: 'kidney_left', name: 'Left Kidney', position: [-0.2, 0.5, -0.15], size: [0.12, 0.2, 0.12], geometry: 'capsule', baseColor: '#6e3831' },
-  { id: 'kidney_right', name: 'Right Kidney', position: [0.2, 0.5, -0.15], size: [0.12, 0.2, 0.12], geometry: 'capsule', baseColor: '#6e3831' },
-  { id: 'intestines', name: 'Intestines', position: [0, 0, 0], size: [0.4, 0.4, 0.25], geometry: 'sphere', baseColor: '#d9a69a' },
+  { id: 'brain', name: 'Brain', position: [0, 2.35, 0], size: [0.3, 0.25, 0.3] },
+  { id: 'throat', name: 'Throat', position: [0, 1.75, 0.02], size: [0.1, 0.3, 0.1] },
+  { id: 'nasal_cavity', name: 'Nasal Cavity', position: [0, 2.1, 0.12], size: [0.1, 0.1, 0.1] },
+  { id: 'trachea', name: 'Trachea', position: [0, 1.4, 0.02], size: [0.08, 0.4, 0.08] },
+  { id: 'lung_left', name: 'Left Lung', position: [-0.22, 1.0, 0.02], size: [0.25, 0.5, 0.25] },
+  { id: 'lung_right', name: 'Right Lung', position: [0.22, 1.0, 0.02], size: [0.25, 0.5, 0.25] },
+  { id: 'heart', name: 'Heart', position: [-0.08, 0.95, 0.08], size: [0.2, 0.2, 0.15] },
+  { id: 'liver', name: 'Liver', position: [0.18, 0.55, 0.06], size: [0.4, 0.2, 0.25] },
+  { id: 'stomach', name: 'Stomach', position: [-0.16, 0.48, 0.08], size: [0.25, 0.2, 0.2] },
+  { id: 'kidney_left', name: 'Left Kidney', position: [-0.18, 0.5, -0.1], size: [0.12, 0.2, 0.12] },
+  { id: 'kidney_right', name: 'Right Kidney', position: [0.18, 0.5, -0.1], size: [0.12, 0.2, 0.12] },
+  { id: 'intestines', name: 'Intestines', position: [0, 0.1, 0.04], size: [0.4, 0.4, 0.25] },
 ]
 
 // ---------------------------------------------------------
@@ -145,8 +143,8 @@ function AvatarBody({ opacity = 0.85, wireframe = false }: { opacity?: number, w
     })
   })
 
-  // Scale 2.2 and position y=-1 matches the original "big" model centering
-  return <primitive object={scene} position={[0, -1.0, 0]} scale={2.2} />
+  // Scale 6.8 and position y=-1 matches the original "big" model centering for /anatomy.glb
+  return <primitive object={scene} position={[0, -1.0, 0]} scale={6.8} />
 }
 
 // ---------------------------------------------------------
@@ -178,6 +176,7 @@ function PulsingMarker({
       }
   })
 
+  // Determine HUD label offset dynamically on the left or right of the body to prevent overlaps
   const isRight = position[0] >= 0
   const lineLen = isRight ? 0.75 : -0.75
   const labelOffset: [number, number, number] = [lineLen, 0.2, 0]
@@ -244,6 +243,7 @@ function OrganLabel({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffe
 
   return (
     <group position={organ.position}>
+      {/* Invisible hover helper */}
       <mesh
         onPointerOver={(e) => { e.stopPropagation(); setHovered(true) }}
         onPointerOut={(e) => { e.stopPropagation(); setHovered(false) }}
@@ -278,7 +278,7 @@ function OrganLabel({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffe
 }
 
 // ---------------------------------------------------------
-// Unified Anatomy Model Scene (Scale 2.2)
+// Unified Anatomy Model Scene (Scale 6.8)
 // ---------------------------------------------------------
 function AnatomyScene({ 
   opacity, 
@@ -310,12 +310,12 @@ function AnatomyScene({
         <AvatarBody opacity={opacity} wireframe={wireframe} />
       </Suspense>
 
-      {/* Internal Organs (Original scale & positions) */}
+      {/* Render active systems text annotations (attached directly to anatomy landmarks) */}
       {ORGANS.map((organ) => {
         const system = ORGAN_SYSTEM_MAP[organ.id]
         const systemActive = activeSystems ? (system ? activeSystems[system] : false) : false
         return (
-          <OrganNode
+          <OrganLabel
             key={organ.id}
             organ={organ}
             isAffected={activeOrganIds.includes(organ.id)}
@@ -324,7 +324,7 @@ function AnatomyScene({
         )
       })}
 
-      {/* Pulsing markers representing diagnosed regions */}
+      {/* Render dynamic diagnostic pins (pointing directly to anatomy landmarks) */}
       {affectedRegions.map((m, idx) => {
         const regionId = m.bodyRegion.toLowerCase().replace(' ', '_');
         const mappedIds = ORGAN_MAP[regionId] || [regionId]
@@ -349,47 +349,6 @@ function AnatomyScene({
           />
         )
       })}
-    </group>
-  )
-}
-
-// Procedural Organ Node fallback visualizer
-function OrganNode({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffected: boolean; showLabel: boolean }) {
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null)
-  
-  const baseColor = useMemo(() => new THREE.Color(organ.baseColor), [organ.baseColor])
-  
-  useFrame((state) => {
-    if (materialRef.current && !isAffected) {
-      materialRef.current.emissive = new THREE.Color('#000000')
-      materialRef.current.emissiveIntensity = 0
-      materialRef.current.color = baseColor
-    } else if (materialRef.current && isAffected) {
-      const t = state.clock.elapsedTime
-      const intensity = (Math.sin(t * 6) * 0.4 + 0.6) * 1.5
-      materialRef.current.emissive = new THREE.Color('#ff0033')
-      materialRef.current.emissiveIntensity = intensity
-    }
-  })
-
-  return (
-    <group position={organ.position}>
-      <mesh>
-        {organ.geometry === 'sphere' && <sphereGeometry args={[organ.size[0], 32, 32]} />}
-        {organ.geometry === 'box' && <boxGeometry args={organ.size} />}
-        {organ.geometry === 'capsule' && <capsuleGeometry args={[organ.size[0], organ.size[1], 8, 16]} />}
-        
-        <meshStandardMaterial
-          ref={materialRef}
-          color={baseColor}
-          roughness={0.6}
-          metalness={0.1}
-          transparent
-          opacity={isAffected ? 0.35 : 0.85}
-        />
-      </mesh>
-
-      <OrganLabel organ={organ} isAffected={isAffected} showLabel={showLabel} />
     </group>
   )
 }
