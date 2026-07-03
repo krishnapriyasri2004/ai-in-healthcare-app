@@ -13,3 +13,7 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+out/
+app_api_backup/
+app_signin_backup/
+app_signup_backup/
