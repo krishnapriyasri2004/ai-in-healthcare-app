@@ -30,6 +30,7 @@ interface BodyModelProps {
   wireframe?: boolean
   activeSystems?: SystemToggles
   vitals?: { temp: string; hr: string; spo2: string; bp: string }
+  patientId?: string
 }
 
 interface BodyOrgan {
@@ -134,11 +135,12 @@ function AvatarBody({ opacity = 0.85, wireframe = false }: { opacity?: number, w
 
   useFrame(() => {
     scene.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      const mesh = child as any
+      if (child instanceof THREE.Mesh || mesh.isMesh) {
         const name = child.name.toLowerCase()
         // Override material ONLY for the body skin mesh to keep skeleton/organs colored
         if (name.includes('body') || name.includes('skin') || name.includes('human') || name.includes('mesh') || name.includes('geometry_0')) {
-          child.material = realisticSkinMaterial
+          mesh.material = realisticSkinMaterial
         }
       }
     })
@@ -279,79 +281,185 @@ function OrganLabel({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffe
 }
 
 // ---------------------------------------------------------
-// Unified Anatomy Model Scene (Scale 6.8)
+// Side-by-Side Model Components (Preserving original textures/materials)
 // ---------------------------------------------------------
-function AnatomyScene({ 
-  opacity, 
-  wireframe, 
-  activeSystems, 
-  affectedRegions 
+function SideBySideModel({ 
+  path, 
+  positionX, 
+  opacity = 1.0, 
+  wireframe = false,
+  activeSystems
 }: { 
-  opacity: number
-  wireframe: boolean
+  path: string
+  positionX: number
+  opacity?: number
+  wireframe?: boolean 
   activeSystems?: SystemToggles
-  affectedRegions: RegionInfo[]
 }) {
-  const activeOrganIds = useMemo(() => {
-    return affectedRegions.flatMap((region) => {
-      const regionId = region.bodyRegion.toLowerCase().replace(' ', '_');
-      return ORGAN_MAP[regionId] || [regionId]
+  const { scene } = useGLTF(path)
+  
+  const cloned = useMemo(() => {
+    const clone = scene.clone()
+    
+    // Rebind skeleton for SkinnedMesh objects to prevent vertex stretching to original bone coordinates
+    const originalBones: THREE.Bone[] = []
+    const clonedBones: THREE.Bone[] = []
+    
+    scene.traverse((node) => {
+      if (node instanceof THREE.Bone) {
+        originalBones.push(node)
+      }
     })
-  }, [affectedRegions])
+    
+    clone.traverse((node) => {
+      if (node instanceof THREE.Bone) {
+        clonedBones.push(node)
+      }
+    })
+    
+    clone.traverse((node) => {
+      if (node instanceof THREE.SkinnedMesh) {
+        const skeleton = node.skeleton
+        const newBones = skeleton.bones.map((bone) => {
+          const idx = originalBones.indexOf(bone)
+          return idx !== -1 ? clonedBones[idx] : bone
+        })
+        node.bind(new THREE.Skeleton(newBones, skeleton.boneInverses), node.matrixWorld)
+      }
+    })
 
-  return (
-    <group position={[0, -0.5, 0]}>
-      {/* 3D Transparent Avatar Shell (Restored original scale & position) */}
-      <Suspense fallback={
-        <mesh position={[0, 1.5, 0]}>
-          <capsuleGeometry args={[0.5, 2, 16, 32]} />
-          <meshBasicMaterial color="#f5d0c5" wireframe={wireframe} transparent opacity={opacity} />
-        </mesh>
-      }>
-        <AvatarBody opacity={opacity} wireframe={wireframe} />
-      </Suspense>
+    // Compute world matrices for correct hierarchy transformations
+    clone.updateWorldMatrix(true, true)
+    
+    // Ignore background/floor helper nodes to prevent giant bounding boxes
+    const box = new THREE.Box3()
+    let hasMesh = false
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name.toLowerCase()
+        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper') || name.includes('camera') || name.includes('light')) {
+          return
+        }
+        if (child.geometry) {
+          if (!child.geometry.boundingBox) {
+            child.geometry.computeBoundingBox()
+          }
+          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
+          if (!hasMesh) {
+            box.copy(meshBox)
+            hasMesh = true
+          } else {
+            box.union(meshBox)
+          }
+        }
+      }
+    })
+    
+    if (!hasMesh) {
+      box.setFromObject(clone)
+    }
 
-      {/* Render active systems text annotations (attached directly to anatomy landmarks) */}
-      {ORGANS.map((organ) => {
-        const system = ORGAN_SYSTEM_MAP[organ.id]
-        const systemActive = activeSystems ? (system ? activeSystems[system] : false) : false
-        return (
-          <OrganLabel
-            key={organ.id}
-            organ={organ}
-            isAffected={activeOrganIds.includes(organ.id)}
-            showLabel={systemActive}
-          />
-        )
-      })}
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    const targetHeight = 2.0
+    const scaleFactor = targetHeight / (size.y || 1)
+    
+    clone.scale.setScalar(scaleFactor)
+    clone.position.set(
+      positionX - center.x * scaleFactor,
+      -box.min.y * scaleFactor - 1.0,
+      -center.z * scaleFactor
+    )
 
-      {/* Render dynamic diagnostic pins (pointing directly to anatomy landmarks) */}
-      {affectedRegions.map((m, idx) => {
-        const regionId = m.bodyRegion.toLowerCase().replace(' ', '_');
-        const mappedIds = ORGAN_MAP[regionId] || [regionId]
-        
-        let pos: [number, number, number] = [0, 1.5, 0]
-        for (const mapId of mappedIds) {
-          const organ = ORGANS.find(o => o.id === mapId)
-          if (organ) {
-            pos = organ.position
-            break
+    clone.traverse((child) => {
+      const mesh = child as any
+      if (child instanceof THREE.Mesh || mesh.isMesh) {
+        child.castShadow = true
+        child.receiveShadow = true
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) {
+            mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
+          } else if (mesh.material.clone) {
+            mesh.material = mesh.material.clone()
+          }
+        }
+      }
+    })
+    
+    return clone
+  }, [scene, positionX])
+
+  useEffect(() => {
+    cloned.traverse((child) => {
+      const mesh = child as any
+      if (child instanceof THREE.Mesh || mesh.isMesh) {
+        const name = child.name.toLowerCase()
+        let visible = true
+
+        // Filter meshes based on checkboxes / activeSystems
+        if (activeSystems) {
+          if (path.includes('anatomy.glb')) {
+            // Left model: Skeleton (from anatomy.glb)
+            const isSkinMesh = name.includes('skin') || name.includes('integumentary')
+            if (isSkinMesh) {
+              visible = activeSystems.integumentary
+            } else {
+              visible = activeSystems.skeletal
+            }
+          } else if (path.includes('splanchnology')) {
+            // Middle model: Visceral Organs (from splanchnology.glb)
+            const isSkinMesh = name.includes('skin') || name.includes('integumentary')
+            const isBrainMesh = name.includes('brain') || name.includes('cerebrum') || name.includes('cerebell') || name.includes('pons') || name.includes('medulla')
+            const isHeartMesh = name.includes('heart') || name.includes('atrium') || name.includes('ventricle')
+            const isSkeletonMesh = name.includes('skeletal') || name.includes('bone') || name.includes('skull') || name.includes('spine') || name.includes('pelvis') || name.includes('rib') || name.includes('radius') || name.includes('ulna')
+            
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+            const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
+            
+            const isRespiratory = matNames.some((n: any) => n.includes('lung') || n.includes('bronchi') || n.includes('trachea') || n.includes('cartilage'))
+            const isUrinary = matNames.some((n: any) => n.includes('organ.004') || n.includes('gland.004') || n.includes('kidney') || n.includes('bladder'))
+            const isDigestive = matNames.some((n: any) => n.includes('intestine') || n.includes('organ.003') || n.includes('esophagus') || n.includes('stomach') || n.includes('liver')) || name.includes('stomach') || name.includes('liver') || name.includes('intestine')
+
+            // Hide skeleton inside splanchnology to avoid double bones
+            if (isSkeletonMesh) visible = false
+            if (isSkinMesh && !activeSystems.integumentary) visible = false
+            if (isBrainMesh && !activeSystems.nervous) visible = false
+            if (isHeartMesh && !activeSystems.cardiovascular) visible = false
+            if (isRespiratory && !activeSystems.respiratory) visible = false
+            if (isDigestive && !activeSystems.digestive) visible = false
+            if (isUrinary && !activeSystems.digestive) visible = false // group urinary with digestive/organs
+            
+          } else if (path.includes('scene')) {
+            // Middle model: Cardiovascular (from scene.gltf)
+            if (!activeSystems.cardiovascular) visible = false
+          } else if (path.includes('myology')) {
+            // Right model: Muscular (from myology.glb)
+            if (!activeSystems.muscular) visible = false
           }
         }
 
-        return (
-          <PulsingMarker 
-            key={idx} 
-            position={pos} 
-            confidence={m.confidence} 
-            condition={m.condition} 
-            reasoning={m.reasoning}
-            organName={regionId}
-          />
-        )
-      })}
-    </group>
-  )
+        mesh.visible = visible
+
+        // Apply opacity and wireframe
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        mats.forEach((m: any) => {
+          if (m) {
+            m.transparent = true
+            // Special transparent skin or default opacity
+            if (name.includes('skin') || name.includes('integumentary')) {
+              m.opacity = opacity * 0.15
+            } else {
+              m.opacity = opacity
+            }
+            m.wireframe = wireframe
+            m.needsUpdate = true
+          }
+        })
+      }
+    })
+  }, [cloned, opacity, wireframe, activeSystems])
+
+  return <primitive object={cloned} />
 }
 
 // ---------------------------------------------------------
@@ -359,8 +467,9 @@ function AnatomyScene({
 // ---------------------------------------------------------
 export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals }: BodyModelProps) {
   return (
-    <div className="w-full h-full min-h-[100vh] relative group bg-[#030712] overflow-hidden">
-      <Canvas camera={{ position: [0, 0.8, 3.5], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+    <div className="w-full h-full relative group bg-[#030712] overflow-hidden">
+      {/* 3D Viewport Canvas */}
+      <Canvas camera={{ position: [0, 0.4, 3.8], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
         <color attach="background" args={['#030712']} />
         
         {/* Holographic Cinematic Lighting */}
@@ -370,42 +479,73 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
         <spotLight position={[0, 10, 0]} intensity={3} angle={0.6} penumbra={1} color="#00ffff" />
         <spotLight position={[0, -10, 0]} intensity={2} angle={0.8} penumbra={1} color="#0088ff" />
 
+        {/* Dynamic spotlights for each of the 3 models, matching the studio spotlight look */}
+        <spotLight position={[-1.2, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#ff4081" castShadow />
+        <spotLight position={[0.0, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#ffff00" castShadow />
+        <spotLight position={[1.2, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#00e676" castShadow />
+
         <Suspense fallback={null}>
-          <ModelErrorBoundary fallback={
-            <AnatomyScene 
+          {/* Left: Skeleton (from anatomy.glb) */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/anatomy.glb" 
+              positionX={-1.2} 
               opacity={opacity} 
               wireframe={wireframe} 
-              activeSystems={activeSystems} 
-              affectedRegions={affectedRegions}
+              activeSystems={activeSystems}
             />
-          }>
-            <AnatomyScene 
+          </Suspense>
+          
+          {/* Middle: Visceral Organs (from splanchnology.glb) */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+              positionX={0.0} 
               opacity={opacity} 
               wireframe={wireframe} 
-              activeSystems={activeSystems} 
-              affectedRegions={affectedRegions}
+              activeSystems={activeSystems}
             />
-          </ModelErrorBoundary>
+          </Suspense>
+
+          {/* Middle: Cardiovascular vessels (from scene.gltf) */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/asset-01/scene.gltf" 
+              positionX={0.0} 
+              opacity={opacity} 
+              wireframe={wireframe} 
+              activeSystems={activeSystems}
+            />
+          </Suspense>
+
+          {/* Right: Muscular system (from myology.glb) */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/asset-01/myology.glb" 
+              positionX={1.2} 
+              opacity={opacity} 
+              wireframe={wireframe} 
+              activeSystems={activeSystems}
+            />
+          </Suspense>
         </Suspense>
 
-        <Environment preset="city" />
-
         <ContactShadows 
-          position={[0, -2.7, 0]} 
-          opacity={0.8} 
-          scale={12} 
+          position={[0, -1.0, 0]} 
+          opacity={0.85} 
+          scale={7} 
           blur={3} 
           far={4} 
           color="#00ffff"
         />
 
         <OrbitControls
-          enablePan={false}
+          enablePan={true}
           minPolarAngle={Math.PI / 6}
           maxPolarAngle={Math.PI / 1.3}
-          minDistance={1.5}
-          maxDistance={7}
-          target={[0, 0.6, 0]}
+          minDistance={1.0}
+          maxDistance={8}
+          target={[0, 0.0, 0]}
         />
       </Canvas>
 
@@ -432,10 +572,6 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
             <div className="flex justify-between items-center">
               <span>BLOOD PRESSURE:</span>
               <span className="text-purple-400 font-bold">{vitals.bp}</span>
-            </div>
-            <div className="flex justify-between items-center border-t border-cyan-500/10 pt-1.5 mt-1 text-[9px] text-gray-500">
-              <span>METABOLIC INDEX:</span>
-              <span>{Math.min(100, Math.round(50 + (parseInt(vitals.hr) || 72) * 0.15 + (parseFloat(vitals.temp) || 37.0) * 0.4))}%</span>
             </div>
           </div>
         </div>
