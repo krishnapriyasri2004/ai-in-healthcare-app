@@ -237,6 +237,56 @@ export function Dashboard() {
   const [isLoading, setIsLoading] = useState(false)
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null) // 'Approved' | 'Rejected' | 'Modified'
 
+  // Symptom Analysis Workspace States
+  const [symptomAge, setSymptomAge] = useState('45')
+  const [symptomSex, setSymptomSex] = useState('Male')
+  const [symptomDuration, setSymptomDuration] = useState('2 hours')
+  const [symptomSeverity, setSymptomSeverity] = useState('Critical')
+  const [symptomText, setSymptomText] = useState('')
+  const [isSymptomAnalyzing, setIsSymptomAnalyzing] = useState(false)
+  const [symptomAnalysisResult, setSymptomAnalysisResult] = useState<{
+    affectedRegions: string[]
+    possibleConditions: { name: string; confidence: number; reasoning: string }[]
+    redFlag: boolean
+  } | null>(null)
+  const [isSymptomPanelOpen, setIsSymptomPanelOpen] = useState(true)
+  const [isConditionsPanelOpen, setIsConditionsPanelOpen] = useState(true)
+
+  const handleSymptomAnalysis = async () => {
+    if (!symptomText.trim()) return
+    setIsSymptomAnalyzing(true)
+    setSymptomAnalysisResult(null)
+
+    try {
+      const response = await fetch('/api/analyze-symptoms-deepseek', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          age: symptomAge,
+          sex: symptomSex,
+          duration: symptomDuration,
+          severity: symptomSeverity,
+          symptoms: symptomText
+        })
+      })
+      const data = await response.json()
+      setSymptomAnalysisResult(data)
+    } catch (e) {
+      console.error(e)
+      setSymptomAnalysisResult({
+        affectedRegions: ['throat'],
+        possibleConditions: [
+          { name: 'Connection Error', confidence: 0, reasoning: 'Unable to reach clinical decision support API. Falling back to default.' }
+        ],
+        redFlag: false
+      })
+    } finally {
+      setIsSymptomAnalyzing(false)
+    }
+  }
+
   // Quick Symptom Entry States
   const [showSymptomForm, setShowSymptomForm] = useState(false)
   const [quickSymptoms, setQuickSymptoms] = useState('')
@@ -616,7 +666,7 @@ export function Dashboard() {
           </div>
 
           {/* Floating Layers Panel (Glassmorphic) */}
-          <div className="absolute left-4 top-16 z-20 flex flex-col gap-1 pointer-events-auto bg-slate-950/75 backdrop-blur-md border border-slate-900/50 rounded-xl p-2.5 font-mono text-[9px] shadow-lg">
+          <div className={`absolute ${isSymptomPanelOpen ? 'left-[304px]' : 'left-4'} top-16 z-20 flex flex-col gap-1 pointer-events-auto bg-slate-950/75 backdrop-blur-md border border-slate-900/50 rounded-xl p-2.5 font-mono text-[9px] shadow-lg`}>
             <span className="text-slate-500 font-bold block mb-1 text-[8px] border-b border-slate-900/40 pb-1 uppercase">Layers</span>
             {[
               { label: 'Skin', key: 'integumentary' },
@@ -661,6 +711,157 @@ export function Dashboard() {
             </button>
           </div>
 
+          {/* Red Flag Warning Banner */}
+          {symptomAnalysisResult?.redFlag && (
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 w-[60%] z-[22] bg-rose-950/80 border border-rose-500/30 text-rose-400 font-bold font-mono text-[9px] py-1.5 px-3 rounded-lg shadow-lg flex items-center justify-center gap-1.5 animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Urgent findings — clinical correlation required.</span>
+            </div>
+          )}
+
+          {/* Floating Patient Symptom Input Panel */}
+          <div className={`absolute left-4 top-16 z-[21] w-[280px] bg-slate-950/85 backdrop-blur-md border border-slate-900/80 rounded-xl p-3.5 flex flex-col gap-3 font-mono text-[9px] shadow-2xl transition-all duration-300 pointer-events-auto ${
+            isSymptomPanelOpen ? 'translate-x-0 opacity-100' : '-translate-x-[300px] opacity-0 pointer-events-none'
+          }`}>
+            <div className="flex justify-between items-center border-b border-slate-900/60 pb-1.5">
+              <span className="font-bold text-[10px] text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                🤒 Patient Symptom Input
+              </span>
+              <button 
+                onClick={() => setIsSymptomPanelOpen(false)}
+                className="text-slate-500 hover:text-slate-300 p-0.5 rounded cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-slate-500 uppercase text-[8px]">Age</span>
+                  <input 
+                    type="number" 
+                    value={symptomAge} 
+                    onChange={e => setSymptomAge(e.target.value)}
+                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-slate-500 uppercase text-[8px]">Sex</span>
+                  <select 
+                    value={symptomSex} 
+                    onChange={e => setSymptomSex(e.target.value)}
+                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-slate-500 uppercase text-[8px]">Duration</span>
+                  <input 
+                    type="text" 
+                    value={symptomDuration} 
+                    onChange={e => setSymptomDuration(e.target.value)}
+                    placeholder="e.g. 2 hours"
+                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-slate-500 uppercase text-[8px]">Severity</span>
+                  <select 
+                    value={symptomSeverity} 
+                    onChange={e => setSymptomSeverity(e.target.value)}
+                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                <span className="text-slate-500 uppercase text-[8px]">Presenting Symptoms</span>
+                <textarea 
+                  value={symptomText} 
+                  onChange={e => setSymptomText(e.target.value)}
+                  placeholder="e.g. severe pain lower right abdomen, fever, nausea..."
+                  rows={4}
+                  className="bg-black/60 border border-slate-800 rounded p-2 text-white text-[9px] outline-none resize-none leading-relaxed"
+                />
+              </div>
+
+              <button
+                onClick={handleSymptomAnalysis}
+                disabled={isSymptomAnalyzing || !symptomText.trim()}
+                className="w-full py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition uppercase tracking-wider text-center cursor-pointer disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(6,182,212,0.15)]"
+              >
+                {isSymptomAnalyzing ? 'Analyzing...' : 'Analyze'}
+              </button>
+            </div>
+
+            <div className="border-t border-slate-900/60 pt-2 text-[7px] text-slate-500 leading-normal select-text">
+              ⚠️ AI-generated decision support — not a diagnosis. Requires clinical verification.
+            </div>
+          </div>
+
+          {/* Collapsible Button to Reopen Symptom Input */}
+          {!isSymptomPanelOpen && (
+            <button
+              onClick={() => setIsSymptomPanelOpen(true)}
+              className="absolute left-4 top-16 z-[21] px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-900/50 text-cyan-400 font-mono text-[9px] font-bold shadow-lg pointer-events-auto hover:bg-slate-900 cursor-pointer"
+            >
+              🤒 Symptom Input
+            </button>
+          )}
+
+          {/* Floating Possible Conditions Ranked Cards Panel */}
+          {symptomAnalysisResult && (
+            <div className={`absolute right-4 top-16 z-[21] w-[260px] bg-slate-950/85 backdrop-blur-md border border-slate-900/80 rounded-xl p-3.5 flex flex-col gap-3 font-mono text-[9px] shadow-2xl transition-all duration-300 pointer-events-auto ${
+              isConditionsPanelOpen ? 'translate-x-0 opacity-100' : 'translate-x-[280px] opacity-0 pointer-events-none'
+            }`}>
+              <div className="flex justify-between items-center border-b border-slate-900/60 pb-1.5">
+                <span className="font-bold text-[10px] text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                  📋 Possible Conditions
+                </span>
+                <button 
+                  onClick={() => setIsConditionsPanelOpen(false)}
+                  className="text-slate-500 hover:text-slate-300 p-0.5 rounded cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[220px] pr-1 custom-scrollbar">
+                {symptomAnalysisResult.possibleConditions.map((cond, i) => (
+                  <div key={i} className="p-2.5 bg-black/40 border border-slate-900 rounded-lg flex flex-col gap-1">
+                    <div className="flex justify-between items-start gap-1">
+                      <span className="font-bold text-slate-200 text-[10px] leading-tight">{cond.name}</span>
+                      <span className="bg-cyan-950/50 border border-cyan-500/25 text-cyan-400 px-1 py-0.5 rounded text-[8px] font-black shrink-0">
+                        {cond.confidence}%
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-[8px] leading-normal font-sans">{cond.reasoning}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {symptomAnalysisResult && !isConditionsPanelOpen && (
+            <button
+              onClick={() => setIsConditionsPanelOpen(true)}
+              className="absolute right-4 top-16 z-[21] px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-900/50 text-cyan-400 font-mono text-[9px] font-bold shadow-lg pointer-events-auto hover:bg-slate-900 cursor-pointer"
+            >
+              📋 Results ({symptomAnalysisResult.possibleConditions.length})
+            </button>
+          )}
+
           {/* Actual 3D Canvas element viewport */}
           <div className="flex-1 w-full min-h-[300px] relative z-0">
             <BodyModel 
@@ -669,6 +870,7 @@ export function Dashboard() {
               wireframe={wireframe}
               activeSystems={systems}
               patientId={selectedPatientId}
+              symptomHighlightedRegions={symptomAnalysisResult ? symptomAnalysisResult.affectedRegions : []}
             />
           </div>
 

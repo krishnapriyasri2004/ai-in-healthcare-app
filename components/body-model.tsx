@@ -33,6 +33,7 @@ interface BodyModelProps {
   activeSystems?: SystemToggles
   vitals?: { temp: string; hr: string; spo2: string; bp: string }
   patientId?: string
+  symptomHighlightedRegions?: string[] // Added for symptom analysis highlights
 }
 
 interface BodyOrgan {
@@ -322,13 +323,15 @@ function GLTFModelWrapper({
   positionX,
   opacity,
   wireframe,
-  activeSystems
+  activeSystems,
+  symptomHighlightedRegions
 }: {
   path: string
   positionX: number
   opacity: number
   wireframe: boolean
   activeSystems?: SystemToggles
+  symptomHighlightedRegions?: string[]
 }) {
   const { scene } = useGLTF(path)
   
@@ -553,12 +556,26 @@ function GLTFModelWrapper({
               m.opacity = opacity
               m.wireframe = wireframe
             }
+            
+            // Apply symptom analysis emissive highlight
+            if (m.emissive) {
+              m.emissive.set('#000000')
+              m.emissiveIntensity = 0.0
+            }
+            if (symptomHighlightedRegions && symptomHighlightedRegions.length > 0) {
+              const isHighlighted = symptomHighlightedRegions.some(reg => name.includes(reg.toLowerCase()))
+              if (isHighlighted && m.emissive) {
+                m.emissive.set('#ef4444') // bright red emissive highlight for affected symptoms
+                m.emissiveIntensity = 3.0
+              }
+            }
+            
             m.needsUpdate = true
           }
         })
       }
     })
-  }, [cloned, opacity, wireframe, activeSystems, path, positionX])
+  }, [cloned, opacity, wireframe, activeSystems, path, positionX, symptomHighlightedRegions])
 
   return <primitive object={cloned} />
 }
@@ -571,13 +588,15 @@ function FBXModelWrapper({
   positionX,
   opacity,
   wireframe,
-  activeSystems
+  activeSystems,
+  symptomHighlightedRegions
 }: {
   path: string
   positionX: number
   opacity: number
   wireframe: boolean
   activeSystems?: SystemToggles
+  symptomHighlightedRegions?: string[]
 }) {
   const fbx = useFBX(path)
   
@@ -669,12 +688,26 @@ function FBXModelWrapper({
             m.transparent = true
             m.opacity = opacity
             m.wireframe = wireframe
+            
+            // Apply symptom analysis emissive highlight
+            if (m.emissive) {
+              m.emissive.set('#000000')
+              m.emissiveIntensity = 0.0
+            }
+            if (symptomHighlightedRegions && symptomHighlightedRegions.length > 0) {
+              const isHighlighted = symptomHighlightedRegions.some(reg => name.includes(reg.toLowerCase()))
+              if (isHighlighted && m.emissive) {
+                m.emissive.set('#ef4444')
+                m.emissiveIntensity = 3.0
+              }
+            }
+            
             m.needsUpdate = true
           }
         })
       }
     })
-  }, [cloned, opacity, wireframe, activeSystems])
+  }, [cloned, opacity, wireframe, activeSystems, symptomHighlightedRegions])
 
   return <primitive object={cloned} />
 }
@@ -687,13 +720,15 @@ function ModelInstance({
   positionX,
   opacity,
   wireframe,
-  activeSystems
+  activeSystems,
+  symptomHighlightedRegions
 }: {
   path: string
   positionX: number
   opacity: number
   wireframe: boolean
   activeSystems?: SystemToggles
+  symptomHighlightedRegions?: string[]
 }) {
   const isFbx = path.toLowerCase().endsWith('.fbx')
   if (isFbx) {
@@ -704,6 +739,7 @@ function ModelInstance({
         opacity={opacity}
         wireframe={wireframe}
         activeSystems={activeSystems}
+        symptomHighlightedRegions={symptomHighlightedRegions}
       />
     )
   }
@@ -714,6 +750,7 @@ function ModelInstance({
       opacity={opacity}
       wireframe={wireframe}
       activeSystems={activeSystems}
+      symptomHighlightedRegions={symptomHighlightedRegions}
     />
   )
 }
@@ -727,7 +764,8 @@ function SideBySideModel({
   positionX, 
   opacity = 1.0, 
   wireframe = false,
-  activeSystems
+  activeSystems,
+  symptomHighlightedRegions
 }: { 
   path: string
   system?: 'skeletal_nervous' | 'cardiovascular_visceral' | 'muscular'
@@ -735,6 +773,7 @@ function SideBySideModel({
   opacity?: number
   wireframe?: boolean 
   activeSystems?: SystemToggles
+  symptomHighlightedRegions?: string[]
 }) {
   return (
     <ModelInstance
@@ -743,6 +782,7 @@ function SideBySideModel({
       opacity={opacity}
       wireframe={wireframe}
       activeSystems={activeSystems}
+      symptomHighlightedRegions={symptomHighlightedRegions}
     />
   )
 }
@@ -750,7 +790,7 @@ function SideBySideModel({
 // ---------------------------------------------------------
 // Main Canvas Component
 // ---------------------------------------------------------
-export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals }: BodyModelProps) {
+export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals, symptomHighlightedRegions }: BodyModelProps) {
   return (
     <div className="w-full h-full relative group bg-[#030712] overflow-hidden">
       {/* 3D Viewport Canvas */}
@@ -780,6 +820,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
+              symptomHighlightedRegions={symptomHighlightedRegions}
             />
           </Suspense>
 
@@ -791,6 +832,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
+              symptomHighlightedRegions={symptomHighlightedRegions}
             />
           </Suspense>
           
@@ -802,6 +844,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
+              symptomHighlightedRegions={symptomHighlightedRegions}
             />
           </Suspense>
 
@@ -813,6 +856,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
+              symptomHighlightedRegions={symptomHighlightedRegions}
             />
           </Suspense>
 
@@ -824,6 +868,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
+              symptomHighlightedRegions={symptomHighlightedRegions}
             />
           </Suspense>
         </Suspense>
