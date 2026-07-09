@@ -290,7 +290,7 @@ const getOrganVerticalOffset = (nodeName: string, materialNames: string[]): numb
   const name = nodeName.toLowerCase()
   
   const isBrainMesh = name.includes('brain') || name.includes('cerebrum') || name.includes('cerebell') || name.includes('pons') || name.includes('medulla')
-  if (isBrainMesh) return 0.7
+  if (isBrainMesh) return 0.0
   
   const isHeartMesh = name.includes('heart') || name.includes('atrium') || name.includes('ventricle')
   if (isHeartMesh) return 0.3
@@ -892,7 +892,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
           let dy = 0
           
           if (organ.id === 'brain') {
-            dy = 0.7
+            dy = 0.0
           } else if (['throat', 'nasal_cavity', 'trachea', 'lung_left', 'lung_right', 'heart'].includes(organ.id)) {
             dy = 0.3
           } else if (['liver', 'stomach'].includes(organ.id)) {

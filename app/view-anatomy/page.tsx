@@ -76,7 +76,7 @@ const ORGAN_MAP: Record<string, string[]> = {
 // Vertical offset for exploded organ view in Split View mode
 const getOrganVerticalOffset = (nodeName: string, materialNames: string[]): number => {
   const name = nodeName.toLowerCase()
-  if (name.includes('brain') || name.includes('cerebr')) return 0.7
+  if (name.includes('brain') || name.includes('cerebr')) return 0.0
   if (name.includes('heart') || name.includes('atrium') || name.includes('ventricle')) return 0.3
   const isResp = materialNames.some(n => n.includes('lung') || n.includes('bronchi') || n.includes('trachea') || n.includes('cartilage'))
   if (isResp) return 0.3
