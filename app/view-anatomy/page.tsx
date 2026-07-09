@@ -354,9 +354,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           if (isSkinMesh) {
             meshVisible = activeSystems.integumentary
           } else if (isSkeletalMesh) {
-            // GLB skeleton meshes are at misaligned coordinates — always hide them.
-            // The upright FBX skeleton model is overlaid at the same position instead.
-            meshVisible = false
+            meshVisible = activeSystems.skeletal
           } else if (isBrainMesh) {
             meshVisible = activeSystems.nervous
           } else if (isHeartMesh) {
@@ -980,21 +978,6 @@ export default function ViewAnatomyPage() {
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
-                      onModelClick={handleModelClick}
-                    />
-                  </Suspense>
-
-                  {/* FBX Skeleton overlaid at the SAME position as the anatomy column */}
-                  {/* This stands upright and aligns with the organs from the GLB */}
-                  <Suspense fallback={null}>
-                    <RealisticFBXModel 
-                      path="/ai-in-healthcare/asset-01/SkeletalSystem100.fbx" 
-                      positionX={-0.6} 
-                      activeSystems={systems}
-                      highlightedMeshNames={highlightedMeshNames}
-                      viewMode={viewMode}
-                      visible={systems.skeletal}
-                      isSplittedRef={isSplittedRef}
                       onModelClick={handleModelClick}
                     />
                   </Suspense>
