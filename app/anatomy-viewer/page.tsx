@@ -200,11 +200,22 @@ function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
     clone.scale.setScalar(scale)
     clone.position.set(0, -box.min.y * scale - 1.0, -center.z * scale)
 
+    // Give bones a realistic ivory/bone appearance
+    const boneMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#e8dcc8'),      // Warm ivory bone
+      roughness: 0.65,
+      metalness: 0.05,
+      emissive: new THREE.Color('#2a2418'),    // Subtle warm glow
+      emissiveIntensity: 0.15,
+    })
+
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = false
         child.receiveShadow = false
         child.frustumCulled = true
+        // Apply bone material to ALL skeleton meshes
+        child.material = boneMaterial.clone()
         const mesh = child as any
         if (!mesh.isSkinnedMesh && mesh.geometry) {
           if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
