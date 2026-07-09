@@ -108,11 +108,17 @@ function PulsingCallout({ localPosition, organName, isAffected, condition, reaso
   
   const color = isAffected ? '#ef4444' : '#0ea5e9'
 
-  // Snap position instantly to match organ explosion
-  useFrame(() => {
+  // Animate local position to match vertical explosion lerping
+  useFrame((state) => {
     if (calloutRef.current) {
       const [lx, ly, lz] = localPosition
-      calloutRef.current.position.y = isSplittedRef.current ? ly + verticalOffset : ly
+      const targetY = isSplittedRef.current ? ly + verticalOffset : ly
+      calloutRef.current.position.y = THREE.MathUtils.lerp(calloutRef.current.position.y, targetY, 0.15)
+    }
+    if (markerRef.current) {
+      const t = state.clock.getElapsedTime()
+      const scale = 1 + Math.sin(t * 8) * 0.15
+      markerRef.current.scale.set(scale, scale, scale)
     }
   })
 
@@ -191,7 +197,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     }
 
     // For skin column, reset parent rotation so skin faces forward
-    if (path.includes('splanchnology') && positionX === -2.4) {
+    if (path.includes('splanchnology') && positionX === -1.8) {
       const sketchfabModel = clone.getObjectByName('Sketchfab_model')
       if (sketchfabModel) sketchfabModel.rotation.set(0, 0, 0)
     }
@@ -227,18 +233,14 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     clone.position.set(0, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
 
     // ────────────────────────────────────────────────────────────
-    // STEP 2: NOW remove unwanted meshes per column (after bbox)
+    // STEP 2: Remove meshes ONLY for the skin-only column.
+    //         For the main anatomy column (positionX === -1.2),
+    //         keep ALL meshes (skeleton + skull + organs + brain)
+    //         so they remain in their correct anatomical positions.
+    //         Visibility is controlled via mesh.visible in useEffect.
     // ────────────────────────────────────────────────────────────
     if (path.includes('splanchnology')) {
-      if (positionX === -1.2) {
-        // Organs column: remove skin, bones, skull – keep all organs including brain
-        const toRemove: THREE.Object3D[] = []
-        clone.traverse((child) => {
-          const name = child.name.toLowerCase()
-          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) toRemove.push(child)
-        })
-        toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
-      } else if (positionX === -2.4) {
+      if (positionX === -1.8) {
         // Skin column: remove everything except skin meshes
         const toRemove: THREE.Object3D[] = []
         clone.traverse((child) => {
@@ -250,6 +252,8 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         })
         toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
       }
+      // positionX === -1.2: Keep ALL meshes (skeleton + skull + organs + brain)
+      // Visibility is toggled per-system in the useEffect below
     }
 
     // ────────────────────────────────────────────────────────────
@@ -265,7 +269,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         const mats = Array.isArray(child.material) ? child.material : [child.material]
         const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
         
-        const isColumn2Organ = positionX === -1.2 && path.includes('splanchnology')
+        const isColumn2Organ = positionX === -0.6 && path.includes('splanchnology')
         if (isColumn2Organ) {
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
           if (!isBrain) {
@@ -280,40 +284,39 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     })
 
     // Clone materials
+    clone.traverse((child) => {
+      const mesh = child as any
+      if (child instanceof THREE.Mesh || mesh.isMesh) {
+        child.castShadow = true
+        child.receiveShadow = true
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
+          else if (mesh.material.clone) mesh.material = mesh.material.clone()
+        }
+      }
+    })
+
     return clone
   }, [scene, positionX, path])
 
-  // Pre-cache animated organ meshes once
-  const animatedMeshes = useRef<{mesh: THREE.Object3D; originalY: number; offsetY: number}[]>([])
-  useEffect(() => {
-    if (positionX === -1.2 && path.includes('splanchnology')) {
-      const meshes: {mesh: THREE.Object3D; originalY: number; offsetY: number}[] = []
-      cloned.traverse((child) => {
-        if (child.userData.offsetY !== undefined) {
-          meshes.push({ mesh: child, originalY: child.userData.originalY ?? child.position.y, offsetY: child.userData.offsetY })
-        }
-      })
-      animatedMeshes.current = meshes
-    }
-  }, [cloned, positionX, path])
-
-  // INSTANT position snapping — no lerp, no delay, zero jank
+  // LERP ANIMATIONS: Smooth split-view slide out & organ explosion vertical lerps (using Ref for instant zero-lag)
   useFrame(() => {
     if (groupRef.current) {
+      // Horizontal split slide out
       const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
-      const dx = Math.abs(groupRef.current.position.x - targetX)
-      if (dx > 0.001) {
-        groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.35)
-      }
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.12)
     }
-    // Snap organ positions
-    const cached = animatedMeshes.current
-    if (cached.length > 0) {
-      const splitting = viewMode === 'split' && isSplittedRef.current
-      for (let i = 0; i < cached.length; i++) {
-        const { mesh, originalY, offsetY } = cached[i]
-        mesh.position.y = splitting ? originalY + offsetY : originalY
-      }
+
+    // Explode column 2 organs vertically
+    if (positionX === -0.6 && path.includes('splanchnology')) {
+      cloned.traverse((child) => {
+        if (child.userData.offsetY !== undefined) {
+          const originalY = child.userData.originalY ?? child.position.y
+          // Animate to exploded Y only when splitting is active
+          const targetY = (viewMode === 'split' && isSplittedRef.current) ? originalY + child.userData.offsetY : originalY
+          child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.12)
+        }
+      })
     }
   })
 
@@ -336,34 +339,33 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         const isSkinMesh = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
         const isBrainMesh = name.includes('brain') || name.includes('cerebr')
         const isHeartMesh = name.includes('heart') || name.includes('atrium') || name.includes('ventricle')
+        const isSkeletalMesh = name.includes('bone') || name.includes('skull') || name.includes('skeletal')
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
         const isRespiratory = matNames.some((n: any) => n.includes('lung') || n.includes('bronchi') || n.includes('trachea'))
         const isDigestive = matNames.some((n: any) => n.includes('intestine') || n.includes('stomach') || n.includes('liver') || n.includes('kidney')) || name.includes('stomach') || name.includes('liver') || name.includes('intestine')
 
-        if (viewMode === 'split') {
-          if (positionX === -2.4) {
-            meshVisible = isSkinMesh && activeSystems.integumentary
-          } else if (positionX === -1.2) {
-            if (isSkinMesh) meshVisible = false
-            else {
-              meshVisible = true
-              if (isBrainMesh && !activeSystems.nervous) meshVisible = false
-              if (isHeartMesh && !activeSystems.cardiovascular) meshVisible = false
-              if (isRespiratory && !activeSystems.respiratory) meshVisible = false
-              if (isDigestive && !activeSystems.digestive) meshVisible = false
-            }
-          }
-        } else {
-          // Single View mode overlay logic
+        if (positionX === -1.8) {
+          // Skin-only column
+          meshVisible = isSkinMesh && activeSystems.integumentary
+        } else if (positionX === -0.6) {
+          // Full anatomy column: skeleton + skull + organs + brain
+          // Each system is toggled independently via checkboxes
           if (isSkinMesh) {
             meshVisible = activeSystems.integumentary
+          } else if (isSkeletalMesh) {
+            meshVisible = activeSystems.skeletal
+          } else if (isBrainMesh) {
+            meshVisible = activeSystems.nervous
+          } else if (isHeartMesh) {
+            meshVisible = activeSystems.cardiovascular
+          } else if (isRespiratory) {
+            meshVisible = activeSystems.respiratory
+          } else if (isDigestive) {
+            meshVisible = activeSystems.digestive
           } else {
-            meshVisible = false
-            if (isBrainMesh && activeSystems.nervous) meshVisible = true
-            if (isHeartMesh && activeSystems.cardiovascular) meshVisible = true
-            if (isRespiratory && activeSystems.respiratory) meshVisible = true
-            if (isDigestive && activeSystems.digestive) meshVisible = true
+            // Unclassified organ meshes: show when any organ system is active
+            meshVisible = activeSystems.digestive || activeSystems.respiratory || activeSystems.cardiovascular || activeSystems.nervous
           }
         }
       } else if (path.includes('scene')) {
@@ -377,39 +379,44 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
 
       mesh.visible = meshVisible
 
-      // Minimal material setup — no per-frame material mutations
-      if (!mesh.userData._matSetup) {
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        mats.forEach((m: any) => {
-          if (!m) return
-          const isSkin = name.includes('skin') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('hair')
-          if (isSkin) {
-            m.transparent = true
-            m.opacity = 0.18
-            m.depthWrite = false
-          } else {
-            m.transparent = false
-            m.opacity = 1.0
-          }
-        })
-        mesh.userData._matSetup = true
-      }
+      // Apply translucency / highlights
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      mats.forEach((m: any) => {
+        if (!m) return
+        const isSkin = name.includes('skin') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('hair')
+        
+        if (isSkin) {
+          m.transparent = true
+          // Semi-translucent in Single View / Merged Split View to view internal organs
+          const isMergedInSplitMode = viewMode === 'split' && !isSplittedRef.current
+          m.opacity = (viewMode === 'single' || isMergedInSplitMode) ? 0.18 : 1.0
+          m.wireframe = false
+          m.depthWrite = (viewMode === 'split' && isSplittedRef.current)
+        } else {
+          m.transparent = true
+          m.opacity = 0.9
+          m.wireframe = false
+        }
 
-      // Highlights only when needed
-      if (highlightedMeshNames.length > 0) {
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        mats.forEach((m: any) => {
-          if (!m || !m.emissive) return
+        // Emissive highlights
+        if (m.emissive) {
+          m.emissive.set('#000000')
+          m.emissiveIntensity = 0.0
+        }
+        if (highlightedMeshNames.length > 0) {
           const isHighlighted = highlightedMeshNames.some(reg => name.includes(reg))
-          m.emissive.set(isHighlighted ? '#ef4444' : '#000000')
-          m.emissiveIntensity = isHighlighted ? 2.0 : 0.0
-        })
-      }
+          if (isHighlighted && m.emissive) {
+            m.emissive.set('#ef4444')
+            m.emissiveIntensity = 2.0
+          }
+        }
+        m.needsUpdate = true
+      })
     })
-  }, [cloned, activeSystems, highlightedMeshNames, positionX, path, viewMode, visible])
+  }, [cloned, activeSystems, highlightedMeshNames, positionX, path, viewMode, visible, isSplittedRef])
 
   // Organs model handles callouts so they slide and explode in perfect synchronization
-  const isOrgansModel = positionX === -1.2 && path.includes('splanchnology')
+  const isOrgansModel = positionX === -0.6 && path.includes('splanchnology')
 
   return (
     <group 
@@ -493,8 +500,8 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     clone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
-        child.castShadow = false
-        child.receiveShadow = false
+        child.castShadow = true
+        child.receiveShadow = true
         if (!mesh.isSkinnedMesh && mesh.geometry) {
           if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
           if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
@@ -508,14 +515,11 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     return clone
   }, [fbx, positionX])
 
-  // INSTANT snap Horizontal slide
+  // LERP Horizontal slide animations
   useFrame(() => {
     if (groupRef.current) {
       const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
-      const dx = Math.abs(groupRef.current.position.x - targetX)
-      if (dx > 0.001) {
-        groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.35)
-      }
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.12)
     }
   })
 
@@ -583,16 +587,16 @@ export default function ViewAnatomyPage() {
   const [affectedOrganIds, setAffectedOrganIds] = useState<string[]>([])
   const [conditionsByOrgan, setConditionsByOrgan] = useState<Record<string, { condition: string; reasoning: string; severity: string }>>({})
 
-  // 3D layers toggles
+  // 3D layers toggles — defaults match the reference: skeleton + organs visible
   const [systems, setSystems] = useState<SystemToggles>({
     skeletal: true,
-    muscular: true,
-    nervous: false,
+    muscular: false,  // Hidden by default for clean organ view
+    nervous: true,    // Brain visible inside skull
     cardiovascular: true,
     respiratory: true,
     digestive: true,
     lymphatic: false,
-    integumentary: false // Hidden by default on load to remove the blue holographic skin dummy
+    integumentary: false // Hidden by default
   })
 
   // Set split status text in the DOM directly for instant zero-lag feedback
@@ -926,30 +930,30 @@ export default function ViewAnatomyPage() {
 
             {/* Canvas Viewport */}
             <div className="flex-1 w-full h-full relative z-0">
-              <Canvas 
-                camera={{ position: [0, 0.2, 4.6], fov: 50 }} 
-                dpr={[1, 1.5]} 
-                gl={{ antialias: false, powerPreference: 'high-performance', alpha: false, stencil: false, depth: true }}
-                performance={{ min: 0.5 }}
-                className="w-full h-full" 
-                style={{ position: 'absolute', inset: 0 }}
-              >
+              <Canvas camera={{ position: [0, 0.2, 4.6], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
                 {/* Clinical Steel Blue/Slate Background for maximum contrast */}
                 <color attach="background" args={['#0a0f1d']} />
                 
                 {/* Neutral Studio Lighting */}
                 <ambientLight intensity={0.7} color="#ffffff" />
-                <directionalLight position={[10, 15, 5]} intensity={2.0} color="#ffffff" />
-                <directionalLight position={[-10, 10, -5]} intensity={1.2} color="#e8e0d8" />
-                <spotLight position={[0, 12, 0]} intensity={2.5} angle={0.8} penumbra={1} color="#ffffff" />
+                <directionalLight position={[10, 15, 5]} intensity={1.8} color="#ffffff" castShadow />
+                <directionalLight position={[-10, 10, -5]} intensity={1.0} color="#e8e0d8" />
+                <spotLight position={[0, 12, 0]} intensity={2.5} angle={0.6} penumbra={1} color="#ffffff" />
                 <spotLight position={[0, -5, 5]} intensity={1.0} angle={0.8} penumbra={1} color="#f5f0eb" />
 
+                {/* Light fill spotlights matching the 5 columns */}
+                <spotLight position={[-2.4, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
+                <spotLight position={[-1.2, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
+                <spotLight position={[0.0, 5, 3]} intensity={1.8} distance={8} color="#ffffff" />
+                <spotLight position={[1.2, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
+                <spotLight position={[2.4, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
+
                 <Suspense fallback={null}>
-                  {/* Column 1: Body Skin/Integumentary */}
+                  {/* Column 1: Body Skin/Integumentary (separate clone) */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/splanchnology.glb" 
-                      positionX={-2.4} 
+                      positionX={-1.8} 
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -961,41 +965,28 @@ export default function ViewAnatomyPage() {
                     />
                   </Suspense>
 
-                  {/* Column 2: Visceral Organs */}
+                  {/* Column 2: FULL ANATOMY — Skeleton + Skull + Organs + Brain (unified model) */}
+                  {/* All meshes stay in their original GLB positions so the brain sits inside the skull */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/splanchnology.glb" 
-                      positionX={-1.2} 
+                      positionX={-0.6} 
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
-                      visible={systems.digestive || systems.respiratory}
+                      visible={true}
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
                     />
                   </Suspense>
-                  
-                  {/* Column 3: Skeletal System (FBX) */}
-                  <Suspense fallback={null}>
-                    <RealisticFBXModel 
-                      path="/ai-in-healthcare/asset-01/SkeletalSystem100.fbx" 
-                      positionX={0.0} 
-                      activeSystems={systems}
-                      highlightedMeshNames={highlightedMeshNames}
-                      viewMode={viewMode}
-                      visible={systems.skeletal}
-                      isSplittedRef={isSplittedRef}
-                      onModelClick={handleModelClick}
-                    />
-                  </Suspense>
 
-                  {/* Column 4: Cardiovascular vessels */}
+                  {/* Column 3: Cardiovascular vessels */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/scene.gltf" 
-                      positionX={1.2} 
+                      positionX={0.6} 
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -1007,11 +998,11 @@ export default function ViewAnatomyPage() {
                     />
                   </Suspense>
 
-                  {/* Column 5: Muscular system */}
+                  {/* Column 4: Muscular system */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/myology.glb" 
-                      positionX={2.4} 
+                      positionX={1.8} 
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
