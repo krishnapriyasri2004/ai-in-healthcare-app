@@ -615,6 +615,24 @@ function FBXModelWrapper({
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
     clone.rotation.x = -Math.PI / 2
+
+    // Rebind skeleton for SkinnedMesh objects to prevent vertex stretching to original bone coordinates
+    const clonedBonesMap = new Map<string, THREE.Bone>()
+    clone.traverse((node: any) => {
+      if (node.isBone) {
+        clonedBonesMap.set(node.name, node)
+      }
+    })
+    
+    clone.traverse((node: any) => {
+      if (node.isSkinnedMesh) {
+        const skeleton = node.skeleton
+        const newBones = skeleton.bones.map((bone: any) => {
+          return clonedBonesMap.get(bone.name) || bone
+        })
+        node.bind(new THREE.Skeleton(newBones, skeleton.boneInverses), node.matrixWorld)
+      }
+    })
     
     // standard Box3.setFromObject handles rotated hierarchies perfectly
     const box = new THREE.Box3().setFromObject(clone)
