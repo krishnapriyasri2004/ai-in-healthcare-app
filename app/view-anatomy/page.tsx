@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Suspense, useMemo, useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, ContactShadows, useGLTF, useFBX, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -583,6 +584,22 @@ export default function ViewAnatomyPage() {
   const [affectedOrganIds, setAffectedOrganIds] = useState<string[]>([])
   const [conditionsByOrgan, setConditionsByOrgan] = useState<Record<string, { condition: string; reasoning: string; severity: string }>>({})
 
+  // Auto-fill and auto-analyze when coming from Patient Workspace via URL params
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    const urlSymptoms = searchParams.get('symptoms')
+    const urlAge = searchParams.get('age')
+    const urlSex = searchParams.get('sex')
+    if (urlSymptoms) {
+      setSymptomsInput(urlSymptoms)
+      if (urlAge) setAge(parseInt(urlAge) || 38)
+      if (urlSex === 'Female' || urlSex === 'Male') setSex(urlSex)
+      // Auto-trigger analysis after a short delay for page to mount
+      setTimeout(() => {
+        document.getElementById('analyze-btn')?.click()
+      }, 800)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // 3D layers toggles
   const [systems, setSystems] = useState<SystemToggles>({
     skeletal: true,
@@ -866,6 +883,7 @@ export default function ViewAnatomyPage() {
             </button>
             
             <button
+              id="analyze-btn"
               onClick={handleAnalyze}
               disabled={isLoading || !symptomsInput.trim()}
               className="flex-1 py-2.5 bg-blue-950 hover:bg-blue-900 border border-blue-500/30 rounded-lg text-cyan-400 font-bold uppercase transition flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-40"

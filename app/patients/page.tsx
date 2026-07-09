@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Plus, Heart, Calendar, Search, ClipboardList, ShieldAlert, Award } from 'lucide-react'
+import { Users, Plus, Heart, Calendar, Search, ClipboardList, ShieldAlert, Award, Sparkles, AlertTriangle, CheckCircle2, Loader2, ExternalLink, Brain, Activity } from 'lucide-react'
+
 interface Patient {
   id: string
   name: string
@@ -14,6 +15,12 @@ interface Patient {
   abhaId?: string
   pmjayEligible?: 'Eligible' | 'Ineligible' | 'Under Verification'
   bloodSugar?: string
+}
+
+interface DiagnosisResult {
+  affectedRegions: string[]
+  possibleConditions: { name: string; confidence: number; reasoning: string }[]
+  redFlag: boolean
 }
 
 const INITIAL_PATIENTS: Patient[] = [
@@ -70,11 +77,25 @@ export default function PatientsPage() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('pat-1')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Symptom input & AI analysis state
+  const [symptomInput, setSymptomInput] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
   const activePatient = patients.find(p => p.id === selectedPatientId) || patients[0]
 
-  const filteredPatients = patients.filter(p => 
+  const filteredPatients = patients.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Reset analysis when switching patients
+  const handleSelectPatient = (id: string) => {
+    setSelectedPatientId(id)
+    setDiagnosisResult(null)
+    setErrorMsg(null)
+    setSymptomInput('')
+  }
 
   const handleAddPatient = () => {
     const name = prompt("Enter patient full name:")
@@ -96,6 +117,48 @@ export default function PatientsPage() {
 
     setPatients(prev => [...prev, newPatient])
     setSelectedPatientId(newPatient.id)
+    setDiagnosisResult(null)
+    setErrorMsg(null)
+    setSymptomInput('')
+  }
+
+  // Submit symptoms to DeepSeek via the API route
+  const handleAnalyze = async () => {
+    const symptoms = symptomInput.trim() || activePatient.symptoms
+    if (!symptoms) return
+
+    setIsAnalyzing(true)
+    setDiagnosisResult(null)
+    setErrorMsg(null)
+
+    try {
+      const res = await fetch('/ai-in-healthcare/api/analyze-symptoms-viewer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          age: activePatient.age,
+          sex: activePatient.gender,
+          duration: 'As described',
+          severity: 'Moderate',
+          symptoms
+        })
+      })
+
+      if (!res.ok) throw new Error(`API error: ${res.status}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setDiagnosisResult(data)
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Analysis failed. Please try again.')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // Build anatomy viewer URL with pre-filled symptoms for 3D mapping
+  const getAnatomyViewerUrl = () => {
+    const symptoms = symptomInput.trim() || activePatient.symptoms
+    return `/ai-in-healthcare/view-anatomy?symptoms=${encodeURIComponent(symptoms)}&age=${activePatient.age}&sex=${activePatient.gender}`
   }
 
   return (
@@ -106,7 +169,7 @@ export default function PatientsPage() {
           <span className="font-bold text-sm tracking-wider uppercase text-cyan-400 flex items-center gap-2 font-mono">
             <Users className="w-4.5 h-4.5" /> Patient Directory
           </span>
-          <button 
+          <button
             onClick={handleAddPatient}
             className="flex items-center gap-1 text-[10px] uppercase font-mono font-bold px-2 py-1 rounded bg-cyan-950 border border-cyan-500/40 hover:bg-cyan-900/40 transition text-cyan-400"
           >
@@ -129,12 +192,12 @@ export default function PatientsPage() {
         {/* Patients List */}
         <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
           {filteredPatients.map(p => (
-            <div 
+            <div
               key={p.id}
-              onClick={() => setSelectedPatientId(p.id)}
+              onClick={() => handleSelectPatient(p.id)}
               className={`p-3.5 rounded-lg border cursor-pointer transition-all duration-300 flex justify-between items-start ${
-                selectedPatientId === p.id 
-                  ? 'bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]' 
+                selectedPatientId === p.id
+                  ? 'bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]'
                   : 'bg-black/30 border-blue-950/40 hover:bg-white/5'
               }`}
             >
@@ -154,7 +217,7 @@ export default function PatientsPage() {
       {/* Right panel: Detailed Patient EHR */}
       {activePatient && (
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
-          
+
           {/* Header patient profile info */}
           <div className="bg-[#070f2b]/40 backdrop-blur-xl border border-cyan-500/20 p-6 rounded-xl shadow-lg flex justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
@@ -171,8 +234,8 @@ export default function PatientsPage() {
             </div>
             <div className="flex gap-3 font-mono text-[10px]">
               <div className="bg-black/40 border border-blue-900/30 p-2 px-3.5 rounded text-center">
-                 <div className="text-gray-500 uppercase text-[8px] mb-0.5">Vitals Status</div>
-                 <div className="text-green-500 font-bold uppercase">ABDM SYNCED</div>
+                <div className="text-gray-500 uppercase text-[8px] mb-0.5">Vitals Status</div>
+                <div className="text-green-500 font-bold uppercase">ABDM SYNCED</div>
               </div>
             </div>
           </div>
@@ -213,53 +276,192 @@ export default function PatientsPage() {
             </div>
           </div>
 
+          {/* ── AI SYMPTOM ANALYSIS PANEL ── */}
+          <div className="bg-[#070f2b]/60 border border-cyan-500/30 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(6,182,212,0.05)]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-cyan-500/20 bg-black/30">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-cyan-400" />
+                <span className="font-bold text-xs uppercase text-cyan-400 font-mono tracking-widest">
+                  DeepSeek AI — Clinical Symptom Analysis & 3D Body Mapping
+                </span>
+              </div>
+              <span className="text-[9px] font-mono text-slate-500 uppercase">Powered by DeepSeek R1</span>
+            </div>
+
+            <div className="p-5 flex flex-col gap-4">
+              {/* Pre-filled existing symptoms display */}
+              <div className="text-[10px] text-slate-400 font-mono">
+                <span className="text-slate-500">Current registered symptoms:</span>
+                <p className="mt-1 text-slate-300 leading-relaxed">{activePatient.symptoms}</p>
+              </div>
+
+              {/* Symptom textarea */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                  Enter / Update Patient Symptoms for AI Analysis:
+                </label>
+                <textarea
+                  value={symptomInput}
+                  onChange={e => setSymptomInput(e.target.value)}
+                  placeholder={`Describe ${activePatient.name}'s current symptoms in detail (e.g. location, severity, duration, associated signs)...`}
+                  rows={4}
+                  className="w-full p-3 bg-black/50 border border-blue-950/50 rounded-lg text-xs text-slate-200 placeholder-slate-600 font-mono leading-relaxed outline-none focus:border-cyan-500/40 transition resize-none"
+                />
+              </div>
+
+              {/* Submit button */}
+              <button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className="w-full py-3 bg-gradient-to-r from-cyan-900/60 to-blue-900/60 hover:from-cyan-800/60 hover:to-blue-800/60 border border-cyan-500/40 rounded-lg text-xs font-bold text-cyan-300 uppercase tracking-widest font-mono transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analyzing with DeepSeek AI...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Submit Symptoms — Analyze & Map to 3D Body
+                  </>
+                )}
+              </button>
+
+              {/* Error */}
+              {errorMsg && (
+                <div className="flex items-center gap-2 p-3 bg-red-950/30 border border-red-500/30 rounded-lg text-xs text-red-400 font-mono">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  {errorMsg}
+                </div>
+              )}
+
+              {/* ── DIAGNOSIS RESULTS ── */}
+              {diagnosisResult && (
+                <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+                  {/* Red flag alert */}
+                  {diagnosisResult.redFlag && (
+                    <div className="flex items-center gap-3 p-3 bg-red-950/40 border border-red-500/50 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-red-400 animate-pulse shrink-0" />
+                      <div>
+                        <div className="text-xs font-bold text-red-400 font-mono uppercase tracking-wide">🚨 Red Flag Emergency Detected</div>
+                        <div className="text-[10px] text-red-300/80 font-mono mt-0.5">Immediate clinical intervention required. Escalate to senior clinician now.</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Affected organs */}
+                  <div className="flex flex-col gap-2">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Affected Anatomical Regions:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {diagnosisResult.affectedRegions.map(region => (
+                        <span
+                          key={region}
+                          className="px-3 py-1 bg-cyan-950/50 border border-cyan-500/40 rounded-full text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wide"
+                        >
+                          🫀 {region.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Ranked conditions */}
+                  <div className="flex flex-col gap-2">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Differential Diagnoses (Ranked by Confidence):</div>
+                    <div className="space-y-2">
+                      {diagnosisResult.possibleConditions.map((cond, i) => (
+                        <div
+                          key={i}
+                          className={`p-3 rounded-lg border flex items-start gap-3 ${
+                            i === 0
+                              ? 'bg-cyan-950/30 border-cyan-500/40'
+                              : 'bg-black/40 border-blue-950/40'
+                          }`}
+                        >
+                          <div className={`text-sm font-black font-mono shrink-0 mt-0.5 ${
+                            cond.confidence >= 85 ? 'text-red-400' :
+                            cond.confidence >= 65 ? 'text-amber-400' : 'text-green-400'
+                          }`}>
+                            {cond.confidence}%
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-white">{cond.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5 leading-relaxed">{cond.reasoning}</div>
+                          </div>
+                          {i === 0 && (
+                            <span className="ml-auto shrink-0 text-[8px] font-bold uppercase font-mono px-1.5 py-0.5 bg-cyan-900/60 border border-cyan-500/30 rounded text-cyan-400">
+                              PRIMARY
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* View on 3D body button */}
+                  <a
+                    href={getAnatomyViewerUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 bg-gradient-to-r from-violet-900/60 to-cyan-900/60 hover:from-violet-800/60 hover:to-cyan-800/60 border border-violet-500/40 rounded-lg text-xs font-bold text-violet-200 uppercase tracking-widest font-mono transition flex items-center justify-center gap-2"
+                  >
+                    <Activity className="w-4 h-4" />
+                    View Affected Regions on 3D Anatomy Model
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Diagnosis & clinical notes */}
           <div className="grid grid-cols-2 gap-6">
-             <div className="bg-black/50 border border-blue-950/60 p-5 rounded-xl flex flex-col gap-3">
-                <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5">
-                  <ClipboardList className="w-4 h-4" /> Scanner Transcripts
-                </span>
-                <div className="p-3 bg-black/60 rounded border border-blue-950/30 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
-                   {activePatient.symptoms || "No clinical symptoms registered for active patient. Navigate to scanner screen to analyze symptoms."}
-                </div>
-             </div>
+            <div className="bg-black/50 border border-blue-950/60 p-5 rounded-xl flex flex-col gap-3">
+              <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5">
+                <ClipboardList className="w-4 h-4" /> Scanner Transcripts
+              </span>
+              <div className="p-3 bg-black/60 rounded border border-blue-950/30 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
+                {activePatient.symptoms || "No clinical symptoms registered for active patient. Navigate to scanner screen to analyze symptoms."}
+              </div>
+            </div>
 
-             <div className="bg-black/50 border border-blue-950/60 p-5 rounded-xl flex flex-col gap-3">
-                <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4" /> Clinical Case Notes
-                </span>
-                <div className="p-3 bg-black/60 rounded border border-blue-950/30 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
-                   {activePatient.notes || "No general history notes submitted."}
-                </div>
-             </div>
+            <div className="bg-black/50 border border-blue-950/60 p-5 rounded-xl flex flex-col gap-3">
+              <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4" /> Clinical Case Notes
+              </span>
+              <div className="p-3 bg-black/60 rounded border border-blue-950/30 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
+                {activePatient.notes || "No general history notes submitted."}
+              </div>
+            </div>
           </div>
 
           {/* Historical Scans timeline */}
           <div className="bg-black/40 border border-blue-950/50 p-5 rounded-xl flex flex-col gap-4">
-             <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5 border-b border-blue-950/40 pb-2">
-               <Calendar className="w-4 h-4" /> Diagnostic Scan Records Timeline
-             </span>
-             {activePatient.history.length > 0 ? (
-               <div className="space-y-3 font-mono text-xs">
-                 {activePatient.history.map((record, idx) => (
-                   <div key={idx} className="flex justify-between items-center p-3 rounded bg-black/50 border border-blue-950/30">
-                      <div className="flex gap-4">
-                         <span className="text-gray-500">{record.date}</span>
-                         <span className="text-white font-bold">{record.diagnosis}</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                         record.severity === 'High' ? 'bg-red-950/50 text-red-400' : record.severity === 'Medium' ? 'bg-orange-950/50 text-orange-400' : 'bg-green-950/50 text-green-400'
-                      }`}>
-                         {record.severity} Severity
-                      </span>
-                   </div>
-                 ))}
-               </div>
-             ) : (
-               <div className="p-6 text-center text-xs text-gray-500 font-mono">
-                  No historical telemetry scans found on record for {activePatient.name}.
-               </div>
-             )}
+            <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5 border-b border-blue-950/40 pb-2">
+              <Calendar className="w-4 h-4" /> Diagnostic Scan Records Timeline
+            </span>
+            {activePatient.history.length > 0 ? (
+              <div className="space-y-3 font-mono text-xs">
+                {activePatient.history.map((record, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 rounded bg-black/50 border border-blue-950/30">
+                    <div className="flex gap-4">
+                      <span className="text-gray-500">{record.date}</span>
+                      <span className="text-white font-bold">{record.diagnosis}</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      record.severity === 'High' ? 'bg-red-950/50 text-red-400' : record.severity === 'Medium' ? 'bg-orange-950/50 text-orange-400' : 'bg-green-950/50 text-green-400'
+                    }`}>
+                      {record.severity} Severity
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-xs text-gray-500 font-mono">
+                No historical telemetry scans found on record for {activePatient.name}.
+              </div>
+            )}
           </div>
 
         </div>
