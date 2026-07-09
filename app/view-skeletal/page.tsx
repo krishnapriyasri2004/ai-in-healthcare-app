@@ -12,6 +12,7 @@ function FBXModel({ path }: { path: string }) {
   
   const cloned = useMemo(() => {
     const clone = fbx.clone()
+    clone.rotation.x = -Math.PI / 2
     
     // Rebind skeleton for SkinnedMesh objects to prevent vertex stretching to original bone coordinates
     const clonedBonesMap = new Map<string, THREE.Bone>()
