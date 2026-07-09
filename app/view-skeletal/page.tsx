@@ -75,11 +75,23 @@ function FBXModel({ path }: { path: string }) {
       -center.z * scaleFactor
     )
 
+    // Define realistic bone material matching other high-quality views
+    const boneMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#e8dcc8'),      // Warm ivory bone
+      roughness: 0.60,
+      metalness: 0.05,
+      emissive: new THREE.Color('#221e16'),    // Subtle organic warm glow
+      emissiveIntensity: 0.15,
+    })
+
     clone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
         child.castShadow = true
         child.receiveShadow = true
+        
+        // Apply high-quality bone material
+        child.material = boneMaterial.clone()
         
         // Remove skinning attributes from non-skinned meshes to prevent shader collapse stretching
         if (!mesh.isSkinnedMesh && mesh.geometry) {
@@ -116,12 +128,12 @@ export default function ViewSkeletalPage() {
       {/* 3D Canvas */}
       <div className="flex-1 w-full h-full relative z-0">
         <Canvas camera={{ position: [0, 0, 3], fov: 45 }} className="w-full h-full">
-          <color attach="background" args={['#030712']} />
+          <color attach="background" args={['#080a10']} />
           
-          <ambientLight intensity={0.6} color="#ffffff" />
-          <directionalLight position={[5, 10, 5]} intensity={1.5} color="#ffffff" />
-          <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#38bdf8" />
-          <spotLight position={[0, 10, 0]} intensity={2} angle={0.6} penumbra={1} color="#38bdf8" />
+          <ambientLight intensity={0.7} color="#ffffff" />
+          <directionalLight position={[5, 10, 5]} intensity={1.8} color="#ffffff" />
+          <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#fffcf7" />
+          <spotLight position={[0, 10, 0]} intensity={2} angle={0.8} penumbra={1} color="#ffffff" />
 
           <Suspense fallback={
             <Html center>
@@ -136,11 +148,11 @@ export default function ViewSkeletalPage() {
 
           <ContactShadows 
             position={[0, -1.1, 0]} 
-            opacity={0.8} 
+            opacity={0.7} 
             scale={5} 
             blur={2.5} 
             far={3.5} 
-            color="#0ea5e9"
+            color="#000000"
           />
 
           <OrbitControls
