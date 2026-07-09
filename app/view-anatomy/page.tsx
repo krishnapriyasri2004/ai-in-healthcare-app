@@ -93,14 +93,14 @@ const getOrganVerticalOffset = (nodeName: string, materialNames: string[]): numb
 // ---------------------------------------------------------
 // Smoothly Animated Callout Card (Syncs with organ positions)
 // ---------------------------------------------------------
-function PulsingCallout({ localPosition, organName, isAffected, condition, reasoning, severity, isSplitted, verticalOffset }: {
+function PulsingCallout({ localPosition, organName, isAffected, condition, reasoning, severity, isSplittedRef, verticalOffset }: {
   localPosition: [number, number, number]
   organName: string
   isAffected: boolean
   condition?: string
   reasoning?: string
   severity?: string
-  isSplitted: boolean
+  isSplittedRef: React.MutableRefObject<boolean>
   verticalOffset: number
 }) {
   const calloutRef = useRef<THREE.Group>(null)
@@ -112,7 +112,7 @@ function PulsingCallout({ localPosition, organName, isAffected, condition, reaso
   useFrame((state) => {
     if (calloutRef.current) {
       const [lx, ly, lz] = localPosition
-      const targetY = isSplitted ? ly + verticalOffset : ly
+      const targetY = isSplittedRef.current ? ly + verticalOffset : ly
       calloutRef.current.position.y = THREE.MathUtils.lerp(calloutRef.current.position.y, targetY, 0.15)
     }
     if (markerRef.current) {
@@ -178,10 +178,10 @@ function PulsingCallout({ localPosition, organName, isAffected, condition, reaso
 // ---------------------------------------------------------
 // GLTF Model Component (Preserves Embedded Textures/Colors)
 // ---------------------------------------------------------
-function RealisticGLTFModel({
-  path, positionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplitted, affectedOrganIds, conditionsByOrgan, onModelClick
+const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
+  path, positionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick
 }: {
-  path: string; positionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplitted: boolean; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void
+  path: string; positionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void
 }) {
   const { scene } = useGLTF(path)
   const groupRef = useRef<THREE.Group>(null)
@@ -286,11 +286,11 @@ function RealisticGLTFModel({
     return clone
   }, [scene, positionX, path])
 
-  // LERP ANIMATIONS: Smooth split-view slide out & organ explosion vertical lerps
+  // LERP ANIMATIONS: Smooth split-view slide out & organ explosion vertical lerps (using Ref for instant zero-lag)
   useFrame(() => {
     if (groupRef.current) {
       // Horizontal split slide out
-      const targetX = (viewMode === 'split' && isSplitted) ? positionX : 0.0
+      const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
       groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.12)
     }
 
@@ -300,7 +300,7 @@ function RealisticGLTFModel({
         if (child.userData.offsetY !== undefined) {
           const originalY = child.userData.originalY ?? child.position.y
           // Animate to exploded Y only when splitting is active
-          const targetY = (viewMode === 'split' && isSplitted) ? originalY + child.userData.offsetY : originalY
+          const targetY = (viewMode === 'split' && isSplittedRef.current) ? originalY + child.userData.offsetY : originalY
           child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.12)
         }
       })
@@ -376,10 +376,10 @@ function RealisticGLTFModel({
         if (isSkin) {
           m.transparent = true
           // Semi-translucent in Single View / Merged Split View to view internal organs
-          const isMergedInSplitMode = viewMode === 'split' && !isSplitted
+          const isMergedInSplitMode = viewMode === 'split' && !isSplittedRef.current
           m.opacity = (viewMode === 'single' || isMergedInSplitMode) ? 0.18 : 1.0
           m.wireframe = false
-          m.depthWrite = (viewMode === 'split' && isSplitted)
+          m.depthWrite = (viewMode === 'split' && isSplittedRef.current)
         } else {
           m.transparent = true
           m.opacity = 0.9
@@ -401,7 +401,7 @@ function RealisticGLTFModel({
         m.needsUpdate = true
       })
     })
-  }, [cloned, activeSystems, highlightedMeshNames, positionX, path, viewMode, visible, isSplitted])
+  }, [cloned, activeSystems, highlightedMeshNames, positionX, path, viewMode, visible, isSplittedRef])
 
   // Organs model handles callouts so they slide and explode in perfect synchronization
   const isOrgansModel = positionX === -1.2 && path.includes('splanchnology')
@@ -438,22 +438,22 @@ function RealisticGLTFModel({
             condition={organCond?.condition}
             reasoning={organCond?.reasoning}
             severity={organCond?.severity}
-            isSplitted={viewMode === 'split' && isSplitted}
+            isSplittedRef={isSplittedRef}
             verticalOffset={offset / 6.8} // scaled vertical offset
           />
         )
       })}
     </group>
   )
-}
+})
 
 // ---------------------------------------------------------
 // FBX Model (Skeletal) Component (Preserves Original Colors)
 // ---------------------------------------------------------
-function RealisticFBXModel({
-  path, positionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplitted, onModelClick
+const RealisticFBXModel = React.memo(function RealisticFBXModel({
+  path, positionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, onModelClick
 }: {
-  path: string; positionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplitted: boolean; onModelClick: () => void
+  path: string; positionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; onModelClick: () => void
 }) {
   const fbx = useFBX(path)
   const groupRef = useRef<THREE.Group>(null)
@@ -506,7 +506,7 @@ function RealisticFBXModel({
   // LERP Horizontal slide animations
   useFrame(() => {
     if (groupRef.current) {
-      const targetX = (viewMode === 'split' && isSplitted) ? positionX : 0.0
+      const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
       groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.12)
     }
   })
@@ -548,14 +548,14 @@ function RealisticFBXModel({
       <primitive object={cloned} />
     </group>
   )
-}
+})
 
 // ---------------------------------------------------------
 // View Anatomy Page
 // ---------------------------------------------------------
 export default function ViewAnatomyPage() {
   const [viewMode, setViewMode] = useState<'split' | 'single'>('split')
-  const [isSplitted, setIsSplitted] = useState<boolean>(false) // starts merged by default
+  const isSplittedRef = useRef<boolean>(false) // High performance split toggle Ref
   
   // Patient symptom input fields
   const [age, setAge] = useState<number>(38)
@@ -584,8 +584,30 @@ export default function ViewAnatomyPage() {
     respiratory: true,
     digestive: true,
     lymphatic: false,
-    integumentary: false
+    integumentary: false // Hidden by default on load to remove the blue holographic skin dummy
   })
+
+  // Set split status text in the DOM directly for instant zero-lag feedback
+  const updateSplitStatusHUD = () => {
+    const statusTextEl = document.getElementById('split-status-text')
+    if (statusTextEl) {
+      if (viewMode === 'single') {
+        statusTextEl.innerText = 'Centered Single Layer View'
+      } else {
+        statusTextEl.innerText = isSplittedRef.current 
+          ? 'Split Mode Active (Click human to Merge)' 
+          : 'Standing Human (Click human to Split)'
+      }
+    }
+  }
+
+  // Model click handler to toggle split-out states instantly
+  const handleModelClick = () => {
+    if (viewMode === 'split') {
+      isSplittedRef.current = !isSplittedRef.current
+      updateSplitStatusHUD()
+    }
+  }
 
   // Clear/Reset symptoms and model state
   const handleClear = () => {
@@ -596,7 +618,8 @@ export default function ViewAnatomyPage() {
     setAffectedOrganIds([])
     setConditionsByOrgan({})
     setErrorMsg(null)
-    setIsSplitted(false)
+    isSplittedRef.current = false
+    updateSplitStatusHUD()
   }
 
   // Handle clinical analysis
@@ -664,7 +687,8 @@ export default function ViewAnatomyPage() {
       
       // Auto-split on successful analysis in Split View mode to display organs clearly
       if (viewMode === 'split') {
-        setIsSplitted(true)
+        isSplittedRef.current = true
+        updateSplitStatusHUD()
       }
 
     } catch (e: any) {
@@ -681,7 +705,8 @@ export default function ViewAnatomyPage() {
         'intestines': { condition: 'Acute Appendicitis', reasoning: 'Migrating RLQ tenderness and abdominal guarding.', severity: severity }
       })
       if (viewMode === 'split') {
-        setIsSplitted(true)
+        isSplittedRef.current = true
+        updateSplitStatusHUD()
       }
     } finally {
       setIsLoading(false)
@@ -692,18 +717,12 @@ export default function ViewAnatomyPage() {
     setSystems(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  // Model click handler to toggle slide-out split states
-  const handleModelClick = () => {
-    if (viewMode === 'split') {
-      setIsSplitted(prev => !prev)
-    }
-  }
-
   // Sync splitted mode on top tabs click
   useEffect(() => {
     if (viewMode === 'single') {
-      setIsSplitted(false)
+      isSplittedRef.current = false
     }
+    updateSplitStatusHUD()
   }, [viewMode])
 
   return (
@@ -866,12 +885,8 @@ export default function ViewAnatomyPage() {
             {/* Visual Instruction Badge */}
             <div className="absolute top-4 left-4 z-10 bg-black/90 border border-blue-950/50 rounded px-2.5 py-1 text-[9px] text-cyan-400 uppercase tracking-widest font-mono shadow-sm flex items-center gap-1.5 animate-pulse">
               <Layers className="w-3.5 h-3.5 text-cyan-400" />
-              <span>
-                {viewMode === 'single'
-                  ? 'Centered Single Layer View'
-                  : isSplitted
-                  ? 'Split Mode Active (Click human to Merge)'
-                  : 'Standing Human (Click human to Split)'}
+              <span id="split-status-text">
+                Standing Human (Click human to Split)
               </span>
             </div>
 
@@ -931,7 +946,7 @@ export default function ViewAnatomyPage() {
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
                       visible={systems.integumentary}
-                      isSplitted={isSplitted}
+                      isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
@@ -947,7 +962,7 @@ export default function ViewAnatomyPage() {
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
                       visible={systems.digestive || systems.respiratory}
-                      isSplitted={isSplitted}
+                      isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
@@ -963,7 +978,7 @@ export default function ViewAnatomyPage() {
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
                       visible={systems.skeletal}
-                      isSplitted={isSplitted}
+                      isSplittedRef={isSplittedRef}
                       onModelClick={handleModelClick}
                     />
                   </Suspense>
@@ -977,7 +992,7 @@ export default function ViewAnatomyPage() {
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
                       visible={systems.cardiovascular}
-                      isSplitted={isSplitted}
+                      isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
@@ -993,7 +1008,7 @@ export default function ViewAnatomyPage() {
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
                       visible={systems.muscular}
-                      isSplitted={isSplitted}
+                      isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
