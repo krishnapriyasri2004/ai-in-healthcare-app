@@ -255,8 +255,10 @@ function RealisticGLTFModel({
         if (isColumn2Organ) {
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
           if (isBrain) {
+            // Correct the double rotation from GLB
+            child.rotation.set(0, 0, 0)
             // Permanently align brain mesh inside the head region
-            child.position.y += 0.7 / scaleFactor
+            child.position.y += 0.75 / scaleFactor
           } else {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {

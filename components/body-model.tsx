@@ -428,17 +428,24 @@ function GLTFModelWrapper({
       -center.z * scaleFactor
     )
 
-    // Apply vertical explosion for organs in Column 2 (positionX === -1.2)
+    // Apply vertical explosion for organs in Column 2 (positionX === -1.2) and correct brain
     if (positionX === -1.2 && path.includes('splanchnology')) {
       clone.traverse((child) => {
         if (child instanceof THREE.Mesh || (child as any).isMesh) {
           const name = child.name.toLowerCase()
+          const parentName = child.parent ? child.parent.name.toLowerCase() : ''
           const mats = Array.isArray(child.material) ? child.material : [child.material]
           const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
           
-          const offset = getOrganVerticalOffset(name, matNames)
-          if (offset !== 0) {
-            child.position.y += offset / scaleFactor
+          const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
+          if (isBrain) {
+            child.rotation.set(0, 0, 0)
+            child.position.y += 0.75 / scaleFactor
+          } else {
+            const offset = getOrganVerticalOffset(name, matNames)
+            if (offset !== 0) {
+              child.position.y += offset / scaleFactor
+            }
           }
         }
       })
