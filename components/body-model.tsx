@@ -439,8 +439,7 @@ function GLTFModelWrapper({
           
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
           if (isBrain) {
-            child.rotation.set(0, 0, 0)
-            child.position.y += 0.75 / scaleFactor
+            child.position.z += 0.75 / scaleFactor
           } else {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {

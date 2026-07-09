@@ -255,10 +255,8 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         if (isColumn2Organ) {
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
           if (isBrain) {
-            // Correct the double rotation from GLB
-            child.rotation.set(0, 0, 0)
-            // Permanently align brain mesh inside the head region
-            child.position.y += 0.75 / scaleFactor
+            // Shift vertically inside the skull along the local Z axis (which points vertically up)
+            child.position.z += 0.75 / scaleFactor
           } else {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {
