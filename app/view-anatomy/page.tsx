@@ -113,7 +113,7 @@ function PulsingCallout({ localPosition, organName, isAffected, condition, reaso
     if (calloutRef.current) {
       const [lx, ly, lz] = localPosition
       const targetY = isSplittedRef.current ? ly + verticalOffset : ly
-      calloutRef.current.position.y = THREE.MathUtils.lerp(calloutRef.current.position.y, targetY, 0.15)
+      calloutRef.current.position.y = THREE.MathUtils.lerp(calloutRef.current.position.y, targetY, 0.25)
     }
     if (markerRef.current) {
       const t = state.clock.getElapsedTime()
@@ -286,11 +286,12 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     })
 
     // Clone materials
+    // Clone materials + disable expensive shadow casting for faster rendering
     clone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
+        child.castShadow = false
+        child.receiveShadow = false
         if (mesh.material) {
           if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
           else if (mesh.material.clone) mesh.material = mesh.material.clone()
@@ -301,24 +302,33 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     return clone
   }, [scene, positionX, path])
 
-  // LERP ANIMATIONS: Smooth split-view slide out & organ explosion vertical lerps (using Ref for instant zero-lag)
-  useFrame(() => {
-    if (groupRef.current) {
-      // Horizontal split slide out
-      const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.12)
-    }
-
-    // Explode column 2 organs vertically
+  // Pre-cache animated organ meshes to avoid per-frame traverse (major perf win)
+  const animatedMeshes = useRef<{mesh: THREE.Object3D; originalY: number; offsetY: number}[]>([])
+  useEffect(() => {
     if (positionX === -1.2 && path.includes('splanchnology')) {
+      const meshes: {mesh: THREE.Object3D; originalY: number; offsetY: number}[] = []
       cloned.traverse((child) => {
         if (child.userData.offsetY !== undefined) {
-          const originalY = child.userData.originalY ?? child.position.y
-          // Animate to exploded Y only when splitting is active
-          const targetY = (viewMode === 'split' && isSplittedRef.current) ? originalY + child.userData.offsetY : originalY
-          child.position.y = THREE.MathUtils.lerp(child.position.y, targetY, 0.12)
+          meshes.push({ mesh: child, originalY: child.userData.originalY ?? child.position.y, offsetY: child.userData.offsetY })
         }
       })
+      animatedMeshes.current = meshes
+    }
+  }, [cloned, positionX, path])
+
+  // FAST LERP ANIMATIONS: Snappy split-view slide + organ explosion (0.25 = fast & smooth)
+  useFrame(() => {
+    if (groupRef.current) {
+      const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.25)
+    }
+
+    // Explode cached organ meshes vertically (no traverse!)
+    const cached = animatedMeshes.current
+    for (let i = 0; i < cached.length; i++) {
+      const { mesh, originalY, offsetY } = cached[i]
+      const targetY = (viewMode === 'split' && isSplittedRef.current) ? originalY + offsetY : originalY
+      mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, targetY, 0.25)
     }
   })
 
@@ -503,8 +513,8 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     clone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
+        child.castShadow = false
+        child.receiveShadow = false
         if (!mesh.isSkinnedMesh && mesh.geometry) {
           if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
           if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
@@ -518,11 +528,11 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     return clone
   }, [fbx, positionX])
 
-  // LERP Horizontal slide animations
+  // FAST LERP Horizontal slide animations
   useFrame(() => {
     if (groupRef.current) {
       const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.12)
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.25)
     }
   })
 
@@ -933,23 +943,16 @@ export default function ViewAnatomyPage() {
 
             {/* Canvas Viewport */}
             <div className="flex-1 w-full h-full relative z-0">
-              <Canvas camera={{ position: [0, 0.2, 4.6], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+              <Canvas camera={{ position: [0, 0.2, 4.6], fov: 50 }} dpr={[1, 1.5]} performance={{ min: 0.5 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
                 {/* Clinical Steel Blue/Slate Background for maximum contrast */}
                 <color attach="background" args={['#0a0f1d']} />
                 
                 {/* Neutral Studio Lighting */}
                 <ambientLight intensity={0.7} color="#ffffff" />
-                <directionalLight position={[10, 15, 5]} intensity={1.8} color="#ffffff" castShadow />
-                <directionalLight position={[-10, 10, -5]} intensity={1.0} color="#e8e0d8" />
-                <spotLight position={[0, 12, 0]} intensity={2.5} angle={0.6} penumbra={1} color="#ffffff" />
+                <directionalLight position={[10, 15, 5]} intensity={2.0} color="#ffffff" />
+                <directionalLight position={[-10, 10, -5]} intensity={1.2} color="#e8e0d8" />
+                <spotLight position={[0, 12, 0]} intensity={2.5} angle={0.8} penumbra={1} color="#ffffff" />
                 <spotLight position={[0, -5, 5]} intensity={1.0} angle={0.8} penumbra={1} color="#f5f0eb" />
-
-                {/* Light fill spotlights matching the 5 columns */}
-                <spotLight position={[-2.4, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
-                <spotLight position={[-1.2, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
-                <spotLight position={[0.0, 5, 3]} intensity={1.8} distance={8} color="#ffffff" />
-                <spotLight position={[1.2, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
-                <spotLight position={[2.4, 5, 3]} intensity={1.5} distance={8} color="#ffffff" />
 
                 <Suspense fallback={null}>
                   {/* Column 1: Body Skin/Integumentary */}
