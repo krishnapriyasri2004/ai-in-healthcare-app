@@ -22,7 +22,8 @@ import {
   Clock,
   BookOpen,
   Shield,
-  Activity
+  Activity,
+  ScanLine
 } from 'lucide-react'
 
 export function Sidebar() {
@@ -85,6 +86,7 @@ export function Sidebar() {
       icon: Layers,
       onClick: (e: React.MouseEvent) => { e.preventDefault(); setIsAnatomyImmersiveOpen(true) }
     },
+    { href: '/view-anatomy', label: 'Anatomy Viewer', icon: ScanLine },
     { 
       href: '#', 
       label: 'Appointments', 
