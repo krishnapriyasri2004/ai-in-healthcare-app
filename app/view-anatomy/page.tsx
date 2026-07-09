@@ -108,17 +108,11 @@ function PulsingCallout({ localPosition, organName, isAffected, condition, reaso
   
   const color = isAffected ? '#ef4444' : '#0ea5e9'
 
-  // Animate local position to match vertical explosion lerping
-  useFrame((state) => {
+  // Snap position instantly to match organ explosion
+  useFrame(() => {
     if (calloutRef.current) {
       const [lx, ly, lz] = localPosition
-      const targetY = isSplittedRef.current ? ly + verticalOffset : ly
-      calloutRef.current.position.y = THREE.MathUtils.lerp(calloutRef.current.position.y, targetY, 0.25)
-    }
-    if (markerRef.current) {
-      const t = state.clock.getElapsedTime()
-      const scale = 1 + Math.sin(t * 8) * 0.15
-      markerRef.current.scale.set(scale, scale, scale)
+      calloutRef.current.position.y = isSplittedRef.current ? ly + verticalOffset : ly
     }
   })
 
@@ -286,23 +280,10 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     })
 
     // Clone materials
-    // Clone materials + disable expensive shadow casting for faster rendering
-    clone.traverse((child) => {
-      const mesh = child as any
-      if (child instanceof THREE.Mesh || mesh.isMesh) {
-        child.castShadow = false
-        child.receiveShadow = false
-        if (mesh.material) {
-          if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
-          else if (mesh.material.clone) mesh.material = mesh.material.clone()
-        }
-      }
-    })
-
     return clone
   }, [scene, positionX, path])
 
-  // Pre-cache animated organ meshes to avoid per-frame traverse (major perf win)
+  // Pre-cache animated organ meshes once
   const animatedMeshes = useRef<{mesh: THREE.Object3D; originalY: number; offsetY: number}[]>([])
   useEffect(() => {
     if (positionX === -1.2 && path.includes('splanchnology')) {
@@ -316,19 +297,23 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     }
   }, [cloned, positionX, path])
 
-  // FAST LERP ANIMATIONS: Snappy split-view slide + organ explosion (0.25 = fast & smooth)
+  // INSTANT position snapping — no lerp, no delay, zero jank
   useFrame(() => {
     if (groupRef.current) {
       const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.25)
+      const dx = Math.abs(groupRef.current.position.x - targetX)
+      if (dx > 0.001) {
+        groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.35)
+      }
     }
-
-    // Explode cached organ meshes vertically (no traverse!)
+    // Snap organ positions
     const cached = animatedMeshes.current
-    for (let i = 0; i < cached.length; i++) {
-      const { mesh, originalY, offsetY } = cached[i]
-      const targetY = (viewMode === 'split' && isSplittedRef.current) ? originalY + offsetY : originalY
-      mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, targetY, 0.25)
+    if (cached.length > 0) {
+      const splitting = viewMode === 'split' && isSplittedRef.current
+      for (let i = 0; i < cached.length; i++) {
+        const { mesh, originalY, offsetY } = cached[i]
+        mesh.position.y = splitting ? originalY + offsetY : originalY
+      }
     }
   })
 
@@ -392,41 +377,36 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
 
       mesh.visible = meshVisible
 
-      // Apply translucency / highlights
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-      mats.forEach((m: any) => {
-        if (!m) return
-        const isSkin = name.includes('skin') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('hair')
-        
-        if (isSkin) {
-          m.transparent = true
-          // Semi-translucent in Single View / Merged Split View to view internal organs
-          const isMergedInSplitMode = viewMode === 'split' && !isSplittedRef.current
-          m.opacity = (viewMode === 'single' || isMergedInSplitMode) ? 0.18 : 1.0
-          m.wireframe = false
-          m.depthWrite = (viewMode === 'split' && isSplittedRef.current)
-        } else {
-          m.transparent = true
-          m.opacity = 0.9
-          m.wireframe = false
-        }
-
-        // Emissive highlights
-        if (m.emissive) {
-          m.emissive.set('#000000')
-          m.emissiveIntensity = 0.0
-        }
-        if (highlightedMeshNames.length > 0) {
-          const isHighlighted = highlightedMeshNames.some(reg => name.includes(reg))
-          if (isHighlighted && m.emissive) {
-            m.emissive.set('#ef4444')
-            m.emissiveIntensity = 2.0
+      // Minimal material setup — no per-frame material mutations
+      if (!mesh.userData._matSetup) {
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        mats.forEach((m: any) => {
+          if (!m) return
+          const isSkin = name.includes('skin') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('hair')
+          if (isSkin) {
+            m.transparent = true
+            m.opacity = 0.18
+            m.depthWrite = false
+          } else {
+            m.transparent = false
+            m.opacity = 1.0
           }
-        }
-        m.needsUpdate = true
-      })
+        })
+        mesh.userData._matSetup = true
+      }
+
+      // Highlights only when needed
+      if (highlightedMeshNames.length > 0) {
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        mats.forEach((m: any) => {
+          if (!m || !m.emissive) return
+          const isHighlighted = highlightedMeshNames.some(reg => name.includes(reg))
+          m.emissive.set(isHighlighted ? '#ef4444' : '#000000')
+          m.emissiveIntensity = isHighlighted ? 2.0 : 0.0
+        })
+      }
     })
-  }, [cloned, activeSystems, highlightedMeshNames, positionX, path, viewMode, visible, isSplittedRef])
+  }, [cloned, activeSystems, highlightedMeshNames, positionX, path, viewMode, visible])
 
   // Organs model handles callouts so they slide and explode in perfect synchronization
   const isOrgansModel = positionX === -1.2 && path.includes('splanchnology')
@@ -528,11 +508,14 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     return clone
   }, [fbx, positionX])
 
-  // FAST LERP Horizontal slide animations
+  // INSTANT snap Horizontal slide
   useFrame(() => {
     if (groupRef.current) {
       const targetX = (viewMode === 'split' && isSplittedRef.current) ? positionX : 0.0
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.25)
+      const dx = Math.abs(groupRef.current.position.x - targetX)
+      if (dx > 0.001) {
+        groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.35)
+      }
     }
   })
 
@@ -943,7 +926,14 @@ export default function ViewAnatomyPage() {
 
             {/* Canvas Viewport */}
             <div className="flex-1 w-full h-full relative z-0">
-              <Canvas camera={{ position: [0, 0.2, 4.6], fov: 50 }} dpr={[1, 1.5]} performance={{ min: 0.5 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+              <Canvas 
+                camera={{ position: [0, 0.2, 4.6], fov: 50 }} 
+                dpr={[1, 1.5]} 
+                gl={{ antialias: false, powerPreference: 'high-performance', alpha: false, stencil: false, depth: true }}
+                performance={{ min: 0.5 }}
+                className="w-full h-full" 
+                style={{ position: 'absolute', inset: 0 }}
+              >
                 {/* Clinical Steel Blue/Slate Background for maximum contrast */}
                 <color attach="background" args={['#0a0f1d']} />
                 
