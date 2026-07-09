@@ -612,44 +612,26 @@ function FBXModelWrapper({
 }) {
   const fbx = useFBX(path)
   
-  const cloned = useMemo(() => {
+  const { wrapper, innerClone } = useMemo(() => {
+    // FBX skeleton uses Z-up. Wrap clone in parent Group; rotate wrapper, not clone.
     const clone = SkeletonUtils.clone(fbx)
-    clone.rotation.x = -Math.PI / 2
 
-    // Rebind skeleton for SkinnedMesh objects to prevent vertex stretching to original bone coordinates
-    const clonedBonesMap = new Map<string, THREE.Bone>()
-    clone.traverse((node: any) => {
-      if (node.isBone) {
-        clonedBonesMap.set(node.name, node)
-      }
-    })
-    
-    clone.traverse((node: any) => {
-      if (node.isSkinnedMesh) {
-        const skeleton = node.skeleton
-        const newBones = skeleton.bones.map((bone: any) => {
-          return clonedBonesMap.get(bone.name) || bone
-        })
-        node.bind(new THREE.Skeleton(newBones, skeleton.boneInverses), node.matrixWorld)
-      }
-    })
-    
-    // standard Box3.setFromObject handles rotated hierarchies perfectly
-    const box = new THREE.Box3().setFromObject(clone)
+    const wrapper = new THREE.Group()
+    wrapper.rotation.x = -Math.PI / 2
+    wrapper.add(clone)
+    wrapper.updateMatrixWorld(true)
 
+    const box = new THREE.Box3().setFromObject(wrapper)
     const size = box.getSize(new THREE.Vector3())
-    const center = box.getCenter(new THREE.Vector3())
     const targetHeight = 2.0
     const scaleFactor = targetHeight / (size.y || 1)
-    
-    clone.scale.setScalar(scaleFactor)
-    clone.position.set(
-      positionX - center.x * scaleFactor,
-      -box.min.y * scaleFactor - 1.0,
-      -center.z * scaleFactor
-    )
+    wrapper.scale.setScalar(scaleFactor)
+    wrapper.updateMatrixWorld(true)
 
-    // Realistic standard bone material
+    const box2 = new THREE.Box3().setFromObject(wrapper)
+    const center2 = box2.getCenter(new THREE.Vector3())
+    wrapper.position.set(positionX - center2.x, -box2.min.y - 1.0, -center2.z)
+
     const boneMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#e8dcc8'),
       roughness: 0.60,
@@ -663,29 +645,20 @@ function FBXModelWrapper({
       if (child instanceof THREE.Mesh || mesh.isMesh) {
         child.castShadow = true
         child.receiveShadow = true
-        
-        // Apply ivory bone material
         child.material = boneMaterial.clone()
-        
-        // Remove skinning attributes from non-skinned meshes to prevent shader collapse stretching
-        if (!mesh.isSkinnedMesh && mesh.geometry) {
-          if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
-          if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
-        }
       }
     })
-    
-    return clone
+
+    return { wrapper, innerClone: clone }
   }, [fbx, positionX])
 
   useEffect(() => {
-    cloned.traverse((child) => {
+    innerClone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
         let visible = true
 
         if (activeSystems) {
-          // FBXModel is used for the skeletal column
           visible = !!activeSystems.skeletal
         }
 
@@ -698,13 +671,12 @@ function FBXModelWrapper({
             m.opacity = opacity
             m.wireframe = wireframe
             
-            // Apply symptom analysis emissive highlight
             if (m.emissive) {
               m.emissive.set('#000000')
               m.emissiveIntensity = 0.0
             }
             if (symptomHighlightedRegions && symptomHighlightedRegions.length > 0) {
-              const isHighlighted = symptomHighlightedRegions.some(reg => name.includes(reg.toLowerCase()))
+              const isHighlighted = symptomHighlightedRegions.some(reg => child.name.toLowerCase().includes(reg.toLowerCase()))
               if (isHighlighted && m.emissive) {
                 m.emissive.set('#ef4444')
                 m.emissiveIntensity = 3.0
@@ -716,9 +688,9 @@ function FBXModelWrapper({
         })
       }
     })
-  }, [cloned, opacity, wireframe, activeSystems, symptomHighlightedRegions])
+  }, [innerClone, opacity, wireframe, activeSystems, symptomHighlightedRegions])
 
-  return <primitive object={cloned} />
+  return <primitive object={wrapper} />
 }
 
 // ---------------------------------------------------------

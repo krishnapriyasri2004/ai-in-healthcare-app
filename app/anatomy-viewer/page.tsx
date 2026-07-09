@@ -178,26 +178,29 @@ function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
   const fbx = useFBX(path)
   const groupRef = useRef<THREE.Group>(null)
 
-  const cloned = useMemo(() => {
+  const { wrapper, innerClone } = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
 
-    clone.rotation.x = -Math.PI / 2
-    
-    // standard Box3.setFromObject handles rotated hierarchies perfectly
-    const box = new THREE.Box3().setFromObject(clone)
+    const wrapper = new THREE.Group()
+    wrapper.rotation.x = -Math.PI / 2
+    wrapper.add(clone)
+    wrapper.updateMatrixWorld(true)
 
+    const box = new THREE.Box3().setFromObject(wrapper)
     const size = box.getSize(new THREE.Vector3())
-    const center = box.getCenter(new THREE.Vector3())
     const scale = 2.0 / (size.y || 1)
-    clone.scale.setScalar(scale)
-    clone.position.set(-center.x * scale, -box.min.y * scale - 1.0, -center.z * scale)
+    wrapper.scale.setScalar(scale)
+    wrapper.updateMatrixWorld(true)
 
-    // Give bones a realistic ivory/bone appearance
+    const box2 = new THREE.Box3().setFromObject(wrapper)
+    const center2 = box2.getCenter(new THREE.Vector3())
+    wrapper.position.set(-center2.x, -box2.min.y - 1.0, -center2.z)
+
     const boneMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e8dcc8'),      // Warm ivory bone
+      color: new THREE.Color('#e8dcc8'),
       roughness: 0.65,
       metalness: 0.05,
-      emissive: new THREE.Color('#2a2418'),    // Subtle warm glow
+      emissive: new THREE.Color('#2a2418'),
       emissiveIntensity: 0.15,
     })
 
@@ -206,17 +209,11 @@ function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
         child.castShadow = false
         child.receiveShadow = false
         child.frustumCulled = true
-        // Apply bone material to ALL skeleton meshes
         child.material = boneMaterial.clone()
-        const mesh = child as any
-        if (!mesh.isSkinnedMesh && mesh.geometry) {
-          if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
-          if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
-        }
       }
     })
 
-    return clone
+    return { wrapper, innerClone: clone }
   }, [fbx, column])
 
   useFrame(() => {
@@ -231,16 +228,16 @@ function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
   })
 
   useEffect(() => {
-    cloned.traverse((child) => {
+    innerClone.traverse((child) => {
       if (child instanceof THREE.Mesh) child.visible = systems.skeletal
     })
-  }, [cloned, systems.skeletal])
+  }, [innerClone, systems.skeletal])
 
   if (!systems.skeletal) return null
 
   return (
     <group ref={groupRef} onClick={(e) => { e.stopPropagation(); onSplit() }}>
-      <primitive object={cloned} />
+      <primitive object={wrapper} />
     </group>
   )
 }

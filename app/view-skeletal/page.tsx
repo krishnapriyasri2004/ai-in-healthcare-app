@@ -10,52 +10,32 @@ import { Activity, ArrowLeft } from 'lucide-react'
 function FBXModel({ path }: { path: string }) {
   const fbx = useFBX(path)
   
-  const cloned = useMemo(() => {
+  const wrapper = useMemo(() => {
     const clone = fbx.clone()
-    clone.rotation.x = -Math.PI / 2
-    
-    // Rebind skeleton for SkinnedMesh objects to prevent vertex stretching to original bone coordinates
-    const clonedBonesMap = new Map<string, THREE.Bone>()
-    clone.traverse((node: any) => {
-      if (node.isBone) {
-        clonedBonesMap.set(node.name, node)
-      }
-    })
-    
-    clone.traverse((node: any) => {
-      if (node.isSkinnedMesh) {
-        const skeleton = node.skeleton
-        const newBones = skeleton.bones.map((bone: any) => {
-          return clonedBonesMap.get(bone.name) || bone
-        })
-        node.bind(new THREE.Skeleton(newBones, skeleton.boneInverses), node.matrixWorld)
-      }
-    })
 
-    // Compute world matrices for correct hierarchy transformations
-    clone.updateWorldMatrix(true, true)
-    
-    // standard Box3.setFromObject handles rotated hierarchies perfectly
-    const box = new THREE.Box3().setFromObject(clone)
+    // Wrap in parent Group and rotate the wrapper (not the clone)
+    // so skinned mesh bone bind poses are not broken
+    const wrapper = new THREE.Group()
+    wrapper.rotation.x = -Math.PI / 2
+    wrapper.add(clone)
+    wrapper.updateMatrixWorld(true)
 
+    const box = new THREE.Box3().setFromObject(wrapper)
     const size = box.getSize(new THREE.Vector3())
-    const center = box.getCenter(new THREE.Vector3())
     const targetHeight = 2.2
     const scaleFactor = targetHeight / (size.y || 1)
-    
-    clone.scale.setScalar(scaleFactor)
-    clone.position.set(
-      -center.x * scaleFactor,
-      -box.min.y * scaleFactor - 1.1,
-      -center.z * scaleFactor
-    )
+    wrapper.scale.setScalar(scaleFactor)
+    wrapper.updateMatrixWorld(true)
 
-    // Define realistic bone material matching other high-quality views
+    const box2 = new THREE.Box3().setFromObject(wrapper)
+    const center2 = box2.getCenter(new THREE.Vector3())
+    wrapper.position.set(-center2.x, -box2.min.y - 1.1, -center2.z)
+
     const boneMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e8dcc8'),      // Warm ivory bone
+      color: new THREE.Color('#e8dcc8'),
       roughness: 0.60,
       metalness: 0.05,
-      emissive: new THREE.Color('#221e16'),    // Subtle organic warm glow
+      emissive: new THREE.Color('#221e16'),
       emissiveIntensity: 0.15,
     })
 
@@ -64,22 +44,14 @@ function FBXModel({ path }: { path: string }) {
       if (child instanceof THREE.Mesh || mesh.isMesh) {
         child.castShadow = true
         child.receiveShadow = true
-        
-        // Apply high-quality bone material
         child.material = boneMaterial.clone()
-        
-        // Remove skinning attributes from non-skinned meshes to prevent shader collapse stretching
-        if (!mesh.isSkinnedMesh && mesh.geometry) {
-          if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
-          if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
-        }
       }
     })
     
-    return clone
+    return wrapper
   }, [fbx])
 
-  return <primitive object={cloned} />
+  return <primitive object={wrapper} />
 }
 
 export default function ViewSkeletalPage() {
