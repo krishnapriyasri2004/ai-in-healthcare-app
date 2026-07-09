@@ -85,14 +85,6 @@ export function Sidebar() {
       icon: Layers,
       onClick: (e: React.MouseEvent) => { e.preventDefault(); setIsAnatomyImmersiveOpen(true) }
     },
-    { href: '/analytics', label: 'Reports & Analytics', icon: BarChart3 },
-    { 
-      href: '#', 
-      label: 'Alerts & Notifications', 
-      icon: Bell, 
-      badge: '5',
-      onClick: (e: React.MouseEvent) => { e.preventDefault(); setIsNotificationsOpen(true) }
-    },
     { 
       href: '#', 
       label: 'Appointments', 
@@ -270,64 +262,7 @@ export function Sidebar() {
       {/* ──────────────────────────────────────────────────────── */}
       {/* 2. ALERTS & NOTIFICATIONS Slide-out Drawer */}
       {/* ──────────────────────────────────────────────────────── */}
-      {isNotificationsOpen && (
-        <div className="fixed inset-y-0 right-0 w-80 bg-[#070f2b]/95 border-l border-blue-950/60 z-[120] p-5 shadow-2xl flex flex-col justify-between font-mono text-[10px] text-slate-300 animate-in slide-in-from-right duration-200">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center border-b border-blue-950/50 pb-3 mb-2">
-              <span className="font-bold text-xs uppercase text-cyan-400 tracking-wider flex items-center gap-1.5">
-                <Bell className="w-4 h-4" /> Live Clinical Alerts
-              </span>
-              <button 
-                onClick={() => setIsNotificationsOpen(false)}
-                className="text-slate-500 hover:text-slate-300 p-1 cursor-pointer"
-              >
-                <X className="w-4.5 h-4.5" />
-              </button>
-            </div>
 
-            <div className="space-y-2.5 overflow-y-auto max-h-[80vh] pr-1">
-              <div className="p-2.5 rounded bg-red-950/20 border border-red-500/30 text-red-400 flex flex-col gap-1 shadow-sm">
-                <div className="flex justify-between font-bold">
-                  <span>CRITICAL ALERT (ACS)</span>
-                  <span className="animate-pulse">●</span>
-                </div>
-                <p className="text-slate-300 leading-normal">Rajesh Khanna: Retrosternal pressure radiates left. loading loading Loading Aspirin recommended stat.</p>
-              </div>
-
-              <div className="p-2.5 rounded bg-orange-950/20 border border-orange-500/30 text-orange-400 flex flex-col gap-1">
-                <div className="flex justify-between font-bold">
-                  <span>PLATELETS WARNING (DENGUE)</span>
-                  <span>10m ago</span>
-                </div>
-                <p className="text-slate-300 leading-normal">Priya Sharma: Platelet assay depleted to 92,000/uL. Watch hematocrit count.</p>
-              </div>
-
-              <div className="p-2.5 rounded bg-amber-950/20 border border-amber-500/30 text-amber-400 flex flex-col gap-1">
-                <div className="flex justify-between font-bold">
-                  <span>INFECTIOUS RISK (TB)</span>
-                  <span>45m ago</span>
-                </div>
-                <p className="text-slate-300 leading-normal">Amit Patel: Sputum AFB Smear Positive. Isolation/mask guidelines active.</p>
-              </div>
-
-              <div className="p-2.5 rounded bg-green-950/20 border border-green-500/30 text-green-400 flex flex-col gap-1">
-                <div className="flex justify-between font-bold">
-                  <span>ABDM SYNC PROCESS</span>
-                  <span>1h ago</span>
-                </div>
-                <p className="text-slate-300 leading-normal">Central consent token mapped with PM-JAY database registries.</p>
-              </div>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => alert("Clearing all temporary alerts...")}
-            className="w-full py-2 bg-slate-900 border border-slate-800 rounded hover:bg-slate-850 text-slate-400 font-bold uppercase transition cursor-pointer text-center"
-          >
-            Clear Alerts
-          </button>
-        </div>
-      )}
 
       {/* ──────────────────────────────────────────────────────── */}
       {/* 3. APPOINTMENTS Dialog Modal */}
