@@ -615,35 +615,9 @@ function FBXModelWrapper({
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
     clone.rotation.x = -Math.PI / 2
-    clone.updateWorldMatrix(true, true)
     
-    // Ignore background/floor helper nodes to prevent giant bounding boxes
-    const box = new THREE.Box3()
-    let hasMesh = false
-    clone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const name = child.name.toLowerCase()
-        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper') || name.includes('camera') || name.includes('light')) {
-          return
-        }
-        if (child.geometry) {
-          if (!child.geometry.boundingBox) {
-            child.geometry.computeBoundingBox()
-          }
-          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
-          if (!hasMesh) {
-            box.copy(meshBox)
-            hasMesh = true
-          } else {
-            box.union(meshBox)
-          }
-        }
-      }
-    })
-    
-    if (!hasMesh) {
-      box.setFromObject(clone)
-    }
+    // standard Box3.setFromObject handles rotated hierarchies perfectly
+    const box = new THREE.Box3().setFromObject(clone)
 
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())

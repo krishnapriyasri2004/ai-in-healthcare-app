@@ -466,21 +466,9 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
     clone.rotation.x = -Math.PI / 2
-    clone.updateWorldMatrix(true, true)
-    const box = new THREE.Box3()
-    let hasMesh = false
-    clone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const name = child.name.toLowerCase()
-        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper')) return
-        if (child.geometry) {
-          if (!child.geometry.boundingBox) child.geometry.computeBoundingBox()
-          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
-          if (!hasMesh) { box.copy(meshBox); hasMesh = true } else box.union(meshBox)
-        }
-      }
-    })
-    if (!hasMesh) box.setFromObject(clone)
+    
+    // standard Box3.setFromObject handles rotated hierarchies perfectly
+    const box = new THREE.Box3().setFromObject(clone)
 
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
@@ -488,8 +476,8 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     const scaleFactor = targetHeight / (size.y || 1)
     clone.scale.setScalar(scaleFactor)
     
-    // Initial static position X
-    clone.position.set(0, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
+    // Center on X and Z, place feet at Y = -1.0
+    clone.position.set(-center.x * scaleFactor, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
 
     // Give bones a realistic ivory/bone appearance
     const boneMaterial = new THREE.MeshStandardMaterial({

@@ -35,33 +35,8 @@ function FBXModel({ path }: { path: string }) {
     // Compute world matrices for correct hierarchy transformations
     clone.updateWorldMatrix(true, true)
     
-    // Ignore background/floor helper nodes to prevent giant bounding boxes
-    const box = new THREE.Box3()
-    let hasMesh = false
-    clone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const name = child.name.toLowerCase()
-        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper') || name.includes('camera') || name.includes('light')) {
-          return
-        }
-        if (child.geometry) {
-          if (!child.geometry.boundingBox) {
-            child.geometry.computeBoundingBox()
-          }
-          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
-          if (!hasMesh) {
-            box.copy(meshBox)
-            hasMesh = true
-          } else {
-            box.union(meshBox)
-          }
-        }
-      }
-    })
-    
-    if (!hasMesh) {
-      box.setFromObject(clone)
-    }
+    // standard Box3.setFromObject handles rotated hierarchies perfectly
+    const box = new THREE.Box3().setFromObject(clone)
 
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
@@ -128,12 +103,12 @@ export default function ViewSkeletalPage() {
       {/* 3D Canvas */}
       <div className="flex-1 w-full h-full relative z-0">
         <Canvas camera={{ position: [0, 0, 3], fov: 45 }} className="w-full h-full">
-          <color attach="background" args={['#080a10']} />
+          <color attach="background" args={['#030712']} />
           
-          <ambientLight intensity={0.7} color="#ffffff" />
-          <directionalLight position={[5, 10, 5]} intensity={1.8} color="#ffffff" />
-          <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#fffcf7" />
-          <spotLight position={[0, 10, 0]} intensity={2} angle={0.8} penumbra={1} color="#ffffff" />
+          <ambientLight intensity={0.6} color="#ffffff" />
+          <directionalLight position={[5, 10, 5]} intensity={1.5} color="#ffffff" />
+          <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#38bdf8" />
+          <spotLight position={[0, 10, 0]} intensity={2} angle={0.6} penumbra={1} color="#38bdf8" />
 
           <Suspense fallback={
             <Html center>
@@ -148,11 +123,11 @@ export default function ViewSkeletalPage() {
 
           <ContactShadows 
             position={[0, -1.1, 0]} 
-            opacity={0.7} 
+            opacity={0.8} 
             scale={5} 
             blur={2.5} 
             far={3.5} 
-            color="#000000"
+            color="#0ea5e9"
           />
 
           <OrbitControls

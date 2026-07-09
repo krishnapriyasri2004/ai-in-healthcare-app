@@ -181,23 +181,16 @@ function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
 
-    clone.updateWorldMatrix(true, true)
-    const box = new THREE.Box3()
-    let hasMesh = false
-    clone.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.geometry) {
-        if (!child.geometry.boundingBox) child.geometry.computeBoundingBox()
-        const mb = child.geometry.boundingBox!.clone().applyMatrix4(child.matrixWorld)
-        if (!hasMesh) { box.copy(mb); hasMesh = true } else box.union(mb)
-      }
-    })
-    if (!hasMesh) box.setFromObject(clone)
+    clone.rotation.x = -Math.PI / 2
+    
+    // standard Box3.setFromObject handles rotated hierarchies perfectly
+    const box = new THREE.Box3().setFromObject(clone)
 
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
     const scale = 2.0 / (size.y || 1)
     clone.scale.setScalar(scale)
-    clone.position.set(0, -box.min.y * scale - 1.0, -center.z * scale)
+    clone.position.set(-center.x * scale, -box.min.y * scale - 1.0, -center.z * scale)
 
     // Give bones a realistic ivory/bone appearance
     const boneMaterial = new THREE.MeshStandardMaterial({
