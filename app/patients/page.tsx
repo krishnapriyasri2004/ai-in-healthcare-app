@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Users, Plus, Heart, Calendar, Search, ClipboardList, ShieldAlert, Award } from 'lucide-react'
-
 interface Patient {
   id: string
   name: string
@@ -12,45 +11,56 @@ interface Patient {
   notes: string
   vitals: { temp: string; hr: string; spo2: string; bp: string }
   history: Array<{ date: string; diagnosis: string; severity: string }>
+  abhaId?: string
+  pmjayEligible?: 'Eligible' | 'Ineligible' | 'Under Verification'
+  bloodSugar?: string
 }
 
 const INITIAL_PATIENTS: Patient[] = [
   {
     id: 'pat-1',
-    name: 'Elena Rostova',
-    age: 28,
-    gender: 'Female',
-    symptoms: 'Patient reports persistent headache for 72h, body temperature 38°C, and neck stiffness.',
-    notes: 'Prior history of migraines. Blood pressure normal.',
-    vitals: { temp: '38.0', hr: '88', spo2: '97', bp: '120/80' },
+    name: 'Rajesh Khanna',
+    age: 45,
+    gender: 'Male',
+    symptoms: 'Patient reports sudden retrosternal chest pain radiating to left shoulder and arm for the last 2 hours. Accompanied by acute breathlessness, sweating, and nausea.',
+    notes: 'Known history of Type 2 Diabetes Mellitus (HbA1c: 7.8%) and Hypertension. Heavy smoker.',
+    vitals: { temp: '36.8', hr: '104', spo2: '94', bp: '150/95' },
+    abhaId: '91-4829-4820-1948',
+    pmjayEligible: 'Eligible',
+    bloodSugar: '184',
     history: [
-      { date: '2026-06-15', diagnosis: 'Migraine Headache', severity: 'Medium' },
-      { date: '2026-04-10', diagnosis: 'Acute Pharyngitis', severity: 'Low' }
+      { date: '2026-05-10', diagnosis: 'Essential Hypertension', severity: 'Medium' },
+      { date: '2026-02-14', diagnosis: 'Type 2 Diabetes Mellitus', severity: 'Medium' }
     ]
   },
   {
     id: 'pat-2',
-    name: 'John Doe',
-    age: 52,
-    gender: 'Male',
-    symptoms: 'Sharp chest pain radiating to left arm, shortness of breath, and mild sweating.',
-    notes: 'History of chronic hypertension. High cholesterol.',
-    vitals: { temp: '36.8', hr: '104', spo2: '94', bp: '150/95' },
+    name: 'Priya Sharma',
+    age: 29,
+    gender: 'Female',
+    symptoms: 'Patient presents with high-grade fever (103°F) for 5 days, severe retro-orbital headache, generalized muscle and joint pain ("breakbone" aches), and mild petechial rashes on lower limbs.',
+    notes: 'No major medical history. Living in a vector-heavy area during monsoon season.',
+    vitals: { temp: '39.4', hr: '98', spo2: '97', bp: '105/70' },
+    abhaId: '23-9081-3482-1249',
+    pmjayEligible: 'Under Verification',
+    bloodSugar: '95',
     history: [
-      { date: '2026-05-22', diagnosis: 'Hypertensive Crisis', severity: 'High' },
-      { date: '2026-01-14', diagnosis: 'Chronic Bronchitis flare-up', severity: 'Medium' }
+      { date: '2026-06-01', diagnosis: 'Acute Pharyngitis', severity: 'Low' }
     ]
   },
   {
     id: 'pat-3',
-    name: 'Sarah Jenkins',
-    age: 41,
-    gender: 'Female',
-    symptoms: 'Persistent dry cough, congestion, runny nose, and fatigue.',
-    notes: 'No chronic history. Symptoms started 4 days ago.',
-    vitals: { temp: '37.1', hr: '74', spo2: '99', bp: '115/75' },
+    name: 'Amit Patel',
+    age: 58,
+    gender: 'Male',
+    symptoms: 'Persistent productive cough with yellowish-green sputum and occasional blood streaks (hemoptysis) for the past 3 weeks. Reports low-grade evening fever, night sweats, and unexplained weight loss of 5 kg.',
+    notes: 'Prior history of moderate chronic asthma. Worked in poorly ventilated textile mills.',
+    vitals: { temp: '37.8', hr: '82', spo2: '96', bp: '118/75' },
+    abhaId: '88-4328-9843-2390',
+    pmjayEligible: 'Eligible',
+    bloodSugar: '110',
     history: [
-      { date: '2026-03-01', diagnosis: 'Seasonal Influenza', severity: 'Low' }
+      { date: '2026-04-12', diagnosis: 'Asthma Exacerbation', severity: 'Medium' }
     ]
   }
 ]
@@ -149,24 +159,26 @@ export default function PatientsPage() {
           <div className="bg-[#070f2b]/40 backdrop-blur-xl border border-cyan-500/20 p-6 rounded-xl shadow-lg flex justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
             <div>
-              <div className="text-[10px] text-cyan-500 tracking-widest font-bold font-mono uppercase">EHR CENTRAL CLINICAL PROFILE</div>
+              <div className="text-[10px] text-cyan-500 tracking-widest font-bold font-mono uppercase">ABHA VERIFIED CLINICAL PROFILE</div>
               <h2 className="text-2xl font-black text-white mt-1.5">{activePatient.name}</h2>
               <div className="text-xs text-gray-400 mt-1 font-mono uppercase">
                 Gender: <span className="text-gray-200 font-bold mr-4">{activePatient.gender}</span>
                 Age: <span className="text-gray-200 font-bold mr-4">{activePatient.age}</span>
-                Active File ID: <span className="text-cyan-400 font-bold">{activePatient.id}</span>
+                ABHA ID: <span className="text-cyan-400 font-bold mr-4">{activePatient.abhaId || 'N/A'}</span>
+                PM-JAY: <span className={`font-bold mr-4 ${activePatient.pmjayEligible === 'Eligible' ? 'text-green-400' : activePatient.pmjayEligible === 'Under Verification' ? 'text-amber-400' : 'text-red-400'}`}>{activePatient.pmjayEligible || 'Not Enrolled'}</span>
+                File ID: <span className="text-gray-300 font-bold">{activePatient.id}</span>
               </div>
             </div>
             <div className="flex gap-3 font-mono text-[10px]">
               <div className="bg-black/40 border border-blue-900/30 p-2 px-3.5 rounded text-center">
                  <div className="text-gray-500 uppercase text-[8px] mb-0.5">Vitals Status</div>
-                 <div className="text-green-500 font-bold uppercase">STABLE</div>
+                 <div className="text-green-500 font-bold uppercase">ABDM SYNCED</div>
               </div>
             </div>
           </div>
 
           {/* Vitals & Telemetry Grid */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5 relative overflow-hidden">
               <div className="text-[10px] font-mono text-gray-500 uppercase flex justify-between items-center">
                 HEART RATE
@@ -192,6 +204,12 @@ export default function PatientsPage() {
               <div className="text-[10px] font-mono text-gray-500 uppercase">BLOOD PRESS.</div>
               <div className="text-xl font-bold text-white tracking-tight">{activePatient.vitals.bp}</div>
               <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">Systolic/Diastolic</div>
+            </div>
+
+            <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5">
+              <div className="text-[10px] font-mono text-gray-500 uppercase">BLOOD SUGAR</div>
+              <div className="text-xl font-bold text-white tracking-tight">{activePatient.bloodSugar || 'N/A'} <span className="text-xs text-gray-400 font-normal">mg/dL</span></div>
+              <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">Random Assay</div>
             </div>
           </div>
 

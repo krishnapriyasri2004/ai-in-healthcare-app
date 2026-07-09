@@ -16,15 +16,15 @@ export default function Home() {
 
         <div className="max-w-4xl mx-auto flex flex-col items-center relative z-10 gap-6">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.1)]">
-             <Activity className="w-3.5 h-3.5 animate-pulse" /> NEXT-GEN CLINICAL INTELLIGENCE
+             <Activity className="w-3.5 h-3.5 animate-pulse" /> ABDM & ABHA INTEGRATED PORTAL
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white uppercase leading-none">
-            METROPOLIS MEDICAL CENTER
+            AROGYA AI DIAGNOSTIC CLINIC
           </h1>
 
           <p className="text-sm sm:text-base text-gray-400 max-w-2xl leading-relaxed font-mono">
-            Bridging clinical expertise with 3D Holographic Diagnostic intelligence. Empowering doctors with real-time symptom mapping on human anatomy.
+            Bridging clinical expertise with 3D Holographic Diagnostic intelligence. Empowering Indian clinicians with real-time symptom mapping integrated with ABDM standards.
           </p>
 
           <div className="flex flex-wrap gap-4 justify-center mt-4">
@@ -57,11 +57,11 @@ export default function Home() {
         <div className="p-5 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-2 font-mono">
           <div className="text-[10px] text-gray-500 uppercase">AI Diagnosis Accuracy</div>
           <div className="text-3xl font-black text-green-500">94.2%</div>
-          <div className="text-[9px] text-green-400 uppercase mt-1">Verified by senior staff</div>
+          <div className="text-[9px] text-green-400 uppercase mt-1">Verified by NHA / Senior Staff</div>
         </div>
 
         <div className="p-5 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-2 font-mono">
-          <div className="text-[10px] text-gray-500 uppercase">Total Patients Registry</div>
+          <div className="text-[10px] text-gray-500 uppercase">ABHA Enrolled Patients</div>
           <div className="text-3xl font-black text-white">1,248</div>
           <div className="text-[9px] text-gray-400 uppercase mt-1">Hospital database load</div>
         </div>
@@ -83,7 +83,7 @@ export default function Home() {
                HOLOGRAPHIC SYMPTOM MAPPING ON 3D HUMAN ANATOMY
             </h2>
             <p className="text-gray-400 text-sm leading-relaxed">
-               Allowing clinicians to inputs symptoms via Natural Language, compile diagnostic readouts, and map anomalies directly to anatomical coordinates in our interactive 3D model. Every diagnostic outcome links directly to visual landmarks on the human body.
+               Allowing Indian clinicians to input symptoms via Natural Language, compile diagnostic readouts, and map anomalies directly to anatomical coordinates in our interactive 3D model. Every diagnostic outcome links directly to visual landmarks on the human body.
             </p>
             <div className="flex flex-col gap-3.5 mt-2 font-mono text-xs text-gray-300">
                <div className="flex items-center gap-3">
@@ -92,7 +92,7 @@ export default function Home() {
                </div>
                <div className="flex items-center gap-3">
                   <ShieldCheck className="w-5 h-5 text-cyan-500" />
-                  <span>Live biometrics vitals parsing (Heart rate, SpO2, Temperature)</span>
+                  <span>Live biometrics vitals parsing (Heart rate, SpO2, Temp, Blood Sugar)</span>
                </div>
                <div className="flex items-center gap-3">
                   <ShieldCheck className="w-5 h-5 text-cyan-500" />
@@ -163,7 +163,7 @@ export default function Home() {
 
       {/* Footer disclaimer */}
       <footer className="py-8 px-8 text-center border-t border-blue-950/40 text-[10px] text-gray-600 font-mono mt-auto">
-         © 2026 Metropolis AI Health System. All rights reserved. 3D models and diagnostic suggestions are for decision-support only.
+         © 2026 Arogya AI Health System. ABDM (Ayushman Bharat Digital Mission) Compliant. 3D models and diagnostic suggestions are for decision-support only.
       </footer>
     </div>
   )

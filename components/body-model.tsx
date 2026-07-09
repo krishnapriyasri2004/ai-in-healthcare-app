@@ -2,9 +2,11 @@
 
 import React, { Component, ErrorInfo, ReactNode, Suspense, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Environment, ContactShadows, useGLTF, Html, Line } from '@react-three/drei'
+import { OrbitControls, Environment, ContactShadows, useGLTF, Html, Line, useFBX } from '@react-three/drei'
 import { useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+
 
 interface RegionInfo {
   bodyRegion: string
@@ -281,54 +283,306 @@ function OrganLabel({ organ, isAffected, showLabel }: { organ: BodyOrgan; isAffe
 }
 
 // ---------------------------------------------------------
+// Helper for vertical organ explosion in Column 2
+// ---------------------------------------------------------
+const getOrganVerticalOffset = (nodeName: string, materialNames: string[]): number => {
+  const name = nodeName.toLowerCase()
+  
+  const isBrainMesh = name.includes('brain') || name.includes('cerebrum') || name.includes('cerebell') || name.includes('pons') || name.includes('medulla')
+  if (isBrainMesh) return 0.7
+  
+  const isHeartMesh = name.includes('heart') || name.includes('atrium') || name.includes('ventricle')
+  if (isHeartMesh) return 0.3
+  
+  const isRespiratory = materialNames.some((n: any) => n.includes('lung') || n.includes('bronchi') || n.includes('trachea') || n.includes('cartilage'))
+  if (isRespiratory) return 0.3
+  
+  const isUrinary = materialNames.some((n: any) => n.includes('organ.004') || n.includes('gland.004') || n.includes('kidney') || n.includes('bladder'))
+  if (isUrinary) return -0.4
+  
+  const isDigestive = materialNames.some((n: any) => n.includes('intestine') || n.includes('organ.003') || n.includes('esophagus') || n.includes('stomach') || n.includes('liver')) || name.includes('stomach') || name.includes('liver') || name.includes('intestine')
+  if (isDigestive) {
+    if (name.includes('intestine') || materialNames.some((n: any) => n.includes('intestine'))) {
+      return -0.7
+    }
+    return 0.0
+  }
+  
+  return 0.0
+}
+
+// ---------------------------------------------------------
 // Side-by-Side Model Components (Preserving original textures/materials)
 // ---------------------------------------------------------
-function SideBySideModel({ 
-  path, 
-  positionX, 
-  opacity = 1.0, 
-  wireframe = false,
+// ---------------------------------------------------------
+// GLTF Model Wrapper Component
+// ---------------------------------------------------------
+function GLTFModelWrapper({
+  path,
+  positionX,
+  opacity,
+  wireframe,
   activeSystems
-}: { 
+}: {
   path: string
   positionX: number
-  opacity?: number
-  wireframe?: boolean 
+  opacity: number
+  wireframe: boolean
   activeSystems?: SystemToggles
 }) {
   const { scene } = useGLTF(path)
   
   const cloned = useMemo(() => {
-    const clone = scene.clone()
-    
-    // Rebind skeleton for SkinnedMesh objects to prevent vertex stretching to original bone coordinates
-    const originalBones: THREE.Bone[] = []
-    const clonedBones: THREE.Bone[] = []
-    
-    scene.traverse((node) => {
-      if (node instanceof THREE.Bone) {
-        originalBones.push(node)
-      }
-    })
-    
-    clone.traverse((node) => {
-      if (node instanceof THREE.Bone) {
-        clonedBones.push(node)
-      }
-    })
-    
-    clone.traverse((node) => {
-      if (node instanceof THREE.SkinnedMesh) {
-        const skeleton = node.skeleton
-        const newBones = skeleton.bones.map((bone) => {
-          const idx = originalBones.indexOf(bone)
-          return idx !== -1 ? clonedBones[idx] : bone
+    const clone = SkeletonUtils.clone(scene)
+
+    // 1. Delete lying-down meshes (skin, bones, skull) from splanchnology.glb for the organs column
+    if (path.includes('splanchnology')) {
+      if (positionX === -1.2) {
+        const toRemove: THREE.Object3D[] = []
+        clone.traverse((child) => {
+          const name = child.name.toLowerCase()
+          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) {
+            toRemove.push(child)
+          }
         })
-        node.bind(new THREE.Skeleton(newBones, skeleton.boneInverses), node.matrixWorld)
+        toRemove.forEach((child) => {
+          if (child.parent) child.parent.remove(child)
+        })
+      } else if (positionX === -2.4) {
+        // For the skin column, keep only the skin-related meshes, delete the organs/skeletal meshes
+        const toRemove: THREE.Object3D[] = []
+        clone.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const name = child.name.toLowerCase()
+            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            if (!isSkin) {
+              toRemove.push(child)
+            }
+          }
+        })
+        toRemove.forEach((child) => {
+          if (child.parent) child.parent.remove(child)
+        })
+        
+        // Reset the root group rotation to let the skin stand up vertically
+        const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+        if (sketchfabModel) {
+          sketchfabModel.rotation.set(0, 0, 0)
+        }
       }
-    })
+    }
+
+    // 2. Rotate myology.glb and scene.gltf (Columns 4 and 5) to stand up vertically
+    if (path.includes('myology') || path.includes('scene')) {
+      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+      if (sketchfabModel) {
+        sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
+      } else {
+        clone.rotation.x = -Math.PI / 2
+      }
+    }
 
     // Compute world matrices for correct hierarchy transformations
+    clone.updateWorldMatrix(true, true)
+    
+    // Ignore background/floor helper nodes to prevent giant bounding boxes
+    const box = new THREE.Box3()
+    let hasMesh = false
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name.toLowerCase()
+        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper') || name.includes('camera') || name.includes('light')) {
+          return
+        }
+        if (child.geometry) {
+          if (!child.geometry.boundingBox) {
+            child.geometry.computeBoundingBox()
+          }
+          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
+          if (!hasMesh) {
+            box.copy(meshBox)
+            hasMesh = true
+          } else {
+            box.union(meshBox)
+          }
+        }
+      }
+    })
+    
+    if (!hasMesh) {
+      box.setFromObject(clone)
+    }
+
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    const targetHeight = 2.0
+    const scaleFactor = targetHeight / (size.y || 1)
+    
+    clone.scale.setScalar(scaleFactor)
+    clone.position.set(
+      positionX - center.x * scaleFactor,
+      -box.min.y * scaleFactor - 1.0,
+      -center.z * scaleFactor
+    )
+
+    // Apply vertical explosion for organs in Column 2 (positionX === -1.2)
+    if (positionX === -1.2 && path.includes('splanchnology')) {
+      clone.traverse((child) => {
+        if (child instanceof THREE.Mesh || (child as any).isMesh) {
+          const name = child.name.toLowerCase()
+          const mats = Array.isArray(child.material) ? child.material : [child.material]
+          const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
+          
+          const offset = getOrganVerticalOffset(name, matNames)
+          if (offset !== 0) {
+            child.position.y += offset / scaleFactor
+          }
+        }
+      })
+    }
+
+    clone.traverse((child) => {
+      const mesh = child as any
+      if (child instanceof THREE.Mesh || mesh.isMesh) {
+        child.castShadow = true
+        child.receiveShadow = true
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) {
+            mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
+          } else if (mesh.material.clone) {
+            mesh.material = mesh.material.clone()
+          }
+        }
+      }
+    })
+    
+    return clone
+  }, [scene, positionX, path])
+
+  useEffect(() => {
+    cloned.traverse((child) => {
+      const mesh = child as any
+      if (child instanceof THREE.Mesh || mesh.isMesh) {
+        const name = child.name.toLowerCase()
+        let visible = true
+
+        // Filter meshes based on checkboxes / activeSystems
+        if (activeSystems) {
+          if (path.includes('splanchnology')) {
+            const isSkinMesh = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            const isBrainMesh = name.includes('brain') || name.includes('cerebrum') || name.includes('cerebell') || name.includes('pons') || name.includes('medulla')
+            const isHeartMesh = name.includes('heart') || name.includes('atrium') || name.includes('ventricle')
+            const isSkeletonMesh = name.includes('skeletal') || name.includes('bone') || name.includes('skull') || name.includes('spine') || name.includes('pelvis') || name.includes('rib') || name.includes('radius') || name.includes('ulna')
+            
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+            const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
+            
+            const isRespiratory = matNames.some((n: any) => n.includes('lung') || n.includes('bronchi') || n.includes('trachea') || n.includes('cartilage'))
+            const isUrinary = matNames.some((n: any) => n.includes('organ.004') || n.includes('gland.004') || n.includes('kidney') || n.includes('bladder'))
+            const isDigestive = matNames.some((n: any) => n.includes('intestine') || n.includes('organ.003') || n.includes('esophagus') || n.includes('stomach') || n.includes('liver')) || name.includes('stomach') || name.includes('liver') || name.includes('intestine')
+
+            if (positionX === -2.4) {
+              // Column 1: Body Skin/Integumentary
+              visible = isSkinMesh && !!activeSystems.integumentary
+            } else if (positionX === -1.2) {
+              // Column 2: Visceral Organs (Exploded)
+              if (isSkinMesh) visible = false
+              else if (isSkeletonMesh) visible = false
+              else if (name.includes('muscle') || name.includes('muscular')) visible = false
+              else {
+                visible = true
+                if (isBrainMesh && !activeSystems.nervous) visible = false
+                if (isHeartMesh && !activeSystems.cardiovascular) visible = false
+                if (isRespiratory && !activeSystems.respiratory) visible = false
+                if (isDigestive && !activeSystems.digestive) visible = false
+                if (isUrinary && !activeSystems.digestive) visible = false
+              }
+            } else {
+              visible = false
+            }
+            
+
+          } else if (path.includes('scene')) {
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+            const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
+            
+            const isVessels = matNames.some((n: any) => n.includes('artery') || n.includes('vein'))
+            const isSkeleton = matNames.some((n: any) => n.includes('cartilage') || n.includes('ligament') || n.includes('muscle') || n.includes('skeletal') || n.includes('bone') || n.includes('default')) || !isVessels
+
+            if (positionX === 0.0) {
+              // Column 3: Skeleton (fallback)
+              visible = isSkeleton && !!activeSystems.skeletal
+            } else if (positionX === 1.2) {
+              // Column 4: Cardiovascular
+              visible = isVessels && !!activeSystems.cardiovascular
+            } else {
+              visible = false
+            }
+          } else if (path.includes('myology')) {
+            // Column 5: Muscular
+            if (positionX === 2.4) {
+              const isMuscular = name.includes('muscular') || name.includes('muscle')
+              visible = isMuscular && !!activeSystems.muscular
+            } else {
+              visible = false
+            }
+          }
+        }
+
+        mesh.visible = visible
+
+        // Apply opacity and wireframe
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        mats.forEach((m: any) => {
+          if (m) {
+            m.transparent = true
+            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            if (isSkin) {
+              if (positionX === -2.4) {
+                m.opacity = 1.0 // Solid textured skin/shorts/eyes
+                m.wireframe = false
+                m.depthWrite = true
+              } else {
+                m.opacity = 0.05
+                m.color.set(new THREE.Color('#00aaff'))
+                m.wireframe = true
+                m.blending = THREE.AdditiveBlending
+                m.depthWrite = false
+              }
+            } else {
+              m.opacity = opacity
+              m.wireframe = wireframe
+            }
+            m.needsUpdate = true
+          }
+        })
+      }
+    })
+  }, [cloned, opacity, wireframe, activeSystems, path, positionX])
+
+  return <primitive object={cloned} />
+}
+
+// ---------------------------------------------------------
+// FBX Model Wrapper Component
+// ---------------------------------------------------------
+function FBXModelWrapper({
+  path,
+  positionX,
+  opacity,
+  wireframe,
+  activeSystems
+}: {
+  path: string
+  positionX: number
+  opacity: number
+  wireframe: boolean
+  activeSystems?: SystemToggles
+}) {
+  const fbx = useFBX(path)
+  
+  const cloned = useMemo(() => {
+    const clone = SkeletonUtils.clone(fbx)
     clone.updateWorldMatrix(true, true)
     
     // Ignore background/floor helper nodes to prevent giant bounding boxes
@@ -376,6 +630,13 @@ function SideBySideModel({
       if (child instanceof THREE.Mesh || mesh.isMesh) {
         child.castShadow = true
         child.receiveShadow = true
+        
+        // Remove skinning attributes from non-skinned meshes to prevent shader collapse stretching
+        if (!mesh.isSkinnedMesh && mesh.geometry) {
+          if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
+          if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
+        }
+
         if (mesh.material) {
           if (Array.isArray(mesh.material)) {
             mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
@@ -387,70 +648,26 @@ function SideBySideModel({
     })
     
     return clone
-  }, [scene, positionX])
+  }, [fbx, positionX, path])
 
   useEffect(() => {
     cloned.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
-        const name = child.name.toLowerCase()
         let visible = true
 
-        // Filter meshes based on checkboxes / activeSystems
         if (activeSystems) {
-          if (path.includes('anatomy.glb')) {
-            // Left model: Skeleton (from anatomy.glb)
-            const isSkinMesh = name.includes('skin') || name.includes('integumentary')
-            if (isSkinMesh) {
-              visible = activeSystems.integumentary
-            } else {
-              visible = activeSystems.skeletal
-            }
-          } else if (path.includes('splanchnology')) {
-            // Middle model: Visceral Organs (from splanchnology.glb)
-            const isSkinMesh = name.includes('skin') || name.includes('integumentary')
-            const isBrainMesh = name.includes('brain') || name.includes('cerebrum') || name.includes('cerebell') || name.includes('pons') || name.includes('medulla')
-            const isHeartMesh = name.includes('heart') || name.includes('atrium') || name.includes('ventricle')
-            const isSkeletonMesh = name.includes('skeletal') || name.includes('bone') || name.includes('skull') || name.includes('spine') || name.includes('pelvis') || name.includes('rib') || name.includes('radius') || name.includes('ulna')
-            
-            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-            const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
-            
-            const isRespiratory = matNames.some((n: any) => n.includes('lung') || n.includes('bronchi') || n.includes('trachea') || n.includes('cartilage'))
-            const isUrinary = matNames.some((n: any) => n.includes('organ.004') || n.includes('gland.004') || n.includes('kidney') || n.includes('bladder'))
-            const isDigestive = matNames.some((n: any) => n.includes('intestine') || n.includes('organ.003') || n.includes('esophagus') || n.includes('stomach') || n.includes('liver')) || name.includes('stomach') || name.includes('liver') || name.includes('intestine')
-
-            // Hide skeleton inside splanchnology to avoid double bones
-            if (isSkeletonMesh) visible = false
-            if (isSkinMesh && !activeSystems.integumentary) visible = false
-            if (isBrainMesh && !activeSystems.nervous) visible = false
-            if (isHeartMesh && !activeSystems.cardiovascular) visible = false
-            if (isRespiratory && !activeSystems.respiratory) visible = false
-            if (isDigestive && !activeSystems.digestive) visible = false
-            if (isUrinary && !activeSystems.digestive) visible = false // group urinary with digestive/organs
-            
-          } else if (path.includes('scene')) {
-            // Middle model: Cardiovascular (from scene.gltf)
-            if (!activeSystems.cardiovascular) visible = false
-          } else if (path.includes('myology')) {
-            // Right model: Muscular (from myology.glb)
-            if (!activeSystems.muscular) visible = false
-          }
+          // FBXModel is used for the skeletal column
+          visible = !!activeSystems.skeletal
         }
 
         mesh.visible = visible
 
-        // Apply opacity and wireframe
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         mats.forEach((m: any) => {
           if (m) {
             m.transparent = true
-            // Special transparent skin or default opacity
-            if (name.includes('skin') || name.includes('integumentary')) {
-              m.opacity = opacity * 0.15
-            } else {
-              m.opacity = opacity
-            }
+            m.opacity = opacity
             m.wireframe = wireframe
             m.needsUpdate = true
           }
@@ -463,13 +680,81 @@ function SideBySideModel({
 }
 
 // ---------------------------------------------------------
+// Unified Model Instance Component
+// ---------------------------------------------------------
+function ModelInstance({
+  path,
+  positionX,
+  opacity,
+  wireframe,
+  activeSystems
+}: {
+  path: string
+  positionX: number
+  opacity: number
+  wireframe: boolean
+  activeSystems?: SystemToggles
+}) {
+  const isFbx = path.toLowerCase().endsWith('.fbx')
+  if (isFbx) {
+    return (
+      <FBXModelWrapper
+        path={path}
+        positionX={positionX}
+        opacity={opacity}
+        wireframe={wireframe}
+        activeSystems={activeSystems}
+      />
+    )
+  }
+  return (
+    <GLTFModelWrapper
+      path={path}
+      positionX={positionX}
+      opacity={opacity}
+      wireframe={wireframe}
+      activeSystems={activeSystems}
+    />
+  )
+}
+
+// ---------------------------------------------------------
+// Side-by-Side Model Components
+// ---------------------------------------------------------
+function SideBySideModel({ 
+  path, 
+  system,
+  positionX, 
+  opacity = 1.0, 
+  wireframe = false,
+  activeSystems
+}: { 
+  path: string
+  system?: 'skeletal_nervous' | 'cardiovascular_visceral' | 'muscular'
+  positionX: number
+  opacity?: number
+  wireframe?: boolean 
+  activeSystems?: SystemToggles
+}) {
+  return (
+    <ModelInstance
+      path={path}
+      positionX={positionX}
+      opacity={opacity}
+      wireframe={wireframe}
+      activeSystems={activeSystems}
+    />
+  )
+}
+
+// ---------------------------------------------------------
 // Main Canvas Component
 // ---------------------------------------------------------
 export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals }: BodyModelProps) {
   return (
     <div className="w-full h-full relative group bg-[#030712] overflow-hidden">
       {/* 3D Viewport Canvas */}
-      <Canvas camera={{ position: [0, 0.4, 3.8], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+      <Canvas camera={{ position: [0, 0.2, 4.6], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
         <color attach="background" args={['#030712']} />
         
         {/* Holographic Cinematic Lighting */}
@@ -479,16 +764,29 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
         <spotLight position={[0, 10, 0]} intensity={3} angle={0.6} penumbra={1} color="#00ffff" />
         <spotLight position={[0, -10, 0]} intensity={2} angle={0.8} penumbra={1} color="#0088ff" />
 
-        {/* Dynamic spotlights for each of the 3 models, matching the studio spotlight look */}
-        <spotLight position={[-1.2, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#ff4081" castShadow />
-        <spotLight position={[0.0, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#ffff00" castShadow />
-        <spotLight position={[1.2, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#00e676" castShadow />
+        {/* Dynamic spotlights for each of the 5 models */}
+        <spotLight position={[-2.4, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#00ffff" castShadow />
+        <spotLight position={[-1.2, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#ffff00" castShadow />
+        <spotLight position={[0.0, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#00ffff" castShadow />
+        <spotLight position={[1.2, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#ffff00" castShadow />
+        <spotLight position={[2.4, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#00e676" castShadow />
 
         <Suspense fallback={null}>
-          {/* Left: Skeleton (from anatomy.glb) */}
+          {/* Column 1: Body Skin/Integumentary */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/anatomy.glb" 
+              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+              positionX={-2.4} 
+              opacity={opacity} 
+              wireframe={wireframe} 
+              activeSystems={activeSystems}
+            />
+          </Suspense>
+
+          {/* Column 2: Visceral Organs (from splanchnology.glb, exploded) */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
               positionX={-1.2} 
               opacity={opacity} 
               wireframe={wireframe} 
@@ -496,10 +794,10 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
             />
           </Suspense>
           
-          {/* Middle: Visceral Organs (from splanchnology.glb) */}
+          {/* Column 3: Skeletal System (from SkeletalSystem100.fbx) */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+              path="/ai-in-healthcare/asset-01/SkeletalSystem100.fbx" 
               positionX={0.0} 
               opacity={opacity} 
               wireframe={wireframe} 
@@ -507,28 +805,102 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
             />
           </Suspense>
 
-          {/* Middle: Cardiovascular vessels (from scene.gltf) */}
+          {/* Column 4: Cardiovascular vessels (from scene.gltf) */}
           <Suspense fallback={null}>
             <SideBySideModel 
               path="/ai-in-healthcare/asset-01/scene.gltf" 
-              positionX={0.0} 
-              opacity={opacity} 
-              wireframe={wireframe} 
-              activeSystems={activeSystems}
-            />
-          </Suspense>
-
-          {/* Right: Muscular system (from myology.glb) */}
-          <Suspense fallback={null}>
-            <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/myology.glb" 
               positionX={1.2} 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
             />
           </Suspense>
+
+          {/* Column 5: Muscular system (from myology.glb) */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/asset-01/myology.glb" 
+              positionX={2.4} 
+              opacity={opacity} 
+              wireframe={wireframe} 
+              activeSystems={activeSystems}
+            />
+          </Suspense>
         </Suspense>
+
+        {/* Render interactive organ labels & anomaly markers */}
+        {ORGANS.map(organ => {
+          const systemKey = ORGAN_SYSTEM_MAP[organ.id]
+          const isSystemActive = !activeSystems || !systemKey || !!activeSystems[systemKey]
+          if (!isSystemActive) return null
+
+          // Find if this organ is affected in any of the active regions
+          const matchingRegion = (affectedRegions || []).find(region => {
+            const organName = region.bodyRegion.toLowerCase()
+            const mappedNodes = ORGAN_MAP[organName] || [organName]
+            return mappedNodes.includes(organ.id)
+          })
+
+          // Calculate translated position for Column 2 (-1.2 on X, and vertical shift)
+          const [bx, by, bz] = organ.position
+          const dx = -1.2
+          let dy = 0
+          
+          if (organ.id === 'brain') {
+            dy = 0.7
+          } else if (['throat', 'nasal_cavity', 'trachea', 'lung_left', 'lung_right', 'heart'].includes(organ.id)) {
+            dy = 0.3
+          } else if (['liver', 'stomach'].includes(organ.id)) {
+            dy = 0.0
+          } else if (['kidney_left', 'kidney_right'].includes(organ.id)) {
+            dy = -0.4
+          } else if (organ.id === 'intestines') {
+            dy = -0.7
+          }
+          
+          const adjustedPosition: [number, number, number] = [bx + dx, by + dy, bz]
+
+          if (matchingRegion) {
+            return (
+              <PulsingMarker
+                key={`anomaly-${organ.id}`}
+                position={adjustedPosition}
+                confidence={matchingRegion.confidence}
+                condition={matchingRegion.condition}
+                reasoning={matchingRegion.reasoning}
+                organName={organ.name}
+              />
+            )
+          }
+
+          // Otherwise render a standard hoverable label
+          return (
+            <OrganLabel 
+              key={`label-${organ.id}`} 
+              organ={{
+                ...organ,
+                position: adjustedPosition
+              }} 
+              isAffected={false} 
+              showLabel={false} 
+            />
+          )
+        })}
+
+        {/* Holographic grid platform beneath the standing models */}
+        <gridHelper 
+          args={[8.0, 20, '#0ea5e9', '#002244']} 
+          position={[0, -0.99, 0]}
+        />
+        <mesh position={[0, -0.995, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[8.0, 2.0]} />
+          <meshStandardMaterial 
+            color="#0ea5e9" 
+            transparent 
+            opacity={0.05} 
+            side={THREE.DoubleSide}
+          />
+        </mesh>
 
         <ContactShadows 
           position={[0, -1.0, 0]} 

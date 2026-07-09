@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { medicalHistory } from '@/lib/db/schema'
 import { headers } from 'next/headers'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -26,6 +26,10 @@ export async function deleteMedicalRecord(recordId: string) {
   const userId = await getUserId()
   await db
     .delete(medicalHistory)
-    .where(eq(medicalHistory.id, recordId))
-    .where(eq(medicalHistory.userId, userId))
+    .where(
+      and(
+        eq(medicalHistory.id, recordId),
+        eq(medicalHistory.userId, userId)
+      )
+    )
 }
