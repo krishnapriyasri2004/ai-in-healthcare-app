@@ -385,8 +385,8 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           const isSkin = name.includes('skin') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('hair')
           if (isSkin) {
             m.transparent = true
-            m.opacity = (positionX === -2.4) ? 1.0 : 0.15
-            m.depthWrite = (positionX === -2.4)
+            m.opacity = 0.18
+            m.depthWrite = false
           } else {
             m.transparent = false
             m.opacity = 1.0
@@ -463,51 +463,50 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
   const fbx = useFBX(path)
   const groupRef = useRef<THREE.Group>(null)
 
-  const { wrapper, innerClone } = useMemo(() => {
-    // The FBX skeleton uses Z-up coordinates. Rotating the root clone breaks
-    // skinned mesh bind poses. The correct fix: wrap clone in a parent Group
-    // and rotate the WRAPPER. Skinned meshes are unaffected.
+  const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
+    clone.updateWorldMatrix(true, true)
+    const box = new THREE.Box3()
+    let hasMesh = false
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name.toLowerCase()
+        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper')) return
+        if (child.geometry) {
+          if (!child.geometry.boundingBox) child.geometry.computeBoundingBox()
+          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
+          if (!hasMesh) { box.copy(meshBox); hasMesh = true } else box.union(meshBox)
+        }
+      }
+    })
+    if (!hasMesh) box.setFromObject(clone)
 
-    const wrapper = new THREE.Group()
-    wrapper.rotation.x = -Math.PI / 2
-    wrapper.add(clone)
-    wrapper.updateMatrixWorld(true)
-
-    // Compute bounding box from the upright wrapper
-    const box = new THREE.Box3().setFromObject(wrapper)
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
     const targetHeight = 2.0
     const scaleFactor = targetHeight / (size.y || 1)
-    wrapper.scale.setScalar(scaleFactor)
-    wrapper.updateMatrixWorld(true)
-
-    // Recompute after scaling to get final center/min
-    const box2 = new THREE.Box3().setFromObject(wrapper)
-    const center2 = box2.getCenter(new THREE.Vector3())
-    wrapper.position.set(-center2.x, -box2.min.y - 1.0, -center2.z)
-
-    // Apply realistic ivory bone material to the inner clone meshes
-    const boneMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e8dcc8'),
-      roughness: 0.60,
-      metalness: 0.05,
-      emissive: new THREE.Color('#221e16'),
-      emissiveIntensity: 0.15,
-    })
+    clone.scale.setScalar(scaleFactor)
+    
+    // Initial static position X
+    clone.position.set(0, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
 
     clone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
-        child.material = boneMaterial.clone()
+        child.castShadow = false
+        child.receiveShadow = false
+        if (!mesh.isSkinnedMesh && mesh.geometry) {
+          if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
+          if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
+        }
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
+          else if (mesh.material.clone) mesh.material = mesh.material.clone()
+        }
       }
     })
-
-    return { wrapper, innerClone: clone }
-  }, [fbx])
+    return clone
+  }, [fbx, positionX])
 
   // INSTANT snap Horizontal slide
   useFrame(() => {
@@ -521,7 +520,7 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
   })
 
   useEffect(() => {
-    innerClone.traverse((child) => {
+    cloned.traverse((child) => {
       const mesh = child as any
       if (!(child instanceof THREE.Mesh || mesh.isMesh)) return
       
@@ -544,7 +543,7 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
         m.needsUpdate = true
       })
     })
-  }, [innerClone, activeSystems, highlightedMeshNames, visible])
+  }, [cloned, activeSystems, highlightedMeshNames, visible])
 
   return (
     <group 
@@ -554,7 +553,7 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
         onModelClick()
       }}
     >
-      <primitive object={wrapper} />
+      <primitive object={cloned} />
     </group>
   )
 })
@@ -936,7 +935,7 @@ export default function ViewAnatomyPage() {
                 style={{ position: 'absolute', inset: 0 }}
               >
                 {/* Clinical Steel Blue/Slate Background for maximum contrast */}
-                <color attach="background" args={['#060a14']} />
+                <color attach="background" args={['#0a0f1d']} />
                 
                 {/* Neutral Studio Lighting */}
                 <ambientLight intensity={0.7} color="#ffffff" />
