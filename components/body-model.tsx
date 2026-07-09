@@ -614,6 +614,7 @@ function FBXModelWrapper({
   
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
+    clone.rotation.x = -Math.PI / 2
     clone.updateWorldMatrix(true, true)
     
     // Ignore background/floor helper nodes to prevent giant bounding boxes
@@ -643,8 +644,6 @@ function FBXModelWrapper({
     if (!hasMesh) {
       box.setFromObject(clone)
     }
-
-    clone.rotation.x = -Math.PI / 2
 
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
