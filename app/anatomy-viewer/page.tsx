@@ -180,7 +180,6 @@ function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
 
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(fbx)
-    clone.rotation.x = -Math.PI / 2
 
     clone.updateWorldMatrix(true, true)
     const box = new THREE.Box3()
