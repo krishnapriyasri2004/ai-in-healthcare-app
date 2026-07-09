@@ -1,1357 +1,441 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { BodyModel } from './body-model'
-import { SymptomInput } from './symptom-input'
-import { DICOMViewer } from './dicom-viewer'
-import { 
-  Heart, 
-  Activity, 
-  Search, 
-  Scan, 
-  Mic, 
-  UserPlus, 
-  Users,
-  Eye, 
-  CheckCircle, 
-  X, 
-  SlidersHorizontal,
-  ChevronRight,
-  Shield,
-  FileText,
-  Clock,
-  Calendar,
-  AlertTriangle,
-  Volume2,
-  ListTodo,
-  TrendingUp,
-  AlertCircle
+import {
+  Heart, Activity, Users, AlertTriangle, Clock,
+  TrendingUp, TrendingDown, Sparkles, ChevronRight,
+  CheckCircle2, Circle, Stethoscope, Thermometer,
+  Droplets, Wind, Brain, ArrowRight, Bell, Calendar,
+  FileText, ShieldCheck, Zap
 } from 'lucide-react'
 
-interface Analysis {
-  predictedCondition: string
-  confidence: 'high' | 'medium' | 'low'
-  reasoning: string
-  affectedRegions: Array<{
-    bodyRegion: string
-    confidence: 'high' | 'medium' | 'low'
-    condition: string
-    reasoning: string
-    symptoms?: string
-    relevantVitalsHistory?: string
-  }>
-  recommendations: string[]
-  severityScore: number
-  differentialDiagnosis?: Array<{
-    condition: string
-    confidence: number
-    severity: 'high' | 'medium' | 'low'
-    reasoning: string
-  }>
-  redFlags?: Array<{
-    title: string
-    description: string
-    alertLevel: 'critical' | 'warning'
-  }>
-}
+// ── Data ────────────────────────────────────────────────────────────────────
 
-interface Patient {
-  id: string
-  name: string
-  age: number
-  gender: 'Male' | 'Female'
-  symptoms: string
-  notes: string
-  vitals: { temp: string; hr: string; spo2: string; bp: string; resp: string }
-  analysis: Analysis | null
-  bloodType?: string
-  esiLevel?: number
-  painScale?: number
-  selectedHistory?: string[]
-  abhaId?: string
-  pmjayEligible?: 'Eligible' | 'Ineligible' | 'Under Verification'
-  bloodSugar?: string
-  clinicalTimeline?: Array<{ step: string; time: string; completed: boolean }>
-}
-
-const SHIELD_PATIENTS: Patient[] = [
+const STATS = [
   {
-    id: 'pat-1',
-    name: 'Raj Kumar',
-    age: 58,
-    gender: 'Male',
-    symptoms: 'Patient reports sudden pain, swelling, and deformity in right wrist due to fall from two-wheeler 2 hours ago. Patient fell on outstretched hand.',
-    notes: 'Prior history of moderate hypertension and occasional asthma. Blood pressure elevated.',
-    vitals: { temp: '37.0', hr: '82', spo2: '98', bp: '128/82', resp: '18' },
-    bloodType: 'A+',
-    abhaId: '91-XXXX-XXXX-1234',
-    pmjayEligible: 'Eligible',
-    bloodSugar: '142',
-    esiLevel: 3,
-    painScale: 7,
-    selectedHistory: ['Hypertension', 'Asthma / COPD'],
-    clinicalTimeline: [
-      { step: 'Admission', time: '08:30 AM', completed: true },
-      { step: 'Vitals Recorded', time: '08:35 AM', completed: true },
-      { step: 'Lab Ordered', time: '08:40 AM', completed: true },
-      { step: 'Imaging Completed', time: '09:15 AM', completed: true },
-      { step: 'AI Analysis', time: '09:20 AM', completed: true },
-      { step: 'Doctor Review', time: '10:25 AM', completed: true },
-      { step: 'Treatment Plan', time: '--:--', completed: false },
-      { step: 'Discharge', time: '--:--', completed: false }
-    ],
-    analysis: {
-      predictedCondition: 'Distal Radius Fracture (Suspected)',
-      confidence: 'high',
-      reasoning: 'Retrosternal or extremity trauma history combined with acute focal pain, deformity, and cortical swelling strongly indicates distal radial skeletal disruption.',
-      affectedRegions: [
-        { bodyRegion: 'skeletal', confidence: 'high', condition: 'Distal Radius Fracture', reasoning: 'Focal skeletal discontinuity in distal forearm.', symptoms: 'Swelling, severe pain, deformity', relevantVitalsHistory: 'Pain Scale 7/10' }
-      ],
-      recommendations: [
-        'Load with Paracetamol 650mg + Ibuprofen 400mg SOS.',
-        'Request immediate CT Reconstruction or forearm radiography.',
-        'Perform Orthopedic Consultation for casting or closed reduction.',
-        'Apply temporary immobilization splint to prevent dislocation.'
-      ],
-      severityScore: 78,
-      differentialDiagnosis: [
-        { condition: 'Distal Radius Fracture', confidence: 95, severity: 'high', reasoning: 'Cortical discontinuity and joint displacement observed in forearm structures.' },
-        { condition: 'Wrist Joint Sprain / Ligament Tear', confidence: 40, severity: 'medium', reasoning: 'Severe soft tissue swelling without visible bone fracture.' },
-        { condition: 'Colles Fracture', confidence: 85, severity: 'high', reasoning: 'Dorsal displacement typical of outpatient falls.' }
-      ],
-      redFlags: [
-        { title: 'FRACTURE DETECTED', description: 'Immediate orthopedic casting and immobilization required to avoid neurovascular compromise.', alertLevel: 'warning' }
-      ]
-    }
+    label: 'Patients Today',
+    value: '24',
+    sub: '+3 since yesterday',
+    icon: Users,
+    trend: 'up',
+    color: 'cyan'
   },
   {
-    id: 'pat-2',
-    name: 'Priya Sharma',
-    age: 29,
-    gender: 'Female',
-    symptoms: 'Patient presents with high-grade fever (103°F) for 5 days, severe retro-orbital headache, generalized muscle and joint pain ("breakbone" aches), and mild petechial rashes on lower limbs.',
-    notes: 'No major medical history. Living in a vector-heavy area during monsoon season.',
-    vitals: { temp: '39.4', hr: '98', spo2: '97', bp: '105/70', resp: '20' },
-    bloodType: 'B+',
-    abhaId: '23-9081-3482-1249',
-    pmjayEligible: 'Under Verification',
-    bloodSugar: '95',
-    esiLevel: 2,
-    painScale: 8,
-    selectedHistory: [],
-    clinicalTimeline: [
-      { step: 'Admission', time: '10:02 AM', completed: true },
-      { step: 'Vitals Recorded', time: '10:05 AM', completed: true },
-      { step: 'Lab Ordered', time: '10:10 AM', completed: true },
-      { step: 'Imaging Completed', time: '--:--', completed: false },
-      { step: 'AI Analysis', time: '10:18 AM', completed: true },
-      { step: 'Doctor Review', time: '10:20 AM', completed: true },
-      { step: 'Treatment Plan', time: '--:--', completed: false },
-      { step: 'Discharge', time: '--:--', completed: false }
-    ],
-    analysis: {
-      predictedCondition: 'Dengue Hemorrhagic Fever (Suspected)',
-      confidence: 'high',
-      reasoning: 'High-grade continuous fever, retro-orbital pain, arthralgia/myalgia (breakbone fever), and petechial rashes in an endemic tropical region point strongly to Dengue virus infection.',
-      affectedRegions: [
-        { bodyRegion: 'brain', confidence: 'medium', condition: 'Retro-orbital cephalalgia', reasoning: 'Severe localized retro-orbital pain secondary to systemic viral fever.', symptoms: 'Retro-orbital headache', relevantVitalsHistory: 'Fever 39.4°C (103°F)' },
-        { bodyRegion: 'liver', confidence: 'medium', condition: 'Hepatomegaly risk', reasoning: 'Dengue virus often causes mild transaminitis and liver congestion.', symptoms: 'Nausea, abdominal fullness', relevantVitalsHistory: 'High-grade pyrexia' }
-      ],
-      recommendations: [
-        'Initiate strict hydration (oral ORS / Electral) and monitor intake/output chart.',
-        'Administer Paracetamol (Dolo 650mg) SOS for fever. AVOID NSAIDs (Aspirin, Ibuprofen) due to bleeding risk.',
-        'Order Complete Blood Count (CBC) immediately to check platelet counts and hematocrit levels.',
-        'Advise bed rest and immediate return if warning signs (bleeding, abdominal pain, persistent vomiting) develop.'
-      ],
-      severityScore: 70,
-      differentialDiagnosis: [
-        { condition: 'Dengue Fever / Dengue Hemorrhagic Fever', confidence: 90, severity: 'high', reasoning: 'Characteristic retro-orbital pain, severe joint pain, high fever, and petechiae.' },
-        { condition: 'Malaria (Plasmodium falciparum)', confidence: 45, severity: 'high', reasoning: 'High-grade fever with rigors/chills; endemicity warrants peripheral blood smear confirmation.' },
-        { condition: 'Enteric (Typhoid) Fever', confidence: 35, severity: 'medium', reasoning: 'Continuous fever, but bradycardia or gastrointestinal symptoms are more typical; requires Widal/Blood Culture.' }
-      ],
-      redFlags: [
-        { title: 'THROMBOCYTOPENIA & BLEEDING RISK', description: 'Petechial rashes and high fever for 5 days. Watch for active bleeding, platelet depletion, or hematemesis.', alertLevel: 'warning' }
-      ]
-    }
+    label: 'Critical Alerts',
+    value: '2',
+    sub: 'Require immediate action',
+    icon: AlertTriangle,
+    trend: 'alert',
+    color: 'red'
   },
   {
-    id: 'pat-3',
-    name: 'Amit Patel',
-    age: 58,
-    gender: 'Male',
-    symptoms: 'Persistent productive cough with yellowish-green sputum and occasional blood streaks (hemoptysis) for the past 3 weeks. Reports low-grade evening fever, night sweats, and unexplained weight loss of 5 kg.',
-    notes: 'Prior history of moderate chronic asthma. Worked in poorly ventilated textile mills.',
-    vitals: { temp: '37.8', hr: '82', spo2: '96', bp: '118/75', resp: '19' },
-    bloodType: 'A-',
-    abhaId: '88-4328-9843-2390',
-    pmjayEligible: 'Eligible',
-    bloodSugar: '110',
-    esiLevel: 3,
-    painScale: 4,
-    selectedHistory: ['Asthma / COPD'],
-    clinicalTimeline: [
-      { step: 'Admission', time: '09:45 AM', completed: true },
-      { step: 'Vitals Recorded', time: '09:48 AM', completed: true },
-      { step: 'Lab Ordered', time: '09:50 AM', completed: true },
-      { step: 'Imaging Completed', time: '10:05 AM', completed: true },
-      { step: 'AI Analysis', time: '10:12 AM', completed: true },
-      { step: 'Doctor Review', time: '10:15 AM', completed: true },
-      { step: 'Treatment Plan', time: '--:--', completed: false },
-      { step: 'Discharge', time: '--:--', completed: false }
-    ],
-    analysis: {
-      predictedCondition: 'Pulmonary Tuberculosis (Active)',
-      confidence: 'high',
-      reasoning: 'Triad of chronic cough (>2 weeks), hemoptysis, low-grade evening temperature spikes, night sweats, and significant weight loss in an endemic region is highly indicative of active Pulmonary TB.',
-      affectedRegions: [
-        { bodyRegion: 'lungs', confidence: 'high', condition: 'Pulmonary Cavitation', reasoning: 'Mycobacterium tuberculosis infection in lung parenchymal tissue leading to chronic cough and hemoptysis.', symptoms: 'Productive cough, hemoptysis, dyspnea', relevantVitalsHistory: 'Subfebrile temperature (37.8°C), history of asthma' }
-      ],
-      recommendations: [
-        'Order chest X-ray (PA view) and sputum smear for Acid-Fast Bacilli (AFB) / GeneXpert assay.',
-        'Isolate the patient or advise double-masking to prevent airborne transmission.',
-        'Refer to national DOTS (Directly Observed Treatment Short-course) center for registration and AKT-4 regimen initiation.',
-        'Provide nutritional counseling and supplement with Vitamin B6 (Pyridoxine) during treatment.'
-      ],
-      severityScore: 65,
-      differentialDiagnosis: [
-        { condition: 'Pulmonary Tuberculosis', confidence: 92, severity: 'high', reasoning: 'Chronic cough for 3 weeks, evening rise of temperature, hemoptysis, and weight loss.' },
-        { condition: 'Community-Acquired Pneumonia (CAP)', confidence: 40, severity: 'medium', reasoning: 'Consolidation could explain productive cough and fever, but duration and weight loss are atypical.' },
-        { condition: 'Bronchogenic Carcinoma', confidence: 25, severity: 'high', reasoning: 'Chronic hemoptysis and weight loss in an older patient; requires chest CT scan to rule out.' }
-      ],
-      redFlags: [
-        { title: 'AIRBORNE INFECTIOUS RISK', description: 'Highly suspect active Pulmonary TB. Sputum AFB confirmation and isolation protocols required.', alertLevel: 'warning' }
-      ]
-    }
-  }
+    label: 'Avg. Consult Time',
+    value: '14m',
+    sub: '↓ 2 min from last week',
+    icon: Clock,
+    trend: 'down',
+    color: 'violet'
+  },
+  {
+    label: 'AI Diagnoses',
+    value: '18',
+    sub: 'DeepSeek mapped today',
+    icon: Brain,
+    trend: 'up',
+    color: 'emerald'
+  },
 ]
 
+const ALERTS = [
+  {
+    id: 1,
+    name: 'Rajesh Khanna',
+    age: 45,
+    condition: 'Suspected STEMI',
+    detail: 'ST elevation on ECG, severe chest pain radiating to left arm',
+    level: 'critical',
+    time: '2 min ago',
+    vitals: { hr: '104', spo2: '94', bp: '150/95' }
+  },
+  {
+    id: 2,
+    name: 'Meena Iyer',
+    age: 67,
+    condition: 'Hypertensive Crisis',
+    detail: 'BP 210/120 with visual disturbances and severe headache',
+    level: 'critical',
+    time: '8 min ago',
+    vitals: { hr: '96', spo2: '97', bp: '210/120' }
+  },
+  {
+    id: 3,
+    name: 'Priya Sharma',
+    age: 29,
+    condition: 'Dengue Grade II',
+    detail: 'Platelet count 85,000 — falling. Monitor closely.',
+    level: 'warning',
+    time: '24 min ago',
+    vitals: { hr: '98', spo2: '97', bp: '105/70' }
+  },
+]
+
+const SCHEDULE = [
+  { time: '09:30', name: 'Rajesh Khanna', type: 'ACS Follow-up', status: 'done' },
+  { time: '10:30', name: 'Raj Kumar', type: 'Wrist Fracture Review', status: 'active' },
+  { time: '11:00', name: 'Priya Sharma', type: 'Dengue Monitoring', status: 'upcoming' },
+  { time: '12:15', name: 'Amit Patel', type: 'TB DOTS Sputum Check', status: 'upcoming' },
+  { time: '14:00', name: 'Lakshmi P.', type: 'Echo — Valvular Screen', status: 'upcoming' },
+  { time: '15:30', name: 'Arjun Mehta', type: 'Diabetes Review (HbA1c)', status: 'upcoming' },
+]
+
+const RECENT_DX = [
+  { condition: 'Acute Coronary Syndrome (STEMI)', patient: 'Rajesh Khanna', organ: 'Heart', confidence: 94, time: '1h ago', flag: true },
+  { condition: 'Pulmonary Tuberculosis (Active)', patient: 'Amit Patel', organ: 'Lungs', confidence: 92, time: '2h ago', flag: false },
+  { condition: 'Dengue Hemorrhagic Fever', patient: 'Priya Sharma', organ: 'Liver', confidence: 88, time: '3h ago', flag: false },
+  { condition: 'Type 2 Diabetes (Uncontrolled)', patient: 'Suresh Nair', organ: 'Pancreas', confidence: 81, time: '5h ago', flag: false },
+]
+
+const QUICK_VITALS = [
+  { label: 'Avg HR', value: '84', unit: 'bpm', icon: Heart, color: 'text-red-400', bg: 'bg-red-950/30 border-red-500/20' },
+  { label: 'Avg SpO₂', value: '96', unit: '%', icon: Wind, color: 'text-blue-400', bg: 'bg-blue-950/30 border-blue-500/20' },
+  { label: 'Avg Temp', value: '37.4', unit: '°C', icon: Thermometer, color: 'text-amber-400', bg: 'bg-amber-950/30 border-amber-500/20' },
+  { label: 'Avg BP', value: '128/82', unit: 'mmHg', icon: Droplets, color: 'text-violet-400', bg: 'bg-violet-950/30 border-violet-500/20' },
+]
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 export function Dashboard() {
-  const [patients, setPatients] = useState<Patient[]>(SHIELD_PATIENTS)
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('pat-1')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'summary' | 'meds' | 'labs' | 'history'>('summary')
-  const [view3DMode, setView3DMode] = useState<'axial' | 'coronal' | 'sagittal' | 'render'>('render')
-  const [highlightedOrgan, setHighlightedOrgan] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [approvalStatus, setApprovalStatus] = useState<string | null>(null) // 'Approved' | 'Rejected' | 'Modified'
+  const [dismissedAlerts, setDismissedAlerts] = useState<number[]>([])
+  const now = new Date()
+  const hour = now.getHours()
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
 
-  // Symptom Analysis Workspace States
-  const [symptomAge, setSymptomAge] = useState('45')
-  const [symptomSex, setSymptomSex] = useState('Male')
-  const [symptomDuration, setSymptomDuration] = useState('2 hours')
-  const [symptomSeverity, setSymptomSeverity] = useState('Critical')
-  const [symptomText, setSymptomText] = useState('')
-  const [isSymptomAnalyzing, setIsSymptomAnalyzing] = useState(false)
-  const [symptomAnalysisResult, setSymptomAnalysisResult] = useState<{
-    affectedRegions: string[]
-    possibleConditions: { name: string; confidence: number; reasoning: string }[]
-    redFlag: boolean
-  } | null>(null)
-  const [isSymptomPanelOpen, setIsSymptomPanelOpen] = useState(true)
-  const [isConditionsPanelOpen, setIsConditionsPanelOpen] = useState(true)
-
-  const handleSymptomAnalysis = async () => {
-    if (!symptomText.trim()) return
-    setIsSymptomAnalyzing(true)
-    setSymptomAnalysisResult(null)
-
-    try {
-      const response = await fetch('/api/analyze-symptoms-deepseek', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          age: symptomAge,
-          sex: symptomSex,
-          duration: symptomDuration,
-          severity: symptomSeverity,
-          symptoms: symptomText
-        })
-      })
-      const data = await response.json()
-      setSymptomAnalysisResult(data)
-    } catch (e) {
-      console.error(e)
-      setSymptomAnalysisResult({
-        affectedRegions: ['throat'],
-        possibleConditions: [
-          { name: 'Connection Error', confidence: 0, reasoning: 'Unable to reach clinical decision support API. Falling back to default.' }
-        ],
-        redFlag: false
-      })
-    } finally {
-      setIsSymptomAnalyzing(false)
-    }
-  }
-
-  // Quick Symptom Entry States
-  const [showSymptomForm, setShowSymptomForm] = useState(false)
-  const [quickSymptoms, setQuickSymptoms] = useState('')
-  const [quickSelectedComplaints, setQuickSelectedComplaints] = useState<string[]>([])
-  const [quickVitals, setQuickVitals] = useState({
-    bpSys: '120',
-    bpDia: '80',
-    hr: '75',
-    spo2: '98',
-    temp: '37.0'
-  })
-
-  // Sync quick forms when activePatient changes
-  useEffect(() => {
-    if (activePatient) {
-      setQuickSymptoms(activePatient.symptoms || '')
-      if (activePatient.vitals) {
-        const [sys, dia] = (activePatient.vitals.bp || '120/80').split('/')
-        setQuickVitals({
-          bpSys: sys || '120',
-          bpDia: dia || '80',
-          hr: activePatient.vitals.hr || '75',
-          spo2: activePatient.vitals.spo2 || '98',
-          temp: activePatient.vitals.temp || '37.0'
-        })
-      }
-      setQuickSelectedComplaints([])
-      setShowSymptomForm(false)
-    }
-  }, [selectedPatientId, patients])
-
-  const handleQuickAnalyze = async () => {
-    const complaintsStr = quickSelectedComplaints
-      .map(id => {
-        const item = [
-          { id: 'chest_pain', label: 'Chest Pain' },
-          { id: 'dyspnea', label: 'Shortness of Breath' },
-          { id: 'cephalalgia', label: 'Severe Headache' },
-          { id: 'abdominal_pain', label: 'Abdominal Pain' },
-          { id: 'high_fever', label: 'High Grade Fever' },
-          { id: 'arthralgia', label: 'Joint/Muscle Pain' }
-        ].find(c => c.id === id)
-        return item ? item.label : ''
-      })
-      .filter(Boolean)
-      .join(', ')
-
-    const structuredSymptoms = `[Chief Complaint: ${complaintsStr || 'None'}] [Pain Severity: 5/10] ${quickSymptoms}`
-    const structuredNotes = `[Patient Profile: Age ${activePatient?.age || 38}, Blood Type ${activePatient?.bloodType || 'O+'}] ${activePatient?.notes || ''}`
-    
-    const vitalsData = {
-      temp: quickVitals.temp,
-      hr: quickVitals.hr,
-      spo2: quickVitals.spo2,
-      bp: `${quickVitals.bpSys}/${quickVitals.bpDia}`,
-      resp: activePatient?.vitals.resp || '16'
-    }
-
-    await handleAnalyzeSymptoms(structuredSymptoms, structuredNotes, activePatient?.gender || 'Female', vitalsData)
-    setShowSymptomForm(false)
-  }
-
-
-  // Synchronized DICOM slice and coordinates states
-  const [sliceIndex, setSliceIndex] = useState(50)
-  const [dicomCrosshair, setDicomCrosshair] = useState({ x: 100, y: 100 })
-
-  // 3D Canvas Settings
-  const [opacity, setOpacity] = useState(0.85)
-  const [wireframe, setWireframe] = useState(false)
-  const [systems, setSystems] = useState({
-    skeletal: true,
-    muscular: false,
-    nervous: true,
-    cardiovascular: true,
-    respiratory: true,
-    digestive: true,
-    lymphatic: false,
-    integumentary: true
-  })
-
-  const activePatient = useMemo(() => {
-    return patients.find(p => p.id === selectedPatientId) || patients[0]
-  }, [patients, selectedPatientId])
-
-  const filteredPatients = useMemo(() => {
-    return patients.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.abhaId && p.abhaId.includes(searchQuery))
-    )
-  }, [patients, searchQuery])
-
-  const toggleSystem = (key: keyof typeof systems) => {
-    setSystems(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  // Listen for global custom events from the sidebar
-  useEffect(() => {
-    const handleOpenScanner = () => setIsModalOpen(true)
-    window.addEventListener('open-ai-scanner', handleOpenScanner)
-    
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('triggerScanner') === 'true') {
-      setIsModalOpen(true)
-      window.history.replaceState({}, document.title, window.location.pathname)
-    }
-
-    return () => {
-      window.removeEventListener('open-ai-scanner', handleOpenScanner)
-    }
-  }, [])
-
-  // Handle new symptom analysis
-  const handleAnalyzeSymptoms = async (
-    symptoms: string, 
-    notes: string, 
-    gender: string,
-    vitalsData?: { temp: string; hr: string; spo2: string; bp: string; resp?: string },
-    patientUpdates?: {
-      age: number
-      gender: 'Male' | 'Female'
-      bloodType: string
-      esiLevel: number
-      painScale: number
-      selectedHistory: string[]
-      abhaId?: string
-      pmjayEligible?: 'Eligible' | 'Ineligible' | 'Under Verification'
-      bloodSugar?: string
-    }
-  ) => {
-    setIsLoading(true)
-    let analysisData = null
-    const basePath = '/ai-in-healthcare'
-
-    try {
-      const response = await fetch(`${basePath}/api/analyze-symptoms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptoms, notes, gender, vitals: vitalsData }),
-      })
-
-      if (!response.ok) throw new Error('Analysis failed')
-      const data = await response.json()
-      analysisData = data.analysis
-    } catch (error) {
-      // Fallback local rules engine
-      const parseMeta = (str: string, label: string) => {
-        const match = str.match(new RegExp(`\\[${label}:\\s*([^\\]]+)\\]`))
-        return match ? match[1].trim() : ''
-      }
-
-      const rawText = (symptoms + ' ' + notes).toLowerCase()
-      const painScaleVal = parseInt(parseMeta(symptoms, 'Pain Severity')) || 5
-      const tempVal = vitalsData ? vitalsData.temp : '37.0'
-      const hrVal = vitalsData ? vitalsData.hr : '80'
-      const spo2Val = vitalsData ? vitalsData.spo2 : '98'
-      const bpVal = vitalsData ? vitalsData.bp : '120/80'
-      const respVal = vitalsData?.resp || '18'
-
-      if (rawText.includes('chest') || rawText.includes('heart') || rawText.includes('retrosternal')) {
-        analysisData = {
-          predictedCondition: 'Acute Coronary Syndrome (STEMI Risk)',
-          confidence: 'high' as const,
-          reasoning: 'Retrosternal crushing pressure and elevated cardiovascular indicators.',
-          affectedRegions: [
-            { bodyRegion: 'heart', confidence: 'high' as const, condition: 'Myocardial Ischemia', reasoning: 'Coronary artery occlusion.' }
-          ],
-          recommendations: ['Perform immediate 12-lead ECG stat', 'Load with Aspirin 325mg', 'Establish Cath Lab routing'],
-          severityScore: 92
-        }
-      } else if (rawText.includes('cough') || rawText.includes('tuberculosis') || rawText.includes('sputum')) {
-        analysisData = {
-          predictedCondition: 'Pulmonary Tuberculosis (Active)',
-          confidence: 'high' as const,
-          reasoning: 'Chronic productive cough with evening fever, night sweats, and weight loss.',
-          affectedRegions: [
-            { bodyRegion: 'lungs', confidence: 'high' as const, condition: 'Pulmonary Cavitation', reasoning: 'M. tuberculosis infection.' }
-          ],
-          recommendations: ['Order Chest X-ray (PA)', 'Sputum AFB Smear', 'Initiate DOTS AKT-4 regimen'],
-          severityScore: 65
-        }
-      } else {
-        analysisData = {
-          predictedCondition: 'Dengue Hemorrhagic Fever',
-          confidence: 'high' as const,
-          reasoning: 'High fever, severe arthralgia, retro-orbital headache, and petechiae.',
-          affectedRegions: [
-            { bodyRegion: 'brain', confidence: 'medium' as const, condition: 'Focal retro-orbital cephalalgia', reasoning: 'Viral retro-orbital inflammation.' },
-            { bodyRegion: 'liver', confidence: 'medium' as const, condition: 'Hepatomegaly risk', reasoning: 'Secondary systemic viral stress.' }
-          ],
-          recommendations: ['Strict hydration (ORS)', 'Administer Paracetamol (Dolo 650mg)', 'Avoid NSAIDs'],
-          severityScore: 70
-        }
-      }
-    }
-
-    if (analysisData) {
-      setPatients(prev => prev.map(p => {
-        if (p.id === selectedPatientId) {
-          return {
-            ...p,
-            symptoms,
-            notes,
-            vitals: {
-              temp: vitalsData?.temp || p.vitals.temp,
-              hr: vitalsData?.hr || p.vitals.hr,
-              spo2: vitalsData?.spo2 || p.vitals.spo2,
-              bp: vitalsData?.bp || p.vitals.bp,
-              resp: vitalsData?.resp || p.vitals.resp
-            },
-            analysis: analysisData,
-            ...(patientUpdates ? {
-              age: patientUpdates.age,
-              gender: patientUpdates.gender,
-              bloodType: patientUpdates.bloodType,
-              esiLevel: patientUpdates.esiLevel,
-              painScale: patientUpdates.painScale,
-              selectedHistory: patientUpdates.selectedHistory,
-              abhaId: patientUpdates.abhaId,
-              pmjayEligible: patientUpdates.pmjayEligible,
-              bloodSugar: patientUpdates.bloodSugar
-            } : {})
-          }
-        }
-        return p
-      }))
-      setApprovalStatus(null) // reset approval state for new analysis
-      setIsModalOpen(false)   // close scanner dialog
-    }
-    setIsLoading(false)
-  }
-
-  // Merged body region highlights
-  const activeRegions = useMemo(() => {
-    const regions = [...(activePatient?.analysis?.affectedRegions || [])]
-    if (highlightedOrgan) {
-      regions.push({
-        bodyRegion: highlightedOrgan,
-        confidence: 'high',
-        condition: 'Focus Inspection active',
-        reasoning: `Targeting the ${highlightedOrgan} for manual structural examination.`
-      })
-    }
-    return regions
-  }, [activePatient, highlightedOrgan])
-
-  const handleAddNewPatientRecord = () => {
-    const name = prompt("Enter patient full name:")
-    if (!name) return
-    const abhaInput = prompt("Enter ABHA ID (e.g. 91-0000-0000-0000):") || `91-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`
-    
-    const newPatient: Patient = {
-      id: `pat-${Date.now()}`,
-      name,
-      age: 38,
-      gender: 'Male',
-      symptoms: 'No active symptoms described.',
-      notes: 'New clinical registry created.',
-      vitals: { temp: '36.8', hr: '74', spo2: '98', bp: '120/80', resp: '16' },
-      abhaId: abhaInput,
-      pmjayEligible: 'Eligible',
-      bloodSugar: '108',
-      clinicalTimeline: [
-        { step: 'Admission', time: '10:30 AM', completed: true },
-        { step: 'Vitals Recorded', time: '10:35 AM', completed: true },
-        { step: 'Lab Ordered', time: '--:--', completed: false },
-        { step: 'Imaging Completed', time: '--:--', completed: false },
-        { step: 'AI Analysis', time: '--:--', completed: false },
-        { step: 'Doctor Review', time: '--:--', completed: false },
-        { step: 'Treatment Plan', time: '--:--', completed: false },
-        { step: 'Discharge', time: '--:--', completed: false }
-      ],
-      analysis: null
-    }
-
-    setPatients(prev => [...prev, newPatient])
-    setSelectedPatientId(newPatient.id)
-    setIsModalOpen(true) // Open scan input right away for the new patient
-  }
+  const activeAlerts = ALERTS.filter(a => !dismissedAlerts.includes(a.id))
 
   return (
-    <div className="w-full h-full bg-[#020617] text-gray-100 flex flex-col lg:flex-row gap-6 p-6 overflow-hidden select-none font-sans">
-      
-      {/* 1. LEFT COLUMN: Patient Navigator (Width 22%) */}
-      <div className="w-full lg:w-[22%] flex flex-col gap-4 bg-[#070d19]/45 border border-slate-900/60 rounded-2xl p-4 shadow-xl backdrop-blur-md">
-        
-        {/* Search & Add Header */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs uppercase text-cyan-400 tracking-wider font-mono flex items-center gap-1.5">
-              <Users className="w-4 h-4" /> Patient Registry
-            </span>
-            <button 
-              onClick={handleAddNewPatientRecord}
-              className="flex items-center gap-1 text-[10px] uppercase font-mono font-bold px-2.5 py-1.5 rounded-lg bg-cyan-950/80 border border-cyan-500/40 hover:bg-cyan-900/40 transition text-cyan-400 cursor-pointer shadow-[0_0_10px_rgba(6,182,212,0.1)]"
-            >
-              <UserPlus className="w-3.5 h-3.5" /> Add
-            </button>
+    <div className="w-full h-full overflow-y-auto bg-[#020817] text-slate-100 font-sans custom-scrollbar">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs text-slate-500 font-mono uppercase tracking-widest mb-1">
+              {now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              {greeting}, <span className="text-cyan-400">Dr. Priya</span> 👋
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              You have <span className="text-white font-semibold">{activeAlerts.length} active alert{activeAlerts.length !== 1 ? 's' : ''}</span> and <span className="text-white font-semibold">6 appointments</span> today.
+            </p>
           </div>
-          
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search by ABHA ID / Name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-black/60 border border-slate-800/60 rounded-xl text-xs outline-none focus:border-cyan-500/40 transition text-gray-300 font-mono"
-            />
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-bold font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              ABDM Online
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-xs font-bold font-mono">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              HIPAA Secure
+            </div>
           </div>
         </div>
 
-        {/* Patient Queue List */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-          {filteredPatients.map(p => {
-            const isSelected = p.id === selectedPatientId
-            const activeDiag = p.analysis?.predictedCondition || 'Unanalyzed'
-            
-            let severityTag = 'bg-sky-950/40 border-sky-500/20 text-sky-400'
-            let severityLabel = 'Low'
-            if (p.analysis && p.analysis.severityScore > 75) {
-              severityTag = 'bg-rose-950/40 border-rose-500/20 text-rose-400 animate-pulse font-bold'
-              severityLabel = 'Critical'
-            } else if (p.analysis && p.analysis.severityScore > 50) {
-              severityTag = 'bg-orange-950/40 border-orange-500/20 text-orange-400 font-bold'
-              severityLabel = 'High'
-            } else if (p.analysis) {
-              severityTag = 'bg-amber-950/40 border-amber-500/20 text-amber-400'
-              severityLabel = 'Medium'
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-4 gap-4">
+          {STATS.map((stat) => {
+            const Icon = stat.icon
+            const colorMap: Record<string, string> = {
+              cyan: 'border-cyan-500/20 bg-cyan-950/10',
+              red: 'border-red-500/20 bg-red-950/10',
+              violet: 'border-violet-500/20 bg-violet-950/10',
+              emerald: 'border-emerald-500/20 bg-emerald-950/10',
             }
-
+            const iconMap: Record<string, string> = {
+              cyan: 'text-cyan-400 bg-cyan-950/40',
+              red: 'text-red-400 bg-red-950/40',
+              violet: 'text-violet-400 bg-violet-950/40',
+              emerald: 'text-emerald-400 bg-emerald-950/40',
+            }
+            const valueMap: Record<string, string> = {
+              cyan: 'text-cyan-300',
+              red: 'text-red-300',
+              violet: 'text-violet-300',
+              emerald: 'text-emerald-300',
+            }
             return (
-              <div 
-                key={p.id}
-                onClick={() => setSelectedPatientId(p.id)}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-300 flex justify-between items-start ${
-                  isSelected 
-                    ? 'bg-cyan-950/20 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.08)]' 
-                    : 'bg-black/20 border-slate-900/60 hover:bg-slate-900/20'
-                }`}
+              <div
+                key={stat.label}
+                className={`rounded-2xl border p-5 flex flex-col gap-3 ${colorMap[stat.color]}`}
               >
-                <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-2">
-                  <h4 className="font-bold text-xs text-white truncate">{p.name}</h4>
-                  <div className="text-[9px] text-slate-400 uppercase font-mono tracking-wide truncate">
-                    {p.age} Y / {p.gender[0]} | {activeDiag}
+                <div className="flex items-center justify-between">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconMap[stat.color]}`}>
+                    <Icon className="w-4.5 h-4.5" />
                   </div>
+                  {stat.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-500" />}
+                  {stat.trend === 'down' && <TrendingDown className="w-4 h-4 text-emerald-500" />}
+                  {stat.trend === 'alert' && <Zap className="w-4 h-4 text-red-400 animate-pulse" />}
                 </div>
-                <div className="flex flex-col items-end gap-1.5 font-mono text-[9px] shrink-0">
-                  <span className="text-slate-500 text-[8px]">10:15 AM</span>
-                  <span className={`px-2 py-0.5 rounded text-[8px] border uppercase ${severityTag}`}>
-                    {severityLabel}
-                  </span>
+                <div>
+                  <div className={`text-3xl font-black tracking-tight ${valueMap[stat.color]}`}>{stat.value}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{stat.label}</div>
+                  <div className="text-[10px] text-slate-600 mt-0.5 font-mono">{stat.sub}</div>
                 </div>
               </div>
             )
           })}
         </div>
-      </div>
 
-      {/* 2. CENTER COLUMN: 3D Visualization & DICOM (Width 43%) */}
-      <div className="w-full lg:w-[43%] flex flex-col gap-4 overflow-hidden">
-        
-        {/* 3D Viewport Panel */}
-        <div className="flex-1 bg-[#070d19]/45 border border-slate-900/60 rounded-2xl overflow-hidden shadow-xl flex flex-col relative min-h-[350px] backdrop-blur-md">
-          {/* Viewport Header */}
-          <div className="bg-black/35 px-4 py-3 border-b border-slate-900/60 flex justify-between items-center z-10">
-            <span className="font-bold text-xs tracking-wider uppercase text-cyan-400 flex items-center gap-1.5 font-mono">
-              🦴 3D Human Anatomy Visualizer
-            </span>
-            <div className="flex gap-2">
-              <Link 
-                href="/view-skeletal"
-                className="px-2 py-1 rounded-lg bg-slate-900/60 border border-slate-800 hover:bg-slate-800 transition-all text-[9px] font-mono font-bold text-slate-300 flex items-center gap-1 pointer-events-auto"
-              >
-                Skeletal Only
-              </Link>
-              <Link 
-                href="/view-anatomy"
-                className="px-2.5 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 hover:bg-cyan-900/50 transition-all text-[9px] font-mono font-bold text-cyan-400 flex items-center gap-1.5 shadow-[0_0_10px_rgba(6,182,212,0.1)] pointer-events-auto"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                Anatomy & Symptoms Viewer
-              </Link>
+        {/* ── Critical Alerts ── */}
+        {activeAlerts.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Critical Alerts</h2>
+              <span className="px-2 py-0.5 rounded-full bg-red-950/60 border border-red-500/30 text-red-400 text-[10px] font-bold font-mono">{activeAlerts.length}</span>
             </div>
-          </div>
-
-          {/* Floating Layers Panel (Glassmorphic) */}
-          <div className={`absolute ${isSymptomPanelOpen ? 'left-[304px]' : 'left-4'} top-16 z-20 flex flex-col gap-1 pointer-events-auto bg-slate-950/75 backdrop-blur-md border border-slate-900/50 rounded-xl p-2.5 font-mono text-[9px] shadow-lg`}>
-            <span className="text-slate-500 font-bold block mb-1 text-[8px] border-b border-slate-900/40 pb-1 uppercase">Layers</span>
-            {[
-              { label: 'Skin', key: 'integumentary' },
-              { label: 'Skeleton', key: 'skeletal' },
-              { label: 'Muscles', key: 'muscular' },
-              { label: 'Organs', key: 'digestive' },
-              { label: 'Vessels', key: 'cardiovascular' },
-              { label: 'Nerves', key: 'nervous' }
-            ].map(sys => {
-              const isActive = (systems as any)[sys.key]
-              return (
-                <button
-                  key={sys.key}
-                  onClick={() => toggleSystem(sys.key as any)}
-                  className={`px-2 py-1.5 rounded-lg text-left transition-all flex items-center gap-2 cursor-pointer w-full ${
-                    isActive ? 'bg-cyan-950/45 border border-cyan-500/30 text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            <div className="grid grid-cols-1 gap-3">
+              {activeAlerts.map(alert => (
+                <div
+                  key={alert.id}
+                  className={`rounded-2xl border p-4 flex items-center gap-4 ${
+                    alert.level === 'critical'
+                      ? 'bg-red-950/15 border-red-500/30'
+                      : 'bg-amber-950/15 border-amber-500/30'
                   }`}
                 >
-                  <input 
-                    type="checkbox" 
-                    checked={isActive}
-                    onChange={() => {}}
-                    className="w-3 h-3 rounded border-cyan-500/30 text-cyan-500 focus:ring-0 bg-transparent cursor-pointer accent-cyan-500 pointer-events-none"
-                  />
-                  <span>{sys.label}</span>
-                </button>
-              )
-            })}
+                  {/* Pulse indicator */}
+                  <div className={`shrink-0 w-3 h-3 rounded-full ${
+                    alert.level === 'critical' ? 'bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-amber-500'
+                  }`} />
 
-            <span className="text-slate-500 font-bold block mt-2 mb-1 text-[8px] border-b border-slate-900/40 pb-1 uppercase">Anomalies</span>
-            <button
-              onClick={() => {
-                setWireframe(!wireframe)
-                setSystems(prev => ({ ...prev, skeletal: true, digestive: true }))
-              }}
-              className={`px-2 py-1.5 rounded-lg text-left transition-all flex justify-between items-center cursor-pointer ${
-                wireframe ? 'bg-rose-950/50 border border-rose-500/30 text-rose-400 font-bold animate-pulse' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span>Fracture / Tumor</span>
-              <span className={`w-1.5 h-1.5 rounded-full ${wireframe ? 'bg-rose-500' : 'bg-slate-700'}`} />
-            </button>
-          </div>
-
-          {/* Red Flag Warning Banner */}
-          {symptomAnalysisResult?.redFlag && (
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 w-[60%] z-[22] bg-rose-950/80 border border-rose-500/30 text-rose-400 font-bold font-mono text-[9px] py-1.5 px-3 rounded-lg shadow-lg flex items-center justify-center gap-1.5 animate-pulse">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Urgent findings — clinical correlation required.</span>
-            </div>
-          )}
-
-          {/* Floating Patient Symptom Input Panel */}
-          <div className={`absolute left-4 top-16 z-[21] w-[280px] bg-slate-950/85 backdrop-blur-md border border-slate-900/80 rounded-xl p-3.5 flex flex-col gap-3 font-mono text-[9px] shadow-2xl transition-all duration-300 pointer-events-auto ${
-            isSymptomPanelOpen ? 'translate-x-0 opacity-100' : '-translate-x-[300px] opacity-0 pointer-events-none'
-          }`}>
-            <div className="flex justify-between items-center border-b border-slate-900/60 pb-1.5">
-              <span className="font-bold text-[10px] text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                🤒 Patient Symptom Input
-              </span>
-              <button 
-                onClick={() => setIsSymptomPanelOpen(false)}
-                className="text-slate-500 hover:text-slate-300 p-0.5 rounded cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-slate-500 uppercase text-[8px]">Age</span>
-                  <input 
-                    type="number" 
-                    value={symptomAge} 
-                    onChange={e => setSymptomAge(e.target.value)}
-                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-slate-500 uppercase text-[8px]">Sex</span>
-                  <select 
-                    value={symptomSex} 
-                    onChange={e => setSymptomSex(e.target.value)}
-                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-slate-500 uppercase text-[8px]">Duration</span>
-                  <input 
-                    type="text" 
-                    value={symptomDuration} 
-                    onChange={e => setSymptomDuration(e.target.value)}
-                    placeholder="e.g. 2 hours"
-                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-slate-500 uppercase text-[8px]">Severity</span>
-                  <select 
-                    value={symptomSeverity} 
-                    onChange={e => setSymptomSeverity(e.target.value)}
-                    className="bg-black/60 border border-slate-800 rounded p-1 text-white text-[9px] outline-none"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                <span className="text-slate-500 uppercase text-[8px]">Presenting Symptoms</span>
-                <textarea 
-                  value={symptomText} 
-                  onChange={e => setSymptomText(e.target.value)}
-                  placeholder="e.g. severe pain lower right abdomen, fever, nausea..."
-                  rows={4}
-                  className="bg-black/60 border border-slate-800 rounded p-2 text-white text-[9px] outline-none resize-none leading-relaxed"
-                />
-              </div>
-
-              <button
-                onClick={handleSymptomAnalysis}
-                disabled={isSymptomAnalyzing || !symptomText.trim()}
-                className="w-full py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition uppercase tracking-wider text-center cursor-pointer disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(6,182,212,0.15)]"
-              >
-                {isSymptomAnalyzing ? 'Analyzing...' : 'Analyze'}
-              </button>
-            </div>
-
-            <div className="border-t border-slate-900/60 pt-2 text-[7px] text-slate-500 leading-normal select-text">
-              ⚠️ AI-generated decision support — not a diagnosis. Requires clinical verification.
-            </div>
-          </div>
-
-          {/* Collapsible Button to Reopen Symptom Input */}
-          {!isSymptomPanelOpen && (
-            <button
-              onClick={() => setIsSymptomPanelOpen(true)}
-              className="absolute left-4 top-16 z-[21] px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-900/50 text-cyan-400 font-mono text-[9px] font-bold shadow-lg pointer-events-auto hover:bg-slate-900 cursor-pointer"
-            >
-              🤒 Symptom Input
-            </button>
-          )}
-
-          {/* Floating Possible Conditions Ranked Cards Panel */}
-          {symptomAnalysisResult && (
-            <div className={`absolute right-4 top-16 z-[21] w-[260px] bg-slate-950/85 backdrop-blur-md border border-slate-900/80 rounded-xl p-3.5 flex flex-col gap-3 font-mono text-[9px] shadow-2xl transition-all duration-300 pointer-events-auto ${
-              isConditionsPanelOpen ? 'translate-x-0 opacity-100' : 'translate-x-[280px] opacity-0 pointer-events-none'
-            }`}>
-              <div className="flex justify-between items-center border-b border-slate-900/60 pb-1.5">
-                <span className="font-bold text-[10px] text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                  📋 Possible Conditions
-                </span>
-                <button 
-                  onClick={() => setIsConditionsPanelOpen(false)}
-                  className="text-slate-500 hover:text-slate-300 p-0.5 rounded cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[220px] pr-1 custom-scrollbar">
-                {symptomAnalysisResult.possibleConditions.map((cond, i) => (
-                  <div key={i} className="p-2.5 bg-black/40 border border-slate-900 rounded-lg flex flex-col gap-1">
-                    <div className="flex justify-between items-start gap-1">
-                      <span className="font-bold text-slate-200 text-[10px] leading-tight">{cond.name}</span>
-                      <span className="bg-cyan-950/50 border border-cyan-500/25 text-cyan-400 px-1 py-0.5 rounded text-[8px] font-black shrink-0">
-                        {cond.confidence}%
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-mono uppercase tracking-wide ${
+                        alert.level === 'critical' ? 'bg-red-950/60 text-red-400 border border-red-500/30' : 'bg-amber-950/60 text-amber-400 border border-amber-500/30'
+                      }`}>
+                        {alert.level === 'critical' ? '🚨 Critical' : '⚠️ Warning'}
                       </span>
+                      <span className="text-white font-bold text-sm">{alert.name}</span>
+                      <span className="text-slate-500 text-xs">· Age {alert.age}</span>
+                      <span className="text-slate-600 text-[10px] font-mono ml-auto">{alert.time}</span>
                     </div>
-                    <p className="text-slate-400 text-[8px] leading-normal font-sans">{cond.reasoning}</p>
+                    <p className="text-sm font-semibold text-rose-300">{alert.condition}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{alert.detail}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {symptomAnalysisResult && !isConditionsPanelOpen && (
-            <button
-              onClick={() => setIsConditionsPanelOpen(true)}
-              className="absolute right-4 top-16 z-[21] px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-900/50 text-cyan-400 font-mono text-[9px] font-bold shadow-lg pointer-events-auto hover:bg-slate-900 cursor-pointer"
-            >
-              📋 Results ({symptomAnalysisResult.possibleConditions.length})
-            </button>
-          )}
+                  {/* Vitals pills */}
+                  <div className="flex gap-2 shrink-0">
+                    <div className="text-center">
+                      <div className="text-[9px] text-slate-600 font-mono uppercase">HR</div>
+                      <div className="text-xs font-bold text-red-300">{alert.vitals.hr}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[9px] text-slate-600 font-mono uppercase">SpO₂</div>
+                      <div className="text-xs font-bold text-blue-300">{alert.vitals.spo2}%</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[9px] text-slate-600 font-mono uppercase">BP</div>
+                      <div className="text-xs font-bold text-violet-300">{alert.vitals.bp}</div>
+                    </div>
+                  </div>
 
-          {/* Actual 3D Canvas element viewport */}
-          <div className="flex-1 w-full min-h-[300px] relative z-0">
-            <BodyModel 
-              affectedRegions={activeRegions} 
-              opacity={opacity} 
-              wireframe={wireframe}
-              activeSystems={systems}
-              patientId={selectedPatientId}
-              symptomHighlightedRegions={symptomAnalysisResult ? symptomAnalysisResult.affectedRegions : []}
-            />
-          </div>
-
-          {/* View presets tabs on bottom of viewport */}
-          <div className="absolute bottom-[210px] left-1/2 -translate-x-1/2 z-25 bg-slate-950/75 backdrop-blur-md border border-slate-900/50 rounded-xl p-1 flex gap-1 font-mono text-[9px] pointer-events-auto shadow-lg">
-            {[
-              { id: 'axial', label: 'CT Axial' },
-              { id: 'coronal', label: 'CT Coronal' },
-              { id: 'sagittal', label: 'CT Sagittal' },
-              { id: 'render', label: '3D Render' }
-            ].map(m => {
-              const isSelected = view3DMode === m.id
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    setView3DMode(m.id as any)
-                    if (m.id === 'axial') { setOpacity(0.1); setWireframe(true) }
-                    else if (m.id === 'coronal') { setOpacity(0.2); setWireframe(true) }
-                    else if (m.id === 'sagittal') { setOpacity(0.3); setWireframe(true) }
-                    else { setOpacity(0.85); setWireframe(false) }
-                  }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
-                    isSelected ? 'bg-cyan-950 text-cyan-400 font-bold border border-cyan-500/20' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Synchronized 2D DICOM slices grid */}
-          <div className="p-3 border-t border-slate-900/60 bg-black/25 z-10">
-            <DICOMViewer 
-              patientId={selectedPatientId}
-              patientName={activePatient?.name || 'Unknown Patient'}
-              sliceIndex={sliceIndex}
-              onSliceChange={setSliceIndex}
-              crosshair={dicomCrosshair}
-              onCrosshairChange={setDicomCrosshair}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 3. RIGHT COLUMN: Clinician Workspace (Width 35%) */}
-      <div className="w-full lg:w-[35%] flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1">
-        
-        {/* Patient Profile Card Header */}
-        {activePatient && (
-          <div className="bg-[#070d19]/45 border border-cyan-500/20 p-4 rounded-2xl shadow-xl flex justify-between items-center relative overflow-hidden backdrop-blur-md shrink-0">
-            <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent"></div>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-cyan-950 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-xs uppercase shadow-[0_0_10px_rgba(6,182,212,0.1)]">
-                {activePatient.name.split(' ').map(n => n[0]).join('')}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-white">{activePatient.name}</span>
-                  <span className="text-[10px] font-mono text-slate-400">{activePatient.age} Y / {activePatient.gender[0]}</span>
-                </div>
-                <div className="text-[9px] text-gray-500 font-mono mt-0.5">
-                  ABHA: <span className="text-cyan-400 font-bold">{activePatient.abhaId || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => setApprovalStatus(approvalStatus === 'Approved' ? null : 'Approved')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition uppercase cursor-pointer border ${
-                approvalStatus === 'Approved' 
-                  ? 'bg-green-950/60 border-green-500/30 text-green-400' 
-                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
-              }`}
-            >
-              {approvalStatus === 'Approved' ? '✓ Verified' : 'Verify'}
-            </button>
-          </div>
-        )}
-
-        {/* Diagnostic Insights / Symptom Form Console */}
-        {activePatient && activePatient.analysis && !showSymptomForm ? (
-          <div className="bg-[#070d19]/45 border border-slate-900/60 rounded-2xl p-4 flex flex-col gap-4 shadow-xl backdrop-blur-md">
-            <div className="flex justify-between items-center border-b border-slate-900/40 pb-2">
-              <span className="font-bold text-xs uppercase text-cyan-400 tracking-wider font-mono flex items-center gap-1.5">
-                <Activity className="w-4 h-4" /> AI Diagnostics Console
-              </span>
-              <button
-                onClick={() => setShowSymptomForm(true)}
-                className="px-2.5 py-1 rounded-lg border border-cyan-500/30 bg-cyan-950/20 hover:bg-cyan-900/30 text-[9px] font-mono font-bold text-cyan-400 cursor-pointer"
-              >
-                New Analysis
-              </button>
-            </div>
-
-            <div>
-              <span className="text-[9px] font-mono text-slate-500 uppercase">Primary Suspected Condition</span>
-              <h3 className="text-base font-black text-white uppercase tracking-wide mt-1 flex items-center gap-2">
-                {activePatient.analysis.predictedCondition}
-                <span className="text-[9px] font-mono text-green-400 bg-green-950/30 px-2 py-0.5 rounded-md border border-green-950/50">
-                  {activePatient.analysis.confidence === 'high' ? '90%+' : activePatient.analysis.confidence === 'medium' ? '70%+' : '50%+'}
-                </span>
-              </h3>
-            </div>
-
-            {/* Recommendations checklist */}
-            <div className="space-y-2 text-xs text-slate-300 bg-black/20 p-3 rounded-xl border border-slate-900">
-              <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Standard Treatment Directives</div>
-              {activePatient.analysis.recommendations.map((rec, i) => (
-                <div key={i} className="flex gap-2 items-start leading-relaxed text-[11px]">
-                  <span className="text-cyan-400 font-bold mt-0.5">•</span>
-                  <span>{rec}</span>
+                  {/* Actions */}
+                  <div className="flex gap-2 shrink-0">
+                    <Link
+                      href="/patients"
+                      className="px-3 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-400 rounded-lg text-[10px] font-bold uppercase tracking-wider transition"
+                    >
+                      View Patient
+                    </Link>
+                    <button
+                      onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
+                      className="px-3 py-1.5 bg-slate-900/60 hover:bg-slate-800/60 border border-slate-700 text-slate-400 rounded-lg text-[10px] font-bold uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+          </div>
+        )}
 
-            {/* Vitals HUD */}
-            <div className="grid grid-cols-5 gap-2 border-t border-slate-900/40 pt-3 mt-1 font-mono text-center">
-              <div className="bg-black/30 border border-slate-900 p-2 rounded-xl flex flex-col gap-0.5">
-                <span className="text-[7px] text-gray-500 uppercase">BP</span>
-                <span className="text-[10px] font-bold text-rose-500">{activePatient.vitals.bp}</span>
-                <span className="text-[6px] text-gray-600">mmHg</span>
+        {/* ── Main Grid ── */}
+        <div className="grid grid-cols-12 gap-6">
+
+          {/* Today's Schedule — 5 cols */}
+          <div className="col-span-5 bg-[#0a1628]/60 border border-blue-950/50 rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-cyan-400" />
+                <h2 className="text-sm font-bold text-white">Today's Schedule</h2>
               </div>
-              <div className="bg-black/30 border border-slate-900 p-2 rounded-xl flex flex-col gap-0.5">
-                <span className="text-[7px] text-gray-500 uppercase">HR</span>
-                <span className="text-[10px] font-bold text-green-500">{activePatient.vitals.hr}</span>
-                <span className="text-[6px] text-gray-600">bpm</span>
+              <span className="text-[10px] text-slate-500 font-mono">{SCHEDULE.length} appointments</span>
+            </div>
+
+            <div className="space-y-2">
+              {SCHEDULE.map((apt, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-center gap-3 p-3 rounded-xl transition ${
+                    apt.status === 'active'
+                      ? 'bg-cyan-950/30 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.06)]'
+                      : apt.status === 'done'
+                      ? 'opacity-40'
+                      : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className="shrink-0 w-12 text-center">
+                    <span className={`text-xs font-bold font-mono ${apt.status === 'active' ? 'text-cyan-400' : apt.status === 'done' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {apt.time}
+                    </span>
+                  </div>
+                  <div className="w-px h-8 bg-blue-950/60 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-white truncate">{apt.name}</div>
+                    <div className="text-[10px] text-slate-500 truncate">{apt.type}</div>
+                  </div>
+                  <div className="shrink-0">
+                    {apt.status === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    {apt.status === 'active' && <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse block" />}
+                    {apt.status === 'upcoming' && <Circle className="w-4 h-4 text-slate-700" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right side — 7 cols */}
+          <div className="col-span-7 flex flex-col gap-6">
+
+            {/* Ward Vitals Overview */}
+            <div className="bg-[#0a1628]/60 border border-blue-950/50 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-4 h-4 text-cyan-400" />
+                <h2 className="text-sm font-bold text-white">Ward Vitals Overview</h2>
+                <span className="text-[10px] text-slate-500 font-mono ml-auto">Avg across 24 patients</span>
               </div>
-              <div className="bg-black/30 border border-slate-900 p-2 rounded-xl flex flex-col gap-0.5">
-                <span className="text-[7px] text-gray-500 uppercase">SpO2</span>
-                <span className="text-[10px] font-bold text-blue-500">{activePatient.vitals.spo2}%</span>
-                <span className="text-[6px] text-gray-600">index</span>
-              </div>
-              <div className="bg-black/30 border border-slate-900 p-2 rounded-xl flex flex-col gap-0.5">
-                <span className="text-[7px] text-gray-500 uppercase">Temp</span>
-                <span className="text-[10px] font-bold text-amber-500">{activePatient.vitals.temp}°C</span>
-                <span className="text-[6px] text-gray-600">oral</span>
-              </div>
-              <div className="bg-black/30 border border-slate-900 p-2 rounded-xl flex flex-col gap-0.5">
-                <span className="text-[7px] text-gray-500 uppercase">Resp</span>
-                <span className="text-[10px] font-bold text-purple-500">{activePatient.vitals.resp || '18'}</span>
-                <span className="text-[6px] text-gray-600">/min</span>
+              <div className="grid grid-cols-4 gap-3">
+                {QUICK_VITALS.map((v) => {
+                  const Icon = v.icon
+                  return (
+                    <div key={v.label} className={`rounded-xl border p-3 flex flex-col gap-2 ${v.bg}`}>
+                      <Icon className={`w-4 h-4 ${v.color}`} />
+                      <div>
+                        <div className={`text-lg font-black ${v.color}`}>{v.value}</div>
+                        <div className="text-[9px] text-slate-500 font-mono uppercase">{v.unit}</div>
+                        <div className="text-[9px] text-slate-600 mt-0.5">{v.label}</div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Red Flags / Warnings */}
-            {activePatient.analysis.redFlags && activePatient.analysis.redFlags.length > 0 && (
-              <div className="space-y-2 text-[10px] font-mono">
-                {activePatient.analysis.redFlags.map((flag, idx) => (
-                  <div key={idx} className="flex gap-2.5 items-center p-2.5 rounded-xl bg-red-950/20 border border-red-500/20 text-red-400 animate-pulse">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    <div>
-                      <span className="font-bold uppercase tracking-wider block">{flag.title}</span>
-                      <span className="text-slate-300 text-[9px] mt-0.5 block">{flag.description}</span>
+            {/* Recent AI Diagnoses */}
+            <div className="bg-[#0a1628]/60 border border-blue-950/50 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-violet-400" />
+                  <h2 className="text-sm font-bold text-white">Recent AI Diagnoses</h2>
+                </div>
+                <Link
+                  href="/symptoms"
+                  className="flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-mono uppercase tracking-wider transition"
+                >
+                  Run New <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+
+              <div className="space-y-2">
+                {RECENT_DX.map((dx, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition group">
+                    {dx.flag && (
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                    )}
+                    {!dx.flag && (
+                      <span className="w-2 h-2 rounded-full bg-slate-700 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-white truncate">{dx.condition}</span>
+                        {dx.flag && (
+                          <span className="shrink-0 text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-950/60 border border-red-500/30 text-red-400 font-mono">Red Flag</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{dx.patient} · {dx.organ}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-sm font-black ${dx.confidence >= 90 ? 'text-red-400' : dx.confidence >= 80 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {dx.confidence}%
+                      </div>
+                      <div className="text-[9px] text-slate-600 font-mono">{dx.time}</div>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-[#070d19]/45 border border-slate-900/60 rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl backdrop-blur-md">
-            <div className="flex justify-between items-center border-b border-slate-900/40 pb-2">
-              <span className="font-bold text-xs uppercase text-cyan-400 tracking-wider font-mono flex items-center gap-1.5">
-                📋 AI Diagnostics Intake
-              </span>
-              {activePatient && activePatient.analysis && (
-                <button
-                  onClick={() => setShowSymptomForm(false)}
-                  className="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-850 text-[9px] font-mono text-slate-300 cursor-pointer"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-3 font-mono text-[10px]">
-              <div className="flex flex-col gap-1">
-                <span className="text-slate-400 uppercase">Symptoms Description:</span>
-                <textarea
-                  rows={4}
-                  placeholder="Enter patient symptoms here (e.g. crushing chest pain, cough, high fever...)"
-                  value={quickSymptoms}
-                  onChange={(e) => setQuickSymptoms(e.target.value)}
-                  className="w-full bg-black/60 border border-slate-800/60 rounded-xl p-2.5 text-white text-xs font-mono focus:outline-none focus:border-cyan-500/50 resize-none custom-scrollbar"
-                />
-              </div>
-
-              {/* Quick Select Symptoms */}
-              <div className="flex flex-col gap-1">
-                <span className="text-slate-400 uppercase">Common Complaints:</span>
-                <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                  {[
-                    { id: 'chest_pain', label: 'Chest Pain' },
-                    { id: 'dyspnea', label: 'Shortness of Breath' },
-                    { id: 'cephalalgia', label: 'Severe Headache' },
-                    { id: 'abdominal_pain', label: 'Abdominal Pain' },
-                    { id: 'high_fever', label: 'High Grade Fever' },
-                    { id: 'arthralgia', label: 'Joint/Muscle Pain' }
-                  ].map(c => {
-                    const isChecked = quickSelectedComplaints.includes(c.id)
-                    return (
-                      <label 
-                        key={c.id} 
-                        className={`flex items-center gap-1.5 p-1.5 rounded-lg border cursor-pointer transition-all ${
-                          isChecked ? 'bg-cyan-950/30 border-cyan-500/30 text-cyan-400 font-bold' : 'bg-black/20 border-slate-900/60 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setQuickSelectedComplaints(prev => prev.filter(id => id !== c.id))
-                            } else {
-                              setQuickSelectedComplaints(prev => [...prev, c.id])
-                            }
-                          }}
-                          className="w-3 h-3 rounded border-slate-700 text-cyan-500 focus:ring-0 bg-transparent cursor-pointer accent-cyan-500"
-                        />
-                        <span className="text-[9px] truncate">{c.label}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Vitals Grid Inputs */}
-              <div className="flex flex-col gap-1 border-t border-slate-900/40 pt-2.5">
-                <span className="text-slate-400 uppercase">Input Vitals:</span>
-                <div className="grid grid-cols-4 gap-1.5 mt-0.5 text-center">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] text-gray-500 uppercase">BP SYS</span>
-                    <input 
-                      type="text" 
-                      value={quickVitals.bpSys} 
-                      onChange={(e) => setQuickVitals(prev => ({ ...prev, bpSys: e.target.value }))}
-                      className="w-full bg-black/60 border border-slate-800/60 rounded-lg py-1 text-center text-rose-400 font-bold text-xs"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] text-gray-500 uppercase">BP DIA</span>
-                    <input 
-                      type="text" 
-                      value={quickVitals.bpDia} 
-                      onChange={(e) => setQuickVitals(prev => ({ ...prev, bpDia: e.target.value }))}
-                      className="w-full bg-black/60 border border-slate-800/60 rounded-lg py-1 text-center text-rose-400 font-bold text-xs"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] text-gray-500 uppercase">HR (BPM)</span>
-                    <input 
-                      type="text" 
-                      value={quickVitals.hr} 
-                      onChange={(e) => setQuickVitals(prev => ({ ...prev, hr: e.target.value }))}
-                      className="w-full bg-black/60 border border-slate-800/60 rounded-lg py-1 text-center text-green-400 font-bold text-xs"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] text-gray-500 uppercase">SpO2 (%)</span>
-                    <input 
-                      type="text" 
-                      value={quickVitals.spo2} 
-                      onChange={(e) => setQuickVitals(prev => ({ ...prev, spo2: e.target.value }))}
-                      className="w-full bg-black/60 border border-slate-800/60 rounded-lg py-1 text-center text-blue-400 font-bold text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Map Button */}
-              <button
-                onClick={handleQuickAnalyze}
-                disabled={isLoading || (!quickSymptoms.trim() && quickSelectedComplaints.length === 0)}
-                className="w-full mt-2 py-2 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed transition font-mono text-xs font-bold text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-center gap-1.5 cursor-pointer border border-transparent"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    MAPPING ANATOMY...
-                  </>
-                ) : (
-                  <>
-                    <Activity className="w-3.5 h-3.5" />
-                    RUN ANATOMY MAPPING
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Detailed EHR Tabs */}
-        {activePatient && (
-          <div className="bg-[#070d19]/45 border border-slate-900/60 rounded-2xl p-4 flex flex-col gap-3 shadow-xl backdrop-blur-md">
-            <div className="flex border-b border-slate-900/40 gap-3 text-[10px] font-mono font-bold">
-              <button 
-                onClick={() => setActiveTab('summary')}
-                className={`pb-1.5 cursor-pointer uppercase transition-all \${activeTab === 'summary' ? 'text-cyan-400 border-b-2 border-cyan-500' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                Profile
-              </button>
-              <button 
-                onClick={() => setActiveTab('meds')}
-                className={`pb-1.5 cursor-pointer uppercase transition-all \${activeTab === 'meds' ? 'text-cyan-400 border-b-2 border-cyan-500' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                Meds
-              </button>
-              <button 
-                onClick={() => setActiveTab('labs')}
-                className={`pb-1.5 cursor-pointer uppercase transition-all \${activeTab === 'labs' ? 'text-cyan-400 border-b-2 border-cyan-500' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                Labs
-              </button>
-              <button 
-                onClick={() => setActiveTab('history')}
-                className={`pb-1.5 cursor-pointer uppercase transition-all \${activeTab === 'history' ? 'text-cyan-400 border-b-2 border-cyan-500' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                History
-              </button>
-            </div>
-
-            {/* Tab content */}
-            <div className="min-h-[140px] text-xs">
-              {activeTab === 'summary' && (
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-[8px] font-mono text-slate-500 uppercase tracking-wider block mb-0.5">HPI Narrative</span>
-                    <p className="text-slate-300 leading-relaxed text-[11px]">
-                      {activePatient.symptoms.replace(/\[[^\]]+\]/g, '').trim() || 'No active symptoms.'}
-                    </p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 font-mono text-[9px]">
-                    <div className="bg-black/30 border border-slate-900 p-2 rounded-lg">
-                      <span className="text-slate-500 block uppercase">Blood Type</span>
-                      <span className="text-white font-bold">{activePatient.bloodType || 'O+'}</span>
-                    </div>
-                    <div className="bg-black/30 border border-slate-900 p-2 rounded-lg">
-                      <span className="text-slate-500 block uppercase">ESI Level</span>
-                      <span className="text-rose-400 font-bold">Level {activePatient.esiLevel || 3}</span>
-                    </div>
-                    <div className="bg-black/30 border border-slate-900 p-2 rounded-lg">
-                      <span className="text-slate-500 block uppercase">Blood Sugar</span>
-                      <span className="text-cyan-400 font-bold">{activePatient.bloodSugar || 'N/A'} mg/dL</span>
-                    </div>
-                    <div className="bg-black/30 border border-slate-900 p-2 rounded-lg">
-                      <span className="text-slate-500 block uppercase">Pain Scale</span>
-                      <span className="text-white font-bold">{activePatient.painScale || 5}/10</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'meds' && (
-                <div className="font-mono text-[10px] space-y-2">
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="p-2.5 bg-black/40 border border-slate-900 rounded-lg flex justify-between items-center">
-                      <div>
-                        <div className="font-bold text-slate-200">Paracetamol 650mg</div>
-                        <div className="text-[8px] text-slate-500 mt-0.5">Analgesic SOS</div>
-                      </div>
-                      <span className="bg-rose-950/40 border border-rose-500/20 text-rose-400 px-2 py-0.5 rounded text-[8px]">SOS</span>
-                    </div>
-                    {activePatient.id === 'pat-1' ? (
-                      <div className="p-2.5 bg-black/40 border border-slate-900 rounded-lg flex justify-between items-center">
-                        <div>
-                          <div className="font-bold text-slate-200">Ibuprofen 400mg</div>
-                          <div className="text-[8px] text-slate-500 mt-0.5">Anti-inflammatory BD</div>
-                        </div>
-                        <span className="bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-[8px]">BD</span>
-                      </div>
-                    ) : activePatient.id === 'pat-3' ? (
-                      <div className="p-2.5 bg-black/40 border border-slate-900 rounded-lg flex justify-between items-center">
-                        <div>
-                          <div className="font-bold text-slate-200">AKT-4 Regimen Kit</div>
-                          <div className="text-[8px] text-slate-500 mt-0.5">Anti-Tubercular DOTS OD</div>
-                        </div>
-                        <span className="bg-green-950/40 border border-green-500/20 text-green-400 px-2 py-0.5 rounded text-[8px]">OD</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 bg-black/40 border border-slate-900 rounded-lg flex justify-between items-center">
-                        <div>
-                          <div className="font-bold text-slate-200">ORS Hydration Salts</div>
-                          <div className="text-[8px] text-slate-500 mt-0.5">Rehydration Fluid SOS</div>
-                        </div>
-                        <span className="bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-[8px]">SOS</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'labs' && (
-                <div className="font-mono text-[10px] space-y-2">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center p-2 rounded-lg bg-black/40 border border-slate-900">
-                      <span className="text-slate-500">RBS Assay</span>
-                      <span className="text-cyan-400 font-bold">{activePatient.bloodSugar || '108'} mg/dL</span>
-                    </div>
-                    {activePatient.id === 'pat-1' && (
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-black/40 border border-slate-900">
-                        <span className="text-slate-500">X-Ray Forearm AP/LAT</span>
-                        <span className="text-rose-400 font-bold">Radial Fracture</span>
-                      </div>
-                    )}
-                    {activePatient.id === 'pat-2' && (
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-black/40 border border-slate-900">
-                        <span className="text-slate-500">CBC Assay</span>
-                        <span className="text-rose-400 font-bold">Platelets: 92k (Thrombopenia)</span>
-                      </div>
-                    )}
-                    {activePatient.id === 'pat-3' && (
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-black/40 border border-slate-900">
-                        <span className="text-slate-500">Sputum AFB Stain</span>
-                        <span className="text-rose-400 font-bold">AFB Positive (3+)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'history' && (
-                <div className="font-mono text-[10px]">
-                  {activePatient.selectedHistory && activePatient.selectedHistory.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {activePatient.selectedHistory.map((h, i) => (
-                        <div key={i} className="px-2.5 py-1 rounded bg-[#070d19] border border-slate-800 text-slate-300 font-semibold">
-                          {h}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-slate-500 p-3 text-center border border-dashed border-slate-800 rounded-lg">
-                      No comorbidities in EMR Central.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* DETAILED DIALOG MODAL FOR CLINICAL INTAKE */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#070d19] border border-slate-800 rounded-2xl w-full max-w-[480px] overflow-hidden flex flex-col shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-black/40 px-5 py-4 border-b border-slate-900/60 flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-sm text-cyan-400 font-mono tracking-wide uppercase">AI Clinical Intake</h3>
-                <p className="text-[9px] text-slate-500 font-mono mt-0.5">Parameters submission for 3D coordinate mapping.</p>
-              </div>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-200 p-1 rounded-md hover:bg-slate-900 border border-transparent hover:border-slate-800 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto max-h-[70vh] custom-scrollbar">
-              <SymptomInput 
-                onAnalyze={handleAnalyzeSymptoms} 
-                isLoading={isLoading} 
-                activePatient={activePatient} 
-              />
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
 
+        {/* ── Quick Actions ── */}
+        <div>
+          <h2 className="text-sm font-bold text-white mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <Link
+              href="/symptoms"
+              className="group flex items-center gap-4 p-4 bg-gradient-to-br from-cyan-950/40 to-blue-950/40 border border-cyan-500/20 hover:border-cyan-500/40 rounded-2xl transition-all duration-200 hover:shadow-[0_0_20px_rgba(6,182,212,0.08)]"
+            >
+              <div className="w-10 h-10 rounded-xl bg-cyan-950/60 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-cyan-400" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">AI Diagnostic Assistant</div>
+                <div className="text-[11px] text-slate-400">Submit symptoms → DeepSeek analysis</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 ml-auto transition" />
+            </Link>
+
+            <Link
+              href="/patients"
+              className="group flex items-center gap-4 p-4 bg-gradient-to-br from-violet-950/40 to-blue-950/40 border border-violet-500/20 hover:border-violet-500/40 rounded-2xl transition-all duration-200 hover:shadow-[0_0_20px_rgba(139,92,246,0.08)]"
+            >
+              <div className="w-10 h-10 rounded-xl bg-violet-950/60 border border-violet-500/20 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-violet-400" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">Patient Workspace</div>
+                <div className="text-[11px] text-slate-400">View EHR, vitals & history</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-violet-400 ml-auto transition" />
+            </Link>
+
+            <Link
+              href="/view-anatomy"
+              className="group flex items-center gap-4 p-4 bg-gradient-to-br from-emerald-950/40 to-blue-950/40 border border-emerald-500/20 hover:border-emerald-500/40 rounded-2xl transition-all duration-200 hover:shadow-[0_0_20px_rgba(16,185,129,0.08)]"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <Stethoscope className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">Anatomy Viewer</div>
+                <div className="text-[11px] text-slate-400">3D body mapping & organ labels</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 ml-auto transition" />
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between pt-4 border-t border-blue-950/30 text-[10px] text-slate-600 font-mono">
+          <span>Ganga Hospital · ABDM Compliant · HIPAA Secure · FHIR Ready</span>
+          <span>DeepSeek V3 Clinical Engine · Ver 2.6.1</span>
+        </div>
+
+      </div>
+    </div>
+  )
 }
