@@ -656,13 +656,21 @@ export function Dashboard() {
             <span className="font-bold text-xs tracking-wider uppercase text-cyan-400 flex items-center gap-1.5 font-mono">
               🦴 3D Human Anatomy Visualizer
             </span>
-            <Link 
-              href="/view-skeletal"
-              className="px-2.5 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 hover:bg-cyan-900/50 transition-all text-[9px] font-mono font-bold text-cyan-400 flex items-center gap-1.5 shadow-[0_0_10px_rgba(6,182,212,0.1)] pointer-events-auto"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-              Skeletal Only
-            </Link>
+            <div className="flex gap-2">
+              <Link 
+                href="/view-skeletal"
+                className="px-2 py-1 rounded-lg bg-slate-900/60 border border-slate-800 hover:bg-slate-800 transition-all text-[9px] font-mono font-bold text-slate-300 flex items-center gap-1 pointer-events-auto"
+              >
+                Skeletal Only
+              </Link>
+              <Link 
+                href="/view-anatomy"
+                className="px-2.5 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 hover:bg-cyan-900/50 transition-all text-[9px] font-mono font-bold text-cyan-400 flex items-center gap-1.5 shadow-[0_0_10px_rgba(6,182,212,0.1)] pointer-events-auto"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                Anatomy & Symptoms Viewer
+              </Link>
+            </div>
           </div>
 
           {/* Floating Layers Panel (Glassmorphic) */}
