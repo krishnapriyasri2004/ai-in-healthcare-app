@@ -338,44 +338,7 @@ function GLTFModelWrapper({
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(scene)
 
-    // 1. Delete lying-down meshes (skin, bones, skull) from splanchnology.glb for the organs column
-    if (path.includes('splanchnology')) {
-      if (positionX === -1.2) {
-        const toRemove: THREE.Object3D[] = []
-        clone.traverse((child) => {
-          const name = child.name.toLowerCase()
-          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) {
-            toRemove.push(child)
-          }
-        })
-        toRemove.forEach((child) => {
-          if (child.parent) child.parent.remove(child)
-        })
-      } else if (positionX === -2.4) {
-        // For the skin column, keep only the skin-related meshes, delete the organs/skeletal meshes
-        const toRemove: THREE.Object3D[] = []
-        clone.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            const name = child.name.toLowerCase()
-            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
-            if (!isSkin) {
-              toRemove.push(child)
-            }
-          }
-        })
-        toRemove.forEach((child) => {
-          if (child.parent) child.parent.remove(child)
-        })
-        
-        // Reset the root group rotation to let the skin stand up vertically
-        const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-        if (sketchfabModel) {
-          sketchfabModel.rotation.set(0, 0, 0)
-        }
-      }
-    }
-
-    // 2. Rotate myology.glb and scene.gltf (Columns 4 and 5) to stand up vertically
+    // 1. Apply model-specific root rotations BEFORE bounding box computation
     if (path.includes('myology') || path.includes('scene')) {
       const sketchfabModel = clone.getObjectByName('Sketchfab_model')
       if (sketchfabModel) {
@@ -385,10 +348,20 @@ function GLTFModelWrapper({
       }
     }
 
-    // Compute world matrices for correct hierarchy transformations
+    // For skin column, reset parent rotation so skin faces forward
+    if (path.includes('splanchnology') && positionX === -2.4) {
+      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+      if (sketchfabModel) {
+        sketchfabModel.rotation.set(0, 0, 0)
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // STEP 1: Compute bounding box from ALL meshes (full body)
+    //         BEFORE removing any meshes per column.
+    // ────────────────────────────────────────────────────────────
     clone.updateWorldMatrix(true, true)
     
-    // Ignore background/floor helper nodes to prevent giant bounding boxes
     const box = new THREE.Box3()
     let hasMesh = false
     clone.traverse((child) => {
@@ -428,7 +401,43 @@ function GLTFModelWrapper({
       -center.z * scaleFactor
     )
 
-    // Apply vertical explosion for organs in Column 2 (positionX === -1.2) and correct brain
+    // ────────────────────────────────────────────────────────────
+    // STEP 2: NOW remove unwanted meshes per column (after bbox)
+    // ────────────────────────────────────────────────────────────
+    if (path.includes('splanchnology')) {
+      if (positionX === -1.2) {
+        // Organs column: remove skin, bones, skull – keep all organs including brain
+        const toRemove: THREE.Object3D[] = []
+        clone.traverse((child) => {
+          const name = child.name.toLowerCase()
+          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) {
+            toRemove.push(child)
+          }
+        })
+        toRemove.forEach((child) => {
+          if (child.parent) child.parent.remove(child)
+        })
+      } else if (positionX === -2.4) {
+        // Skin column: remove everything except skin meshes
+        const toRemove: THREE.Object3D[] = []
+        clone.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const name = child.name.toLowerCase()
+            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            if (!isSkin) {
+              toRemove.push(child)
+            }
+          }
+        })
+        toRemove.forEach((child) => {
+          if (child.parent) child.parent.remove(child)
+        })
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // STEP 3: Organ explosion offsets (no brain offset needed)
+    // ────────────────────────────────────────────────────────────
     if (positionX === -1.2 && path.includes('splanchnology')) {
       clone.traverse((child) => {
         if (child instanceof THREE.Mesh || (child as any).isMesh) {
@@ -438,9 +447,7 @@ function GLTFModelWrapper({
           const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
           
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
-          if (isBrain) {
-            child.position.z += 0.75 / scaleFactor
-          } else {
+          if (!isBrain) {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {
               child.position.y += offset / scaleFactor
