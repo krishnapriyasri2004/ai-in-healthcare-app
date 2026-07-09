@@ -1,5 +1,29 @@
 import { NextResponse } from 'next/server'
 
+// All valid organ IDs that can be highlighted on the 3D models
+const VALID_ORGAN_IDS = [
+  'brain', 'heart', 'lungs', 'liver', 'stomach', 
+  'kidneys', 'intestines', 'throat', 'trachea', 'nasal_cavity',
+  'lung_left', 'lung_right', 'kidney_left', 'kidney_right'
+]
+
+// Normalize synonyms from LLM output to our organ IDs
+const normalizeOrganId = (raw: string): string[] => {
+  const r = raw.toLowerCase().trim()
+  if (r.includes('lung') || r === 'lungs' || r === 'pulmonary') return ['lungs']
+  if (r === 'kidney' || r === 'kidneys' || r === 'renal') return ['kidneys']
+  if (r === 'brain' || r === 'cerebral' || r === 'cerebrum') return ['brain']
+  if (r === 'heart' || r === 'cardiac' || r === 'myocardium') return ['heart']
+  if (r === 'liver' || r === 'hepatic') return ['liver']
+  if (r === 'stomach' || r === 'gastric') return ['stomach']
+  if (r === 'intestines' || r === 'intestine' || r === 'bowel' || r === 'colon') return ['intestines']
+  if (r === 'throat' || r === 'pharynx' || r === 'larynx') return ['throat']
+  if (r === 'trachea' || r === 'windpipe') return ['trachea']
+  if (r.includes('nasal') || r === 'nose') return ['nasal_cavity']
+  if (VALID_ORGAN_IDS.includes(r)) return [r]
+  return []
+}
+
 export async function POST(req: Request) {
   try {
     const { age, sex, duration, severity, symptoms } = await req.json()
@@ -10,20 +34,14 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.DEEPSEEK_API_KEY
     
-    // If API Key is not defined, use the realistic mock/stub fallback
+    // Stub fallback if no API key
     if (!apiKey) {
-      console.log('[analyze-symptoms-viewer] No DEEPSEEK_API_KEY found. Running in STUB mode.')
+      console.log('[analyze-symptoms-viewer] No DEEPSEEK_API_KEY. Running in STUB mode.')
       const text = symptoms.toLowerCase()
       
       let responseData = {
         affectedRegions: ['stomach', 'intestines'],
-        possibleConditions: [
-          {
-            name: 'Acute Gastroenteritis',
-            confidence: 75,
-            reasoning: 'Presenting abdominal cramps, fever, and nausea suggest acute gastrointestinal tract inflammation.'
-          }
-        ],
+        possibleConditions: [{ name: 'Acute Gastroenteritis', confidence: 75, reasoning: 'Abdominal cramps and nausea suggest gastrointestinal inflammation.' }],
         redFlag: false
       }
 
@@ -31,85 +49,43 @@ export async function POST(req: Request) {
         responseData = {
           affectedRegions: ['heart', 'lungs'],
           possibleConditions: [
-            {
-              name: 'Acute Coronary Syndrome (Suspected STEMI)',
-              confidence: 95,
-              reasoning: 'Retrosternal chest pressure radiating to the shoulder with acute dyspnea is highly suspect for cardiac ischemia.'
-            },
-            {
-              name: 'Acute Myocarditis',
-              confidence: 60,
-              reasoning: 'Inflammatory involvement of the myocardium secondary to systemic complaints.'
-            }
+            { name: 'Acute Coronary Syndrome (Suspected STEMI)', confidence: 95, reasoning: 'Retrosternal chest pressure with dyspnea is highly suspect for cardiac ischemia.' },
+            { name: 'Acute Myocarditis', confidence: 60, reasoning: 'Inflammatory myocardial involvement secondary to systemic complaints.' }
           ],
           redFlag: true
         }
-      } else if (text.includes('appendix') || text.includes('right abdomen') || text.includes('lower right') || text.includes('appendix pain')) {
-        responseData = {
-          affectedRegions: ['intestines'],
-          possibleConditions: [
-            {
-              name: 'Acute Appendicitis',
-              confidence: 92,
-              reasoning: 'Localized tenderness, pain in the right lower quadrant, nausea, and low-grade pyrexia match clinical appendicitis.'
-            }
-          ],
-          redFlag: true
-        }
+      } else if (text.includes('appendix') || text.includes('right abdomen') || text.includes('lower right')) {
+        responseData = { affectedRegions: ['intestines'], possibleConditions: [{ name: 'Acute Appendicitis', confidence: 92, reasoning: 'Right lower quadrant tenderness with nausea matches appendicitis.' }], redFlag: true }
       } else if (text.includes('cough') || text.includes('sputum') || text.includes('tuberculosis') || text.includes('hemoptysis')) {
-        responseData = {
-          affectedRegions: ['lungs', 'trachea'],
-          possibleConditions: [
-            {
-              name: 'Pulmonary Tuberculosis (Active)',
-              confidence: 90,
-              reasoning: 'Productive cough lasting over 2 weeks with evening fever and night sweats is diagnostic of active tuberculosis.'
-            }
-          ],
-          redFlag: false
-        }
+        responseData = { affectedRegions: ['lungs', 'trachea'], possibleConditions: [{ name: 'Pulmonary Tuberculosis (Active)', confidence: 90, reasoning: 'Productive cough >2 weeks with evening fever and night sweats.' }], redFlag: false }
       } else if (text.includes('fever') && (text.includes('joint') || text.includes('headache') || text.includes('dengue'))) {
-        responseData = {
-          affectedRegions: ['brain', 'liver'],
-          possibleConditions: [
-            {
-              name: 'Dengue Hemorrhagic Fever',
-              confidence: 88,
-              reasoning: 'High continuous fever, retro-orbital pain, severe bone pain, and potential thrombopenic rash.'
-            }
-          ],
-          redFlag: false
-        }
+        responseData = { affectedRegions: ['brain', 'liver'], possibleConditions: [{ name: 'Dengue Hemorrhagic Fever', confidence: 88, reasoning: 'High fever with retro-orbital pain and severe myalgia.' }], redFlag: false }
       }
 
-      // Add a slight artificial delay to mock realistic API roundtrip
       await new Promise(resolve => setTimeout(resolve, 800))
       return NextResponse.json(responseData)
     }
 
-    // ─────────────────────────────────────────────────────
-    // Call DeepSeek R1 API directly for symptom analysis
-    // ─────────────────────────────────────────────────────
-    const systemPrompt = `You are a senior clinical diagnostic AI assistant integrated into a 3D human anatomy visualization platform used by clinicians.
+    // ─────────────────────────────────────────────────────────────────────
+    // Call DeepSeek V3 (deepseek-chat) — fast, accurate, JSON mode
+    // ─────────────────────────────────────────────────────────────────────
+    const systemPrompt = `You are a senior clinical diagnostic AI integrated into a 3D human anatomy visualization platform used by clinicians in India.
 
-Your task: Given a patient's symptoms and profile, identify the EXACT affected body organs/regions and provide differential diagnoses with confidence scores.
+Your task: Given patient symptoms, identify affected organs and rank differential diagnoses by likelihood.
 
-CRITICAL RULES:
-1. Map symptoms to ONLY these organ IDs: 'brain', 'heart', 'lungs', 'liver', 'stomach', 'kidneys', 'intestines', 'throat', 'trachea'
-2. Provide medically accurate differential diagnoses ranked by likelihood
-3. Include clinical reasoning for each diagnosis referencing specific symptoms
-4. Flag any red-flag emergencies (e.g., MI, stroke, PE, sepsis, anaphylaxis)
-5. Confidence scores must reflect real clinical probability (0-100)
+STRICT RULES:
+1. affectedRegions MUST only use values from this list: "brain", "heart", "lungs", "liver", "stomach", "kidneys", "intestines", "throat", "trachea", "nasal_cavity"
+2. possibleConditions ranked highest confidence first
+3. confidence is integer 0-100 reflecting real clinical probability
+4. redFlag = true ONLY for life-threatening emergencies (MI, stroke, PE, sepsis, anaphylaxis, meningitis, severe head trauma)
+5. reasoning is one concise sentence referencing specific symptoms
+6. Prioritize high-incidence Indian conditions where relevant (Dengue, TB, Malaria, Typhoid, ACS)
 
-Return ONLY a raw JSON object (no markdown, no backticks, no explanation text) matching this exact schema:
+Return ONLY a raw JSON object. No markdown. No backticks. No explanation. Schema:
 {
   "affectedRegions": ["heart", "lungs"],
   "possibleConditions": [
-    {
-      "name": "Acute Coronary Syndrome",
-      "confidence": 95,
-      "reasoning": "Severe chest pressure radiating to left arm with diaphoresis — classic presentation of acute myocardial infarction requiring emergent intervention."
-    }
+    { "name": "Acute Coronary Syndrome", "confidence": 95, "reasoning": "Severe chest pressure radiating to left arm with diaphoresis." }
   ],
   "redFlag": true
 }`
@@ -117,13 +93,13 @@ Return ONLY a raw JSON object (no markdown, no backticks, no explanation text) m
     const userPrompt = `PATIENT PROFILE:
 - Age: ${age || 'Not specified'}
 - Sex: ${sex || 'Not specified'}
-- Duration of symptoms: ${duration || 'Not specified'}
+- Duration: ${duration || 'Not specified'}
 - Severity: ${severity || 'Not specified'}
 
 PRESENTING SYMPTOMS:
 ${symptoms}
 
-Analyze these symptoms and map them to the correct anatomical organs. Provide differential diagnoses with confidence scores and clinical reasoning.`
+Identify the affected organs and return differential diagnoses as JSON only.`
 
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -132,50 +108,68 @@ Analyze these symptoms and map them to the correct anatomical organs. Provide di
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-reasoner',
+        model: 'deepseek-chat',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 2048,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' }
       })
     })
 
     if (!response.ok) {
       const errorText = await response.text()
       console.error('[analyze-symptoms-viewer] DeepSeek API error:', response.status, errorText)
-      throw new Error(`DeepSeek API responded with ${response.status}: ${errorText}`)
+      throw new Error(`DeepSeek API error ${response.status}: ${errorText}`)
     }
 
     const result = await response.json()
     const content = result.choices?.[0]?.message?.content?.trim()
     
-    if (!content) {
-      throw new Error('Received empty response content from DeepSeek R1')
+    if (!content) throw new Error('Empty response from DeepSeek')
+
+    // Parse JSON robustly
+    let parsedData: any
+    try {
+      parsedData = JSON.parse(content)
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('Could not extract JSON from DeepSeek response')
+      parsedData = JSON.parse(jsonMatch[0])
     }
 
-    // Parse the JSON content — strip markdown wrapping if present
-    const cleanJson = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim()
-    const parsedData = JSON.parse(cleanJson)
-
-    // Validate the response structure
     if (!parsedData.affectedRegions || !parsedData.possibleConditions) {
-      throw new Error('Invalid response structure from DeepSeek R1')
+      throw new Error('Invalid response structure from DeepSeek')
     }
 
-    console.log('[analyze-symptoms-viewer] DeepSeek R1 analysis complete:', {
-      regions: parsedData.affectedRegions,
-      conditions: parsedData.possibleConditions.length,
-      redFlag: parsedData.redFlag
+    // Normalize organ IDs to match our 3D model labels
+    const normalizedRegions: string[] = []
+    ;(parsedData.affectedRegions as string[]).forEach((raw: string) => {
+      normalizeOrganId(raw).forEach(id => {
+        if (!normalizedRegions.includes(id)) normalizedRegions.push(id)
+      })
     })
 
-    return NextResponse.json(parsedData)
+    const finalResponse = {
+      affectedRegions: normalizedRegions.length > 0 ? normalizedRegions : parsedData.affectedRegions,
+      possibleConditions: parsedData.possibleConditions,
+      redFlag: !!parsedData.redFlag
+    }
+
+    console.log('[analyze-symptoms-viewer] DeepSeek V3 analysis complete:', {
+      regions: finalResponse.affectedRegions,
+      conditions: finalResponse.possibleConditions.length,
+      redFlag: finalResponse.redFlag
+    })
+
+    return NextResponse.json(finalResponse)
 
   } catch (error: any) {
     console.error('[analyze-symptoms-viewer] Error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to complete symptoms diagnostic analysis' },
+      { error: error.message || 'Failed to analyze symptoms' },
       { status: 500 }
     )
   }
