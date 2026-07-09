@@ -559,10 +559,9 @@ function GLTFModelWrapper({
                 m.wireframe = false
                 m.depthWrite = true
               } else {
-                m.opacity = 0.05
-                m.color.set(new THREE.Color('#00aaff'))
-                m.wireframe = true
-                m.blending = THREE.AdditiveBlending
+                // Realistic semi-transparent skin instead of blue hologram wireframe
+                m.opacity = 0.15
+                m.wireframe = false
                 m.depthWrite = false
               }
             } else {
@@ -645,6 +644,8 @@ function FBXModelWrapper({
       box.setFromObject(clone)
     }
 
+    clone.rotation.x = -Math.PI / 2
+
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
     const targetHeight = 2.0
@@ -657,30 +658,34 @@ function FBXModelWrapper({
       -center.z * scaleFactor
     )
 
+    // Realistic standard bone material
+    const boneMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#e8dcc8'),
+      roughness: 0.60,
+      metalness: 0.05,
+      emissive: new THREE.Color('#221e16'),
+      emissiveIntensity: 0.15,
+    })
+
     clone.traverse((child) => {
       const mesh = child as any
       if (child instanceof THREE.Mesh || mesh.isMesh) {
         child.castShadow = true
         child.receiveShadow = true
         
+        // Apply ivory bone material
+        child.material = boneMaterial.clone()
+        
         // Remove skinning attributes from non-skinned meshes to prevent shader collapse stretching
         if (!mesh.isSkinnedMesh && mesh.geometry) {
           if (mesh.geometry.attributes.skinIndex) mesh.geometry.deleteAttribute('skinIndex')
           if (mesh.geometry.attributes.skinWeight) mesh.geometry.deleteAttribute('skinWeight')
         }
-
-        if (mesh.material) {
-          if (Array.isArray(mesh.material)) {
-            mesh.material = mesh.material.map((m: any) => m.clone ? m.clone() : m)
-          } else if (mesh.material.clone) {
-            mesh.material = mesh.material.clone()
-          }
-        }
       }
     })
     
     return clone
-  }, [fbx, positionX, path])
+  }, [fbx, positionX])
 
   useEffect(() => {
     cloned.traverse((child) => {
@@ -808,21 +813,14 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
     <div className="w-full h-full relative group bg-[#030712] overflow-hidden">
       {/* 3D Viewport Canvas */}
       <Canvas camera={{ position: [0, 0.2, 4.6], fov: 50 }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
-        <color attach="background" args={['#030712']} />
+        <color attach="background" args={['#060a14']} />
         
-        {/* Holographic Cinematic Lighting */}
-        <ambientLight intensity={0.55} color="#00ffff" />
-        <directionalLight position={[10, 10, 5]} intensity={1.5} color="#00ffff" />
-        <directionalLight position={[-10, 5, -5]} intensity={2} color="#0044ff" />
-        <spotLight position={[0, 10, 0]} intensity={3} angle={0.6} penumbra={1} color="#00ffff" />
-        <spotLight position={[0, -10, 0]} intensity={2} angle={0.8} penumbra={1} color="#0088ff" />
-
-        {/* Dynamic spotlights for each of the 5 models */}
-        <spotLight position={[-2.4, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#00ffff" castShadow />
-        <spotLight position={[-1.2, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#ffff00" castShadow />
-        <spotLight position={[0.0, 5, 2]} intensity={2.5} distance={8} angle={0.45} penumbra={0.8} color="#00ffff" castShadow />
-        <spotLight position={[1.2, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#ffff00" castShadow />
-        <spotLight position={[2.4, 5, 2]} intensity={2} distance={8} angle={0.45} penumbra={0.8} color="#00e676" castShadow />
+        {/* Realistic Studio Lighting */}
+        <ambientLight intensity={0.7} color="#ffffff" />
+        <directionalLight position={[10, 15, 5]} intensity={1.8} color="#ffffff" />
+        <directionalLight position={[-10, 10, -5]} intensity={1.0} color="#e8e0d8" />
+        <spotLight position={[0, 12, 0]} intensity={2.5} angle={0.8} penumbra={1} color="#ffffff" />
+        <spotLight position={[0, -5, 5]} intensity={1.0} angle={0.8} penumbra={1} color="#f5f0eb" />
 
         <Suspense fallback={null}>
           {/* Column 1: Body Skin/Integumentary */}
@@ -945,9 +943,9 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
           )
         })}
 
-        {/* Holographic grid platform beneath the standing models */}
+        {/* Neutral dark grid platform beneath the standing models */}
         <gridHelper 
-          args={[8.0, 20, '#0ea5e9', '#002244']} 
+          args={[8.0, 20, '#1e293b', '#0f172a']} 
           position={[0, -0.99, 0]}
         />
         <mesh position={[0, -0.995, 0]} rotation={[-Math.PI / 2, 0, 0]}>
