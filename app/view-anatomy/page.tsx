@@ -189,35 +189,26 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(scene)
 
-    if (path.includes('splanchnology')) {
-      if (positionX === -1.2) {
-        const toRemove: THREE.Object3D[] = []
-        clone.traverse((child) => {
-          const name = child.name.toLowerCase()
-          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) toRemove.push(child)
-        })
-        toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
-      } else if (positionX === -2.4) {
-        const toRemove: THREE.Object3D[] = []
-        clone.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            const name = child.name.toLowerCase()
-            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
-            if (!isSkin) toRemove.push(child)
-          }
-        })
-        toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
-        const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-        if (sketchfabModel) sketchfabModel.rotation.set(0, 0, 0)
-      }
-    }
-
+    // Apply model-specific root rotations BEFORE bounding box computation
     if (path.includes('myology') || path.includes('scene')) {
       const sketchfabModel = clone.getObjectByName('Sketchfab_model')
       if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
       else clone.rotation.x = -Math.PI / 2
     }
 
+    // For skin column, reset parent rotation so skin faces forward
+    if (path.includes('splanchnology') && positionX === -2.4) {
+      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+      if (sketchfabModel) sketchfabModel.rotation.set(0, 0, 0)
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // STEP 1: Compute bounding box from ALL meshes (full body)
+    //         BEFORE removing any meshes. This ensures every column
+    //         shares the exact same scale and centering so the brain
+    //         in the organ column lines up with the skull in the
+    //         skeleton column.
+    // ────────────────────────────────────────────────────────────
     clone.updateWorldMatrix(true, true)
     const box = new THREE.Box3()
     let hasMesh = false
@@ -227,7 +218,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper')) return
         if (child.geometry) {
           if (!child.geometry.boundingBox) child.geometry.computeBoundingBox()
-          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
+          const meshBox = child.geometry.boundingBox!.clone().applyMatrix4(child.matrixWorld)
           if (!hasMesh) { box.copy(meshBox); hasMesh = true } else box.union(meshBox)
         }
       }
@@ -239,11 +230,40 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     const targetHeight = 2.0
     const scaleFactor = targetHeight / (size.y || 1)
     clone.scale.setScalar(scaleFactor)
-    
-    // Initial static position X
     clone.position.set(0, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
 
-    // Compute organ explosion vertical offsets and apply permanent brain offset
+    // ────────────────────────────────────────────────────────────
+    // STEP 2: NOW remove unwanted meshes per column (after bbox)
+    // ────────────────────────────────────────────────────────────
+    if (path.includes('splanchnology')) {
+      if (positionX === -1.2) {
+        // Organs column: remove skin, bones, skull – keep all organs including brain
+        const toRemove: THREE.Object3D[] = []
+        clone.traverse((child) => {
+          const name = child.name.toLowerCase()
+          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) toRemove.push(child)
+        })
+        toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
+      } else if (positionX === -2.4) {
+        // Skin column: remove everything except skin meshes
+        const toRemove: THREE.Object3D[] = []
+        clone.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const name = child.name.toLowerCase()
+            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            if (!isSkin) toRemove.push(child)
+          }
+        })
+        toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // STEP 3: Compute organ explosion vertical offsets for split view
+    //         NO brain offset needed – it is already at the correct
+    //         position inside the skull because the bounding box was
+    //         computed from the full body.
+    // ────────────────────────────────────────────────────────────
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh || (child as any).isMesh) {
         const name = child.name.toLowerCase()
@@ -254,12 +274,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         const isColumn2Organ = positionX === -1.2 && path.includes('splanchnology')
         if (isColumn2Organ) {
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
-          if (isBrain) {
-            // Correct the double rotation from GLB
-            child.rotation.set(0, 0, 0)
-            // Permanently align brain mesh inside the head region
-            child.position.y += 0.75 / scaleFactor
-          } else {
+          if (!isBrain) {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {
               child.userData.originalY = child.userData.originalY ?? child.position.y
