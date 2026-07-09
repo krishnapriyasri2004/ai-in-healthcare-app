@@ -243,19 +243,26 @@ function RealisticGLTFModel({
     // Initial static position X
     clone.position.set(0, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
 
-    // Compute organ explosion vertical offsets
+    // Compute organ explosion vertical offsets and apply permanent brain offset
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh || (child as any).isMesh) {
         const name = child.name.toLowerCase()
+        const parentName = child.parent ? child.parent.name.toLowerCase() : ''
         const mats = Array.isArray(child.material) ? child.material : [child.material]
         const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
         
         const isColumn2Organ = positionX === -1.2 && path.includes('splanchnology')
         if (isColumn2Organ) {
-          const offset = getOrganVerticalOffset(name, matNames)
-          if (offset !== 0) {
-            child.userData.originalY = child.userData.originalY ?? child.position.y
-            child.userData.offsetY = offset / scaleFactor
+          const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
+          if (isBrain) {
+            // Permanently align brain mesh inside the head region
+            child.position.y += 0.7 / scaleFactor
+          } else {
+            const offset = getOrganVerticalOffset(name, matNames)
+            if (offset !== 0) {
+              child.userData.originalY = child.userData.originalY ?? child.position.y
+              child.userData.offsetY = offset / scaleFactor
+            }
           }
         }
       }
@@ -575,7 +582,7 @@ export default function ViewAnatomyPage() {
     respiratory: true,
     digestive: true,
     lymphatic: false,
-    integumentary: true
+    integumentary: false
   })
 
   // Clear/Reset symptoms and model state
