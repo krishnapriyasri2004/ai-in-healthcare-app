@@ -8,11 +8,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Symptoms are required' }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY
+    const apiKey = process.env.DEEPSEEK_API_KEY
     
     // If API Key is not defined, use the realistic mock/stub fallback
     if (!apiKey) {
-      console.log('[analyze-symptoms-viewer] No OPENROUTER_API_KEY found. Running in STUB mode.')
+      console.log('[analyze-symptoms-viewer] No DEEPSEEK_API_KEY found. Running in STUB mode.')
       const text = symptoms.toLowerCase()
       
       let responseData = {
@@ -87,60 +87,88 @@ export async function POST(req: Request) {
       return NextResponse.json(responseData)
     }
 
-    // Call OpenRouter / DeepSeek R1 API
-    const systemPrompt = `You are a medical AI assistant. Analyze symptoms to isolate affected body regions/organs (choose only from: 'brain', 'heart', 'lungs', 'liver', 'stomach', 'kidneys', 'intestines', 'throat', 'trachea'). Explain potential conditions with confidence scores and flag clinical emergencies.
+    // ─────────────────────────────────────────────────────
+    // Call DeepSeek R1 API directly for symptom analysis
+    // ─────────────────────────────────────────────────────
+    const systemPrompt = `You are a senior clinical diagnostic AI assistant integrated into a 3D human anatomy visualization platform used by clinicians.
 
-Return ONLY a raw JSON object matching this schema. Do not output any markdown code blocks, backticks, or explanation text:
+Your task: Given a patient's symptoms and profile, identify the EXACT affected body organs/regions and provide differential diagnoses with confidence scores.
+
+CRITICAL RULES:
+1. Map symptoms to ONLY these organ IDs: 'brain', 'heart', 'lungs', 'liver', 'stomach', 'kidneys', 'intestines', 'throat', 'trachea'
+2. Provide medically accurate differential diagnoses ranked by likelihood
+3. Include clinical reasoning for each diagnosis referencing specific symptoms
+4. Flag any red-flag emergencies (e.g., MI, stroke, PE, sepsis, anaphylaxis)
+5. Confidence scores must reflect real clinical probability (0-100)
+
+Return ONLY a raw JSON object (no markdown, no backticks, no explanation text) matching this exact schema:
 {
   "affectedRegions": ["heart", "lungs"],
   "possibleConditions": [
     {
       "name": "Acute Coronary Syndrome",
       "confidence": 95,
-      "reasoning": "Severe chest pressure radiating to arm suggests active myocardial infarction."
+      "reasoning": "Severe chest pressure radiating to left arm with diaphoresis — classic presentation of acute myocardial infarction requiring emergent intervention."
     }
   ],
   "redFlag": true
 }`
 
-    const userPrompt = `Patient Profile: Age ${age}, Sex: ${sex}, Duration: ${duration}, Severity: ${severity}
-Presenting Symptoms: ${symptoms}`
+    const userPrompt = `PATIENT PROFILE:
+- Age: ${age || 'Not specified'}
+- Sex: ${sex || 'Not specified'}
+- Duration of symptoms: ${duration || 'Not specified'}
+- Severity: ${severity || 'Not specified'}
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+PRESENTING SYMPTOMS:
+${symptoms}
+
+Analyze these symptoms and map them to the correct anatomical organs. Provide differential diagnoses with confidence scores and clinical reasoning.`
+
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://github.com/krishnapriyasri2004/ai-in-healthcare',
-        'X-Title': 'Anatomy Visualization Platform'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1',
+        model: 'deepseek-reasoner',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        response_format: { type: 'json_object' }
+        max_tokens: 2048,
       })
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`OpenRouter API responded with ${response.status}: ${errorText}`)
+      console.error('[analyze-symptoms-viewer] DeepSeek API error:', response.status, errorText)
+      throw new Error(`DeepSeek API responded with ${response.status}: ${errorText}`)
     }
 
     const result = await response.json()
     const content = result.choices?.[0]?.message?.content?.trim()
     
     if (!content) {
-      throw new Error('Received empty response content from OpenRouter')
+      throw new Error('Received empty response content from DeepSeek R1')
     }
 
-    // Parse the JSON content directly
-    // Strips any potential markdown wrapping if returned by the LLM
+    // Parse the JSON content — strip markdown wrapping if present
     const cleanJson = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim()
     const parsedData = JSON.parse(cleanJson)
+
+    // Validate the response structure
+    if (!parsedData.affectedRegions || !parsedData.possibleConditions) {
+      throw new Error('Invalid response structure from DeepSeek R1')
+    }
+
+    console.log('[analyze-symptoms-viewer] DeepSeek R1 analysis complete:', {
+      regions: parsedData.affectedRegions,
+      conditions: parsedData.possibleConditions.length,
+      redFlag: parsedData.redFlag
+    })
 
     return NextResponse.json(parsedData)
 
