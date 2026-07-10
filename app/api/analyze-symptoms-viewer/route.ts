@@ -601,38 +601,44 @@ Return raw JSON.`
 }
 
 async function callHuggingFace(systemPrompt: string, userPrompt: string, hfToken: string): Promise<any | null> {
+  const model = 'google/gemma-2-9b-it'
+  
+  // Format for Gemma-2
+  const inputs = `<start_of_turn>user\n${systemPrompt}\n\n${userPrompt}<end_of_turn>\n<start_of_turn>model\n{\n`
+
   try {
-    const response = await fetch(HF_ROUTER_URL, {
+    const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${hfToken.trim()}`,
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${hfToken}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model:       'meta-llama/Meta-Llama-3-8B-Instruct',
-        messages:    [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-        max_tokens:  1800,
-        temperature: 0.05,
-        stream:      false,
-      }),
-      signal: AbortSignal.timeout(60_000),
+        inputs,
+        parameters: { max_new_tokens: 1500, temperature: 0.1, return_full_text: false }
+      })
     })
 
-    if (!response.ok) {
-      console.error(`[HF Llama] HTTP ${response.status}:`, await response.text())
+    if (!res.ok) {
+      console.log('[HF Error]', await res.text())
       return null
     }
 
-    const data = await response.json()
-    const content = data?.choices?.[0]?.message?.content
-    if (!content) return null
+    const data = await res.json()
+    let content = data[0]?.generated_text || ''
+    content = content.replace(/```json/g, '').replace(/```/g, '').trim()
+    if (!content.startsWith('{')) content = '{' + content
 
-    const jsonStr = content.substring(content.indexOf('{'), content.lastIndexOf('}') + 1)
-    const parsed = JSON.parse(jsonStr)
-    parsed._model = 'llama-3-8b-hf'
-    return parsed
-  } catch (err: any) {
-    console.error('[HF Llama] Network/timeout:', err?.message)
+    console.log('[MedGemma-2] Preview:', content.slice(0, 400))
+
+    try { const p = JSON.parse(content); p._model = model; return p }
+    catch {
+      const m = content.match(/\{[\s\S]*\}/)
+      if (!m) return null
+      try { const p = JSON.parse(m[0]); p._model = model; return p } catch { return null }
+    }
+  } catch (e) {
+    console.error('HF Fetch Error:', e)
     return null
   }
 }
@@ -773,7 +779,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Symptoms are required' }, { status: 400 })
     }
 
-    const hfToken = process.env.HUGGINGFACE_API_TOKEN
+    const hfToken = process.env.HUGGINGFACE_API_TOKEN || process.env.HF_TOKEN
     const oaiKey  = process.env.OPENAI_API_KEY
     const { systemPrompt, userPrompt } = buildClinicalPrompts(age, sex, duration, severity, symptoms)
 

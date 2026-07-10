@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CLINICAL_OS - 3D Anatomy Viewer</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;family=Public+Sans:wght@400;600&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#00ffff', // Cyan
+                        'primary-container': 'rgba(0, 255, 255, 0.1)',
+                        'on-primary-container': '#00ffff',
+                        secondary: '#008080', // Teal
+                        surface: '#050505', // Obsidian
+                        'on-surface': '#ffffff',
+                        'surface-variant': '#111111',
+                        'on-surface-variant': '#a0a0a0',
+                        error: '#ff3333',
+                    },
+                    fontFamily: {
+                        headline: ["Inter", "sans-serif"],
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                        label: ["Public Sans", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars for full HUD experience */
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(17, 17, 17, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .hud-glow {
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+        .text-glow {
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+        }
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(255, 255, 255, 0) 50%,
+                rgba(0, 255, 255, 0.02) 50%,
+                rgba(0, 255, 255, 0.02)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Custom Scrollbar for side panels */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen antialiased bg-surface text-on-surface">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-surface/60 backdrop-blur-xl border-b border-primary/20 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black text-primary tracking-tighter drop-shadow-[0_0_8px_rgba(0,255,255,0.5)]">NEURO_CORE</span>
+<div class="hidden md:flex gap-6 font-display tracking-widest uppercase text-sm">
+<a class="text-on-surface-variant/70 hover:text-primary hover:bg-primary/10 transition-all duration-300 px-2 py-1 rounded" href="#">BIOMETRY</a>
+<a class="text-on-surface-variant/70 hover:text-primary hover:bg-primary/10 transition-all duration-300 px-2 py-1 rounded" href="#">SCANNER</a>
+<a class="text-on-surface-variant/70 hover:text-primary hover:bg-primary/10 transition-all duration-300 px-2 py-1 rounded" href="#">VITALS</a>
+<a class="text-primary border-b-2 border-primary pb-1 hover:text-primary hover:bg-primary/10 transition-all duration-300 px-2" href="#">HISTORY</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<!-- Simulated Search on Right -->
+<div class="relative hidden lg:block">
+<input class="bg-surface-variant/50 border border-white/10 rounded-full py-1.5 pl-4 pr-10 text-xs font-mono text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 w-64" placeholder="QUERY SYSTEM..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1.5 text-on-surface-variant/50 text-sm">search</span>
+</div>
+<button class="text-on-surface-variant/70 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="text-on-surface-variant/70 hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-primary/30 object-cover" data-alt="A futuristic avatar placeholder image, cyber-medical style, dark mode with glowing cyan accents, highly detailed, sharp focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1jBKWYsDtX2nb1z6h96KpFw6RYEoOeSbjDzlKVM-aQA2gES-H-Q_0CuRNWtnAOuWO1JreHAOqqjK3y0YrKnndwc8lRNx_ioP-gB-uH3Tc0ovpMdP6sMO8UgL36HwTs2tLI1YAr3dgF0RGulKdLYUrxQ8mjZOOZxPUzZOlKI7hEjm4fOxiYvOOd4x3bE_moSqOLXWV_JAAW3l4uOW9KgSDOKjtK88IuRM1LLs0p_IgpejANVB1UJsTTjPw1q9wjTycZi_KJ6ooNbs"/>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex flex-1 pt-16 h-full relative">
+<!-- SideNavBar (Left Input Panel) -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] z-40 flex flex-col bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl w-64 shrink-0 overflow-y-auto">
+<div class="p-4 border-b border-white/5">
+<div class="flex items-center gap-3 mb-2">
+<img alt="System Status" class="w-10 h-10 rounded bg-surface-variant/50 border border-primary/20 p-1" data-alt="A stylized glowing medical cross icon or system status avatar, high tech, sharp, deep black background with cyan glow." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5EIrPVb0rvGV5giC9CKZGL-QvFU_0j2vtdY3JUwODEyi1rkzCnda3FyNneI3PqGRxhY4-3BFmPekXj5pzrGbEtA8eNKcXY2hdLs6mSvlFXENblFqUbtzzUTG-mrqYPF6zys9IX0TXyAbscA2IceG_uwgnN7qfTvEvGQ1LP8tmqfuIQWLd-ZbL1CXfKozQBAHwcG51bBTftk6FhN8094Nwc3T4N5ZjRCuNVNdKRMtgk1aY-Srco3D4yLp5V34FuS1oR9qZA91P5Ao"/>
+<div>
+<div class="text-lg font-bold text-primary tracking-tight">CLINICAL_OS</div>
+<div class="font-mono text-[10px] text-primary/60">V2.0.4 ACTIVE</div>
+</div>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 py-4 flex flex-col font-label text-xs tracking-tighter">
+<a class="text-on-surface-variant/60 px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer active:brightness-125" href="#">
+<span class="material-symbols-outlined text-lg">person</span>
+                    PATIENT
+                </a>
+<a class="text-on-surface-variant/60 px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer active:brightness-125" href="#">
+<span class="material-symbols-outlined text-lg">clinical_notes</span>
+                    SYMPTOMS
+                </a>
+<a class="bg-primary/20 text-primary border-l-4 border-primary px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer active:brightness-125" href="#">
+<span class="material-symbols-outlined text-lg">category</span>
+                    ANATOMY
+                </a>
+<a class="text-on-surface-variant/60 px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer active:brightness-125" href="#">
+<span class="material-symbols-outlined text-lg">analytics</span>
+                    ANALYSIS
+                </a>
+<a class="text-on-surface-variant/60 px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer active:brightness-125" href="#">
+<span class="material-symbols-outlined text-lg">psychology</span>
+                    DIAGNOSIS
+                </a>
+</nav>
+<!-- Clinical Input Form (Simulated within sidebar context) -->
+<div class="p-4 border-t border-white/5 space-y-4">
+<div class="font-mono text-xs text-primary/80 mb-2 border-b border-primary/20 pb-1">INPUT PARAMETERS</div>
+<!-- Age Slider -->
+<div>
+<label class="flex justify-between font-label text-xs text-on-surface-variant mb-1">
+<span>AGE</span>
+<span class="text-primary font-mono">42</span>
+</label>
+<input class="w-full accent-primary h-1 bg-surface-variant rounded-full appearance-none" max="120" min="0" type="range" value="42"/>
+</div>
+<!-- Sex Segmented -->
+<div>
+<label class="font-label text-xs text-on-surface-variant mb-1 block">SEX</label>
+<div class="flex bg-surface-variant rounded p-0.5">
+<button class="flex-1 py-1 text-[10px] font-mono text-center rounded bg-primary/20 text-primary shadow-sm">M</button>
+<button class="flex-1 py-1 text-[10px] font-mono text-center rounded text-on-surface-variant hover:text-white transition">F</button>
+<button class="flex-1 py-1 text-[10px] font-mono text-center rounded text-on-surface-variant hover:text-white transition">O</button>
+</div>
+</div>
+<!-- Symptoms Tags -->
+<div>
+<label class="font-label text-xs text-on-surface-variant mb-1 block">SYMPTOMS</label>
+<div class="flex flex-wrap gap-1">
+<span class="px-2 py-0.5 bg-error/20 border border-error/50 text-error text-[10px] font-mono rounded-sm">CEPHALALGIA</span>
+<span class="px-2 py-0.5 bg-surface-variant border border-white/10 text-on-surface-variant text-[10px] font-mono rounded-sm flex items-center gap-1">NAUSEA <span class="material-symbols-outlined text-[10px]">close</span></span>
+<button class="px-2 py-0.5 bg-surface-variant border border-dashed border-white/20 text-primary text-[10px] font-mono rounded-sm">+</button>
+</div>
+</div>
+<button class="w-full py-2 mt-2 bg-primary/10 border border-primary text-primary font-display font-bold text-xs tracking-wider rounded hud-glow hover:bg-primary/20 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all duration-300">
+                    RUN_DIAGNOSTIC
+                 </button>
+</div>
+<div class="p-4 border-t border-white/5 mt-auto">
+<a class="text-error/70 px-2 py-2 flex items-center gap-3 hover:bg-error/10 hover:text-error transition-colors rounded font-label text-xs" href="#">
+<span class="material-symbols-outlined text-lg">logout</span>
+                    LOGOUT
+                </a>
+</div>
+</aside>
+<!-- Center Viewport (3D Model Area) -->
+<main class="flex-1 ml-64 relative bg-black mr-80">
+<!-- Grid Background Overlay for Tech Feel -->
+<div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none"></div>
+<div class="absolute inset-0 flex items-center justify-center overflow-hidden">
+<div class="w-full h-full bg-contain bg-center bg-no-repeat opacity-80 mix-blend-screen scale-110" data-alt="A highly detailed, futuristic 3D holographic medical scan of a human torso, showing glowing blue skeleton and vascular system against a deep black void. Cinematic lighting, high tech UI." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC6hLsjVxinY75jSo72bFl1YIUstDiMai8F2dyWcaYiREu_z7uAxwn7F8yzgyKIG2R3JNhv_vcvvEwWW8Lxs_S64Xl_rUft4iqCuoycLdKBimExaVOWM3-myrP1va3OwWow09J4DAxtjfoUHJonKL2VLH1dvQ1jPOjDJlGZSx7eLdVFc0Ic57NqRuhUbOB2mZFiyYc6KN6djcKt92JGYMJntoE__4l3efWcRVBvuePMaXibwcHyntfi4IrlHD-dl0zj_P613rNst8o')"></div>
+</div>
+<!-- Floating View Controls -->
+<div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 glass-panel p-2 rounded-full flex items-center gap-2 z-20">
+<button class="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center border border-primary/50 shadow-[0_0_10px_rgba(0,255,255,0.3)]">
+<span class="material-symbols-outlined text-sm">skeleton</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface-variant text-on-surface-variant hover:text-white flex items-center justify-center transition">
+<span class="material-symbols-outlined text-sm">accessibility_new</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface-variant text-on-surface-variant hover:text-white flex items-center justify-center transition">
+<span class="material-symbols-outlined text-sm">neurology</span>
+</button>
+<div class="w-px h-6 bg-white/10 mx-2"></div>
+<div class="flex items-center gap-2 px-2">
+<span class="material-symbols-outlined text-xs text-on-surface-variant">opacity</span>
+<input class="w-24 accent-primary h-1 bg-surface-variant rounded-full appearance-none" type="range"/>
+</div>
+</div>
+<!-- Viewport Overlay Info -->
+<div class="absolute top-4 left-4 z-20">
+<div class="font-mono text-xs text-primary/70 tracking-widest">SCAN_ID: NX-774-B</div>
+<div class="font-mono text-[10px] text-on-surface-variant">RES: 0.1mm ISO</div>
+</div>
+</main>
+<!-- Right Side Panel (AI Diagnosis) -->
+<aside class="fixed right-0 top-16 h-[calc(100vh-64px)] w-80 glass-panel border-l border-white/5 z-30 flex flex-col overflow-y-auto">
+<div class="p-5 border-b border-white/10 bg-gradient-to-b from-primary/5 to-transparent">
+<h2 class="font-display font-bold text-sm tracking-widest text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">troubleshoot</span>
+                    NEURAL DIAGNOSIS
+                </h2>
+</div>
+<div class="p-5 flex-1 space-y-6">
+<!-- Status Box -->
+<div class="bg-error/10 border border-error/30 rounded p-3 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-error"></div>
+<div class="flex justify-between items-start mb-1">
+<span class="font-mono text-xs text-error font-bold">CRITICAL ANOMALY DETECTED</span>
+<span class="material-symbols-outlined text-error text-sm animate-pulse">warning</span>
+</div>
+<p class="font-body text-xs text-on-surface-variant leading-relaxed">Elevated markers in frontal cortex detected. Immediate review recommended.</p>
+</div>
+<!-- Affected Organs -->
+<div>
+<h3 class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-3 border-b border-white/10 pb-1">Affected Regions</h3>
+<div class="space-y-2">
+<div class="flex justify-between items-center bg-surface-variant/50 p-2 rounded border border-white/5">
+<span class="font-label text-xs">Cerebrum</span>
+<span class="px-1.5 py-0.5 bg-error text-white text-[9px] font-mono rounded shadow-[0_0_8px_rgba(255,51,51,0.6)]">HIGH RISK</span>
+</div>
+<div class="flex justify-between items-center bg-surface-variant/50 p-2 rounded border border-white/5">
+<span class="font-label text-xs">Cerebellum</span>
+<span class="px-1.5 py-0.5 bg-secondary text-white text-[9px] font-mono rounded">MODERATE</span>
+</div>
+</div>
+</div>
+<!-- Possible Conditions -->
+<div>
+<h3 class="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-3 border-b border-white/10 pb-1">Confidence Matrix</h3>
+<div class="space-y-4">
+<!-- Condition 1 -->
+<div>
+<div class="flex justify-between text-xs font-label mb-1">
+<span class="text-white">Acute Encephalopathy</span>
+<span class="font-mono text-error">89%</span>
+</div>
+<div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
+<div class="bg-error h-full" style="width: 89%"></div>
+</div>
+</div>
+<!-- Condition 2 -->
+<div>
+<div class="flex justify-between text-xs font-label mb-1">
+<span class="text-on-surface-variant">Cortical Dysplasia</span>
+<span class="font-mono text-secondary">42%</span>
+</div>
+<div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 42%"></div>
+</div>
+</div>
+<!-- Condition 3 -->
+<div>
+<div class="flex justify-between text-xs font-label mb-1">
+<span class="text-on-surface-variant">Vascular Malformation</span>
+<span class="font-mono text-primary/50">12%</span>
+</div>
+<div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary/50 h-full" style="width: 12%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-5 border-t border-white/10 bg-black/40">
+<button class="w-full py-2 bg-surface border border-white/20 text-on-surface-variant hover:text-white text-xs font-label rounded transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">print</span>
+                    EXPORT REPORT
+                </button>
+</div>
+</aside>
+<!-- Global Scanline Effect Overlay -->
+<div class="scanline"></div>
+</div>
+</body></html>

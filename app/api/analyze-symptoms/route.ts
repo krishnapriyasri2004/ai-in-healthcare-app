@@ -47,34 +47,54 @@ Analyze the symptoms and return strict JSON with:
     const userPrompt = `Patient Biological Sex: ${gender || 'Unknown'}${vitalsStr}\nPatient symptoms: ${symptoms}${notes ? `\nAdditional notes: ${notes}` : ''}`
 
     let object
-    const apiKey = process.env.OPENAI_API_KEY
+    
+    let object
+    const apiKey = process.env.HUGGINGFACE_API_TOKEN || process.env.HF_TOKEN || process.env.MEDGEMMA_API_KEY
     if (apiKey) {
       try {
-        const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        const hfRes = await fetch('https://api-inference.huggingface.co/models/google/gemma-2-9b-it', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          headers: { 
+            'Authorization': `Bearer ${apiKey}`, 
+            'Content-Type': 'application/json' 
+          },
           body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.1,
-            max_tokens: 1500,
-            response_format: { type: 'json_object' }
+            inputs: `<start_of_turn>user
+${systemPrompt}
+
+${userPrompt}<end_of_turn>
+<start_of_turn>model
+\{
+`,
+            parameters: {
+              max_new_tokens: 1500,
+              temperature: 0.1,
+              return_full_text: false,
+            }
           })
         })
-        if (oaiRes.ok) {
-          const oaiData = await oaiRes.json()
-          const content = oaiData.choices?.[0]?.message?.content?.trim()
+        if (hfRes.ok) {
+          const hfData = await hfRes.json()
+          let content = hfData[0]?.generated_text || ''
+          
+          // Gemma often returns markdown blocks
+          content = content.replace(/```json/g, '').replace(/```/g, '').trim()
+          
+          // Because we prompted the model with "{
+", we need to prepend it
+          if (!content.startsWith('{')) content = '{' + content
+          
           if (content) {
-            try { object = JSON.parse(content) } catch { /* fall through */ }
+            try { object = JSON.parse(content) } catch (e) { console.log('Parse error', e, content) }
           }
+        } else {
+           console.log('HF API Error:', await hfRes.text())
         }
       } catch (e) {
-        console.log('[analyze-symptoms] OpenAI fetch error:', e)
+        console.log('[analyze-symptoms] HuggingFace fetch error:', e)
       }
     }
+
     if (!object) {
       const text = (symptoms + ' ' + (notes || '')).toLowerCase()
       if (text.includes('chest') || text.includes('heart') || text.includes('retrosternal') || text.includes('khanna')) {

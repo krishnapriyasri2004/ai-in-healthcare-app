@@ -806,6 +806,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
         mats,
       })
     })
+    clone.updateMatrixWorld(true) // Fix: Update matrix world after scale/position so annotations get correct world coords
     clone.userData._meshList = meshList
 
     return clone
@@ -826,6 +827,50 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     })
     return out
   }, [cloned, positionX, path])
+
+
+  // ── Compute Annotation Labels ────────────────────────────────────────────────
+  const annotations = useMemo(() => {
+    if (!conditionsByOrgan || Object.keys(conditionsByOrgan).length === 0) return []
+    
+    const out: { organ: string, condition: string, severity: string, x: number, y: number, z: number, mesh: THREE.Object3D }[] = []
+    const seenOrgans = new Set<string>()
+
+    cloned.traverse((c: any) => {
+      if (!(c instanceof THREE.Mesh)) return
+      
+      const name = c.name.toLowerCase()
+      let organId = null
+      
+      for (const org of affectedOrganIds) {
+        if (name.includes(org.replace('_', '')) || name.includes(org.split('_')[0])) {
+           organId = org
+           break
+        }
+      }
+      
+      if (organId && conditionsByOrgan[organId] && !seenOrgans.has(organId)) {
+         seenOrgans.add(organId)
+         
+         if (!c.geometry.boundingBox) c.geometry.computeBoundingBox()
+         const center = new THREE.Vector3()
+         c.geometry.boundingBox.getCenter(center)
+         center.applyMatrix4(c.matrixWorld)
+         
+         out.push({
+           organ: organId,
+           condition: conditionsByOrgan[organId].condition,
+           severity: conditionsByOrgan[organId].severity || 'Medium',
+           x: center.x,
+           y: center.y,
+           z: center.z,
+           mesh: c
+         })
+      }
+    })
+    console.log('[Annotations Debug] Generated:', out)
+    return out
+  }, [cloned, affectedOrganIds, conditionsByOrgan])
 
   const { invalidate } = useThree()
 
@@ -928,6 +973,36 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     >
       <primitive object={cloned} />
 
+      {/* ── Render 3D HTML Labels ── */}
+      {annotations.map((ann, i) => {
+         const isSplitted = viewMode === 'split' && isSplittedRef.current
+         const offsetY = (isSplitted && ann.mesh.userData.offsetY) ? ann.mesh.userData.offsetY : 0
+         
+         return (
+           <Html
+             key={`ann-${i}`}
+             position={[ann.x, ann.y + offsetY, ann.z + 0.1]}
+             center
+             distanceFactor={10}
+             zIndexRange={[100, 0]}
+             className="pointer-events-none"
+           >
+             <div className="flex flex-col items-center justify-center translate-x-4 -translate-y-4">
+               <div className="w-16 h-px bg-cyan-400/60 rotate-45 transform origin-bottom-left -translate-y-2 translate-x-2"></div>
+               <div className={`px-2 py-1.5 backdrop-blur-md border rounded-md shadow-lg flex flex-col gap-0.5 min-w-[120px] ${
+                 ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50' : 
+                 ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50' : 
+                 'bg-amber-950/80 border-amber-500/50'
+               }`}>
+                 <span className="text-[8px] uppercase tracking-widest text-gray-300 font-mono">{ann.organ.replace('_', ' ')}</span>
+                 <span className="text-[10px] font-bold text-white leading-tight font-sans">{ann.condition}</span>
+               </div>
+             </div>
+           </Html>
+         )
+      })}
+
+
       {/* Per-column smart callouts — each model shows labels for its own organ structures */}
       {visible && calloutLayout.length > 0 && calloutLayout.map(({ organ, labelX, labelY }) => {
         const organCond = conditionsByOrgan[organ.id]
@@ -960,9 +1035,9 @@ function buildMeshList(_clone: THREE.Group) { return [] as any[] }
 // FBX Model (Skeletal) — performance-optimised
 // ---------------------------------------------------------
 const RealisticFBXModel = React.memo(function RealisticFBXModel({
-  path, positionX, activeSystems, viewMode, visible, isSplittedRef, onModelClick
+  path, positionX, activeSystems, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick
 }: {
-  path: string; positionX: number; activeSystems: SystemToggles; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; onModelClick: () => void
+  path: string; positionX: number; activeSystems: SystemToggles; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void
 }) {
   const fbx = useFBX(path)
   const groupRef = useRef<THREE.Group>(null)
@@ -1008,8 +1083,53 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     const scaleFactor = 2.0 / (size.y || 1)
     clone.scale.setScalar(scaleFactor)
     clone.position.set(0, -box.min.y * scaleFactor - 1.0, -box.getCenter(new THREE.Vector3()).z * scaleFactor)
+    clone.updateMatrixWorld(true) // Fix: Update matrix world after scale/position so annotations get correct world coords
     return { clone, fbxMeshes }
   }, [fbx])
+
+
+  // ── Compute Annotation Labels ────────────────────────────────────────────────
+  const annotations = useMemo(() => {
+    if (!conditionsByOrgan || Object.keys(conditionsByOrgan).length === 0) return []
+    
+    const out: { organ: string, condition: string, severity: string, x: number, y: number, z: number, mesh: THREE.Object3D }[] = []
+    const seenOrgans = new Set<string>()
+
+    cloned.traverse((c: any) => {
+      if (!(c instanceof THREE.Mesh)) return
+      
+      const name = c.name.toLowerCase()
+      let organId = null
+      
+      for (const org of affectedOrganIds) {
+        if (name.includes(org.replace('_', '')) || name.includes(org.split('_')[0])) {
+           organId = org
+           break
+        }
+      }
+      
+      if (organId && conditionsByOrgan[organId] && !seenOrgans.has(organId)) {
+         seenOrgans.add(organId)
+         
+         if (!c.geometry.boundingBox) c.geometry.computeBoundingBox()
+         const center = new THREE.Vector3()
+         c.geometry.boundingBox.getCenter(center)
+         center.applyMatrix4(c.matrixWorld)
+         
+         out.push({
+           organ: organId,
+           condition: conditionsByOrgan[organId].condition,
+           severity: conditionsByOrgan[organId].severity || 'Medium',
+           x: center.x,
+           y: center.y,
+           z: center.z,
+           mesh: c
+         })
+      }
+    })
+    console.log('[Annotations Debug] Generated:', out)
+    return out
+  }, [cloned, affectedOrganIds, conditionsByOrgan])
 
   // Visibility — iterate cached array only
   useEffect(() => {
@@ -1030,6 +1150,36 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
   return (
     <group ref={groupRef} onClick={(e) => { e.stopPropagation(); onModelClick() }}>
       <primitive object={cloned} />
+
+      {/* ── Render 3D HTML Labels ── */}
+      {annotations.map((ann, i) => {
+         const isSplitted = viewMode === 'split' && isSplittedRef.current
+         const offsetY = (isSplitted && ann.mesh.userData.offsetY) ? ann.mesh.userData.offsetY : 0
+         
+         return (
+           <Html
+             key={`ann-${i}`}
+             position={[ann.x, ann.y + offsetY, ann.z + 0.1]}
+             center
+             distanceFactor={10}
+             zIndexRange={[100, 0]}
+             className="pointer-events-none"
+           >
+             <div className="flex flex-col items-center justify-center translate-x-4 -translate-y-4">
+               <div className="w-16 h-px bg-cyan-400/60 rotate-45 transform origin-bottom-left -translate-y-2 translate-x-2"></div>
+               <div className={`px-2 py-1.5 backdrop-blur-md border rounded-md shadow-lg flex flex-col gap-0.5 min-w-[120px] ${
+                 ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50' : 
+                 ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50' : 
+                 'bg-amber-950/80 border-amber-500/50'
+               }`}>
+                 <span className="text-[8px] uppercase tracking-widest text-gray-300 font-mono">{ann.organ.replace('_', ' ')}</span>
+                 <span className="text-[10px] font-bold text-white leading-tight font-sans">{ann.condition}</span>
+               </div>
+             </div>
+           </Html>
+         )
+      })}
+
     </group>
   )
 })
@@ -1250,6 +1400,8 @@ export function InteractiveAnatomyViewer({
                       viewMode={viewMode}
                       visible={systems.skeletal}
                       isSplittedRef={isSplittedRef}
+                      affectedOrganIds={affectedOrganIds}
+                      conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
                     />
                   </Suspense>
