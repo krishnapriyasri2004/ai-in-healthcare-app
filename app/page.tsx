@@ -5,17 +5,17 @@ import { Activity, ShieldCheck, Heart, Stethoscope, ChevronRight, Users, Plus, A
 
 export default function Home() {
   return (
-    <div className="w-full h-full min-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-[#020617] text-gray-100 flex flex-col font-sans">
+    <div className="w-full h-full min-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-surface text-gray-100 flex flex-col font-sans">
       
       {/* Hero Section */}
-      <section className="relative py-20 px-8 flex flex-col items-center justify-center text-center overflow-hidden border-b border-blue-950/40">
+      <section className="relative py-20 px-8 flex flex-col items-center justify-center text-center overflow-hidden border-b border-white/10">
         <div className="absolute inset-0 bg-gradient-to-b from-[#070f2b]/30 via-transparent to-transparent pointer-events-none"></div>
         
         {/* Glowing Ambient Orb */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
 
         <div className="max-w-4xl mx-auto flex flex-col items-center relative z-10 gap-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.1)]">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-950/30 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.1)]">
              <Activity className="w-3.5 h-3.5 animate-pulse" /> ABDM & ABHA INTEGRATED PORTAL
           </div>
 
@@ -38,7 +38,7 @@ export default function Home() {
             
             <Link 
               href="/patients" 
-              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-black/40 border border-blue-950/60 hover:bg-white/5 transition-all font-mono text-xs font-bold text-gray-300"
+              className="flex items-center gap-2 px-6 py-3 rounded-lg glass-panel border border-white/10 hover:bg-white/5 transition-all font-mono text-xs font-bold text-gray-300"
             >
               BROWSE PATIENT REGISTRY
             </Link>
@@ -48,25 +48,25 @@ export default function Home() {
 
       {/* Hospital Stats Grid */}
       <section className="py-12 px-8 max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="p-5 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-2 font-mono">
+        <div className="p-5 glass-panel border border-white/10 rounded-xl flex flex-col gap-2 font-mono">
           <div className="text-[10px] text-gray-500 uppercase">Interactive Wards</div>
           <div className="text-3xl font-black text-white">4 Active</div>
           <div className="text-[9px] text-cyan-500 uppercase mt-1">Real-time telemetry</div>
         </div>
 
-        <div className="p-5 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-2 font-mono">
+        <div className="p-5 glass-panel border border-white/10 rounded-xl flex flex-col gap-2 font-mono">
           <div className="text-[10px] text-gray-500 uppercase">AI Diagnosis Accuracy</div>
           <div className="text-3xl font-black text-green-500">94.2%</div>
           <div className="text-[9px] text-green-400 uppercase mt-1">Verified by NHA / Senior Staff</div>
         </div>
 
-        <div className="p-5 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-2 font-mono">
+        <div className="p-5 glass-panel border border-white/10 rounded-xl flex flex-col gap-2 font-mono">
           <div className="text-[10px] text-gray-500 uppercase">ABHA Enrolled Patients</div>
           <div className="text-3xl font-black text-white">1,248</div>
           <div className="text-[9px] text-gray-400 uppercase mt-1">Hospital database load</div>
         </div>
 
-        <div className="p-5 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-2 font-mono">
+        <div className="p-5 glass-panel border border-white/10 rounded-xl flex flex-col gap-2 font-mono">
           <div className="text-[10px] text-gray-500 uppercase">Avg Response Time</div>
           <div className="text-3xl font-black text-white">2.4s</div>
           <div className="text-[9px] text-cyan-500 uppercase mt-1">Real-time Inference</div>
@@ -74,7 +74,7 @@ export default function Home() {
       </section>
 
       {/* Interactive 3D Scanner Highlights */}
-      <section className="py-16 px-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center border-t border-blue-950/20">
+      <section className="py-16 px-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center border-t border-white/5">
          <div className="flex flex-col gap-5">
             <span className="font-bold text-xs uppercase text-cyan-400 font-mono tracking-widest flex items-center gap-2">
                <Stethoscope className="w-4 h-4" /> CLINICAL DIAGNOSTICS MODULE
@@ -102,9 +102,9 @@ export default function Home() {
          </div>
 
          {/* Teaser Model Panel */}
-         <div className="p-8 bg-black/60 border border-blue-950/60 rounded-2xl shadow-2xl relative overflow-hidden flex flex-col gap-6 items-center text-center">
+         <div className="p-8 glass-panel border border-white/10 rounded-2xl shadow-2xl relative overflow-hidden flex flex-col gap-6 items-center text-center">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
-            <div className="w-20 h-20 rounded-full bg-cyan-950/40 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.15)] animate-pulse">
+            <div className="w-20 h-20 rounded-full bg-cyan-950/30 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.15)] animate-pulse">
                <Activity className="w-10 h-10" />
             </div>
             <div>
@@ -121,13 +121,13 @@ export default function Home() {
       </section>
 
       {/* Specialties sections */}
-      <section className="py-16 px-8 max-w-7xl mx-auto w-full border-t border-blue-950/20">
+      <section className="py-16 px-8 max-w-7xl mx-auto w-full border-t border-white/5">
          <h2 className="text-center font-black text-lg uppercase tracking-widest text-cyan-500 font-mono mb-12">
             Clinical Specialties & Systems
          </h2>
 
          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="p-6 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-3">
+            <div className="p-6 glass-panel border border-white/10 rounded-xl flex flex-col gap-3">
                <div className="w-10 h-10 rounded-lg bg-red-950/40 border border-red-500/30 flex items-center justify-center text-red-400">
                   <Heart className="w-5 h-5 animate-pulse" />
                </div>
@@ -135,7 +135,7 @@ export default function Home() {
                <p className="text-[11px] text-gray-400 leading-relaxed font-mono">Suspected coronary anomalies, arrhythmia, hypertensive crisis mapping directly to cardiac anchor landmarks.</p>
             </div>
 
-            <div className="p-6 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-3">
+            <div className="p-6 glass-panel border border-white/10 rounded-xl flex flex-col gap-3">
                <div className="w-10 h-10 rounded-lg bg-blue-950/40 border border-blue-500/30 flex items-center justify-center text-blue-400">
                   <Activity className="w-5 h-5" />
                </div>
@@ -143,7 +143,7 @@ export default function Home() {
                <p className="text-[11px] text-gray-400 leading-relaxed font-mono">Tracheal congestion, bronchitis, dyspnea mapping directly onto the left/right lungs and respiratory pathways.</p>
             </div>
 
-            <div className="p-6 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-3">
+            <div className="p-6 glass-panel border border-white/10 rounded-xl flex flex-col gap-3">
                <div className="w-10 h-10 rounded-lg bg-yellow-950/40 border border-yellow-500/30 flex items-center justify-center text-yellow-400">
                   <Award className="w-5 h-5" />
                </div>
@@ -151,7 +151,7 @@ export default function Home() {
                <p className="text-[11px] text-gray-400 leading-relaxed font-mono">Headache scores, neurovascular spasms, and meningeal inflammations mapped to core brain anchor coordinates.</p>
             </div>
 
-            <div className="p-6 bg-black/40 border border-blue-950/40 rounded-xl flex flex-col gap-3">
+            <div className="p-6 glass-panel border border-white/10 rounded-xl flex flex-col gap-3">
                <div className="w-10 h-10 rounded-lg bg-green-950/40 border border-green-500/30 flex items-center justify-center text-green-400">
                   <Stethoscope className="w-5 h-5" />
                </div>
@@ -162,7 +162,7 @@ export default function Home() {
       </section>
 
       {/* Footer disclaimer */}
-      <footer className="py-8 px-8 text-center border-t border-blue-950/40 text-[10px] text-gray-600 font-mono mt-auto">
+      <footer className="py-8 px-8 text-center border-t border-white/10 text-[10px] text-gray-600 font-mono mt-auto">
          © 2026 Arogya AI Health System. ABDM (Ayushman Bharat Digital Mission) Compliant. 3D models and diagnostic suggestions are for decision-support only.
       </footer>
     </div>

@@ -16,6 +16,7 @@ interface SystemToggles {
   organs: boolean
   vessels: boolean
   skin: boolean
+  skinOpacity: number  // 0.0 – 1.0
 }
 
 type ViewMode = 'merged' | 'split'
@@ -122,11 +123,19 @@ function FastGLBModel({ path, column, systems, onSplit, splitRef }: {
 
       if (path.includes('splanchnology') && column === -2) {
         child.visible = systems.skin
-        // Semi-transparent skin
-        const mats = Array.isArray(child.material) ? child.material : [child.material]
-        mats.forEach((m: any) => {
-          if (m) { m.transparent = true; m.opacity = 0.2; m.depthWrite = false }
+        // ── REALISTIC WHITE SKIN MATERIAL ──
+        const skinMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color('#F2C9A8'),      // warm light skin tone
+          roughness: 0.72,                         // slight matte — real skin
+          metalness: 0.0,
+          emissive: new THREE.Color('#3A1A0A'),   // deep warm subsurface glow
+          emissiveIntensity: 0.08,
+          transparent: systems.skinOpacity < 1.0,
+          opacity: systems.skinOpacity,
+          depthWrite: systems.skinOpacity >= 0.95,
+          side: THREE.FrontSide,
         })
+        child.material = skinMat
         return
       }
 
@@ -159,258 +168,58 @@ function FastGLBModel({ path, column, systems, onSplit, splitRef }: {
   if (!visible) return null
 
   return (
-    <group ref={groupRef} onClick={(e) => { e.stopPropagation(); onSplit() }}>
-      <primitive object={cloned} />
-    </group>
-  )
-}
+    <div className="w-full h-full bg-surface text-on-surface flex flex-col overflow-hidden select-none relative font-body">
+      {/* Global Scanline Effect */}
+      <div className="scanline"></div>
 
-// ═══════════════════════════════════════════════════════
-// FAST FBX MODEL — Skeleton
-// ═══════════════════════════════════════════════════════
-function FastFBXModel({ path, column, systems, onSplit, splitRef }: {
-  path: string
-  column: number
-  systems: SystemToggles
-  onSplit: () => void
-  splitRef: React.MutableRefObject<boolean>
-}) {
-  const fbx = useFBX(path)
-  const groupRef = useRef<THREE.Group>(null)
-
-  const { wrapper, innerClone } = useMemo(() => {
-    const clone = SkeletonUtils.clone(fbx)
-
-    const wrapper = new THREE.Group()
-    wrapper.rotation.x = -Math.PI / 2
-    wrapper.add(clone)
-    wrapper.updateMatrixWorld(true)
-
-    const box = new THREE.Box3().setFromObject(wrapper)
-    const size = box.getSize(new THREE.Vector3())
-    const scale = 2.0 / (size.y || 1)
-    wrapper.scale.setScalar(scale)
-    wrapper.updateMatrixWorld(true)
-
-    const box2 = new THREE.Box3().setFromObject(wrapper)
-    const center2 = box2.getCenter(new THREE.Vector3())
-    wrapper.position.set(-center2.x, -box2.min.y - 1.0, -center2.z)
-
-    const boneMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e8dcc8'),
-      roughness: 0.65,
-      metalness: 0.05,
-      emissive: new THREE.Color('#2a2418'),
-      emissiveIntensity: 0.15,
-    })
-
-    clone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = false
-        child.receiveShadow = false
-        child.frustumCulled = true
-        child.material = boneMaterial.clone()
-      }
-    })
-
-    return { wrapper, innerClone: clone }
-  }, [fbx, column])
-
-  useFrame(() => {
-    if (!groupRef.current) return
-    const targetX = splitRef.current ? column * 1.2 : 0.0
-    const dx = Math.abs(groupRef.current.position.x - targetX)
-    if (dx > 0.002) {
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.4)
-    } else {
-      groupRef.current.position.x = targetX
-    }
-  })
-
-  useEffect(() => {
-    innerClone.traverse((child) => {
-      if (child instanceof THREE.Mesh) child.visible = systems.skeletal
-    })
-  }, [innerClone, systems.skeletal])
-
-  if (!systems.skeletal) return null
-
-  return (
-    <group ref={groupRef} onClick={(e) => { e.stopPropagation(); onSplit() }}>
-      <primitive object={wrapper} />
-    </group>
-  )
-}
-
-// ═══════════════════════════════════════════════════════
-// LOADING SPINNER
-// ═══════════════════════════════════════════════════════
-function LoadingSpinner() {
-  return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#060a14]/90 backdrop-blur-sm">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-3 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin"></div>
-        <p className="text-cyan-400 text-sm font-medium tracking-wider animate-pulse">Loading 3D Models...</p>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════════════
-export default function AnatomyViewerPage() {
-  const splitRef = useRef(false)
-  const [, forceUpdate] = useState(0)
-
-  const [systems, setSystems] = useState<SystemToggles>({
-    skeletal: true,
-    muscular: true,
-    organs: true,
-    vessels: true,
-    skin: false,
-  })
-
-  // Symptom analysis state
-  const [symptomsInput, setSymptomsInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [conditions, setConditions] = useState<{name: string; confidence: number; reasoning: string}[]>([])
-  const [redFlag, setRedFlag] = useState(false)
-  const [age, setAge] = useState(35)
-  const [sex, setSex] = useState<'Male' | 'Female'>('Male')
-  const [duration, setDuration] = useState('3 days')
-  const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Medium')
-  const [mappedRegions, setMappedRegions] = useState<string[]>([])
-
-  const handleSplit = useCallback(() => {
-    splitRef.current = !splitRef.current
-    forceUpdate(n => n + 1) // update status text only
-  }, [])
-
-  const toggleSystem = (key: keyof SystemToggles) => {
-    setSystems(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  const handleAnalyze = async () => {
-    if (!symptomsInput.trim()) return
-    setIsLoading(true)
-    setConditions([])
-    setRedFlag(false)
-    setMappedRegions([])
-
-    try {
-      const response = await fetch('/ai-in-healthcare/api/analyze-symptoms-viewer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ age, sex, duration, severity, symptoms: symptomsInput })
-      })
-      if (!response.ok) throw new Error('API error')
-      const data = await response.json()
-      if (data.error) throw new Error(data.error)
-
-      setConditions(data.possibleConditions || [])
-      setRedFlag(!!data.redFlag)
-      setMappedRegions(data.affectedRegions || [])
-
-      // Auto-split on analysis
-      splitRef.current = true
-      forceUpdate(n => n + 1)
-    } catch (e: any) {
-      console.error(e)
-      setConditions([{ name: 'Analysis Error', confidence: 0, reasoning: e.message || 'Failed to connect' }])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleClear = () => {
-    setSymptomsInput('')
-    setConditions([])
-    setRedFlag(false)
-    setMappedRegions([])
-    splitRef.current = false
-    forceUpdate(n => n + 1)
-  }
-
-  const LAYERS: { label: string; key: keyof SystemToggles; icon: string; color: string }[] = [
-    { label: 'Skeleton', key: 'skeletal', icon: '🦴', color: 'from-amber-500/20 to-amber-600/10 border-amber-500/30 text-amber-400' },
-    { label: 'Muscles', key: 'muscular', icon: '💪', color: 'from-rose-500/20 to-rose-600/10 border-rose-500/30 text-rose-400' },
-    { label: 'Organs', key: 'organs', icon: '🫀', color: 'from-red-500/20 to-red-600/10 border-red-500/30 text-red-400' },
-    { label: 'Vessels', key: 'vessels', icon: '🩸', color: 'from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-400' },
-    { label: 'Skin', key: 'skin', icon: '🧬', color: 'from-purple-500/20 to-purple-600/10 border-purple-500/30 text-purple-400' },
-  ]
-
-  return (
-    <div className="w-full h-screen bg-[#060a14] text-white flex flex-col overflow-hidden select-none">
-
-      {/* ═══ HEADER ═══ */}
-      <header className="h-14 bg-[#0a0f1e]/95 backdrop-blur border-b border-white/[0.06] px-5 flex items-center justify-between shrink-0 z-20">
-        <div className="flex items-center gap-4">
-          <Link href="/scan" className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition text-xs text-gray-400 hover:text-white">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            Back
-          </Link>
-          <div className="h-5 w-px bg-white/10"></div>
-          <div>
-            <h1 className="text-sm font-semibold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent tracking-tight">
-              3D Anatomy Viewer
-            </h1>
-            <p className="text-[10px] text-gray-500 -mt-0.5">Click model to split · Scroll to zoom · Drag to rotate</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full border transition-all ${
-            splitRef.current 
-              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' 
-              : 'bg-white/[0.03] border-white/[0.08] text-gray-500'
-          }`}>
-            {splitRef.current ? '◉ Split Active' : '○ Merged'}
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-medium">
-            ● Live
-          </span>
-        </div>
-      </header>
+      
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className="flex-1 flex overflow-hidden min-h-0 relative z-10">
 
         {/* ── LEFT PANEL: Symptom Input ── */}
-        <div className="w-72 bg-[#0a0f1e]/80 border-r border-white/[0.04] flex flex-col shrink-0">
-          <div className="p-4 border-b border-white/[0.04]">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-              Patient Symptoms
-            </h2>
+        <div className="w-72 bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl flex flex-col shrink-0 z-10">
+          <div className="p-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-surface-variant/50 border border-primary/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary text-sm">person</span>
+              </div>
+              <div>
+                <div className="text-sm font-bold text-primary tracking-tight">CLINICAL_OS</div>
+                <div className="font-mono text-[9px] text-primary/60">INPUT PARAMETERS</div>
+              </div>
+            </div>
           </div>
           
-          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="flex-1 p-5 space-y-5 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-gray-500 font-medium block mb-1">Age</label>
-                <input type="number" value={age} onChange={e => setAge(parseInt(e.target.value) || 35)}
-                  className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/40 transition" />
+                <label className="flex justify-between font-label text-xs text-on-surface-variant mb-1.5">
+                  <span>AGE</span>
+                  <span className="text-primary font-mono">{age}</span>
+                </label>
+                <input type="range" min="0" max="120" value={age} onChange={e => setAge(parseInt(e.target.value) || 35)}
+                  className="w-full accent-primary h-1 bg-surface-variant rounded-full appearance-none" />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 font-medium block mb-1">Sex</label>
-                <select value={sex} onChange={e => setSex(e.target.value as any)}
-                  className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/40 transition">
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
+                <label className="font-label text-xs text-on-surface-variant mb-1 block">SEX</label>
+                <div className="flex bg-surface-variant rounded p-0.5">
+                  <button onClick={() => setSex('Male')} className={`flex-1 py-1 text-[10px] font-mono text-center rounded transition ${sex === 'Male' ? 'bg-primary/20 text-primary shadow-sm border border-primary/30' : 'text-on-surface-variant hover:text-white'}`}>M</button>
+                  <button onClick={() => setSex('Female')} className={`flex-1 py-1 text-[10px] font-mono text-center rounded transition ${sex === 'Female' ? 'bg-primary/20 text-primary shadow-sm border border-primary/30' : 'text-on-surface-variant hover:text-white'}`}>F</button>
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] text-gray-500 font-medium block mb-1">Duration</label>
+              <label className="font-label text-xs text-on-surface-variant mb-1 block">DURATION</label>
               <input type="text" value={duration} onChange={e => setDuration(e.target.value)} placeholder="e.g. 3 days"
-                className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/40 transition" />
+                className="w-full bg-surface-variant/50 border border-white/10 rounded py-1.5 px-3 text-xs font-mono text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition" />
             </div>
 
             <div>
-              <label className="text-[10px] text-gray-500 font-medium block mb-1">Severity</label>
+              <label className="font-label text-xs text-on-surface-variant mb-1 block">SEVERITY</label>
               <select value={severity} onChange={e => setSeverity(e.target.value as any)}
-                className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/40 transition">
+                className="w-full bg-surface-variant/50 border border-white/10 rounded py-1.5 px-3 text-xs font-mono text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition appearance-none">
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
                 <option value="High">High</option>
@@ -419,59 +228,76 @@ export default function AnatomyViewerPage() {
             </div>
 
             <div>
-              <label className="text-[10px] text-gray-500 font-medium block mb-1">Symptoms</label>
-              <textarea rows={5} value={symptomsInput} onChange={e => setSymptomsInput(e.target.value)}
+              <label className="font-label text-xs text-on-surface-variant mb-1 block">SYMPTOMS</label>
+              <textarea rows={4} value={symptomsInput} onChange={e => setSymptomsInput(e.target.value)}
                 placeholder="Describe patient symptoms..."
-                className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/40 resize-none transition leading-relaxed" />
+                className="w-full bg-surface-variant/50 border border-white/10 rounded py-2 px-3 text-xs font-mono text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 resize-none transition leading-relaxed" />
             </div>
           </div>
 
-          <div className="p-4 border-t border-white/[0.04] space-y-2">
+          <div className="p-4 border-t border-white/5 space-y-3">
             <button onClick={handleAnalyze} disabled={isLoading || !symptomsInput.trim()}
-              className="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg text-white text-xs font-semibold flex items-center justify-center gap-2 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
+              className="w-full py-2.5 bg-primary/10 border border-primary text-primary font-display font-bold text-xs tracking-wider rounded hud-glow hover:bg-primary/20 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2">
               {isLoading ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Analyzing...</>
+                <><span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span> PROCESSING...</>
               ) : (
-                <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Analyze &amp; Map</>
+                <><span className="material-symbols-outlined text-sm">troubleshoot</span> RUN_DIAGNOSTIC</>
               )}
             </button>
             <button onClick={handleClear}
-              className="w-full py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] rounded-lg text-gray-400 text-xs font-medium transition cursor-pointer">
-              Clear All
+              className="w-full py-1.5 bg-surface border border-white/10 hover:bg-white/5 rounded text-on-surface-variant text-[10px] font-mono tracking-widest transition cursor-pointer">
+              RESET_SYSTEM
             </button>
           </div>
         </div>
 
         {/* ── CENTER: 3D Canvas ── */}
-        <div className="flex-1 relative">
-          
-          {/* Layer Controls — Floating */}
-          <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5">
-            {LAYERS.map(layer => {
-              const active = systems[layer.key]
-              return (
-                <button key={layer.key} onClick={() => toggleSystem(layer.key)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all cursor-pointer backdrop-blur-sm ${
-                    active 
-                      ? `bg-gradient-to-r ${layer.color} shadow-lg` 
-                      : 'bg-black/40 border-white/[0.06] text-gray-500 hover:text-gray-400 hover:border-white/[0.1]'
-                  }`}>
-                  <span className="text-sm">{layer.icon}</span>
-                  {layer.label}
-                </button>
-              )
-            })}
+        <div className="flex-1 relative bg-black">
+          {/* Grid Background Overlay for Tech Feel */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none z-0"></div>
+
+          {/* Viewport Overlay Info */}
+          <div className="absolute top-4 left-4 z-20 pointer-events-none">
+            <div className="font-mono text-xs text-primary/70 tracking-widest">SCAN_ID: NX-774-B</div>
+            <div className="font-mono text-[10px] text-on-surface-variant">RES: 0.1mm ISO</div>
           </div>
 
-          {/* Split/Merge indicator */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-            <button onClick={handleSplit}
-              className={`px-5 py-2 rounded-full border text-xs font-medium transition-all cursor-pointer backdrop-blur-sm ${
+          {/* Layer Controls — Floating Bottom Center */}
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 glass-panel p-2 rounded-full flex items-center gap-1.5 z-20 shadow-2xl">
+            {LAYERS.map(layer => {
+               const active = systems[layer.key as keyof SystemToggles] as boolean
+               return (
+                 <button key={layer.key} onClick={() => toggleSystem(layer.key as keyof SystemToggles)}
+                    title={layer.label}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      active
+                        ? 'bg-primary/20 text-primary border border-primary/50 shadow-[0_0_10px_rgba(0,255,255,0.3)]'
+                        : 'bg-surface-variant text-on-surface-variant hover:text-white border border-transparent'
+                    }`}>
+                    <span className="text-lg">{layer.icon}</span>
+                 </button>
+               )
+            })}
+            
+            <div className="w-px h-6 bg-white/10 mx-2"></div>
+            
+            {/* Skin Opacity */}
+            <div className="flex items-center gap-2 px-2" title="Skin Opacity">
+              <span className="text-sm opacity-70">🫁</span>
+              <input type="range" min="0" max="1" step="0.01" value={systems.skinOpacity}
+                onChange={e => setSystems(prev => ({ ...prev, skinOpacity: parseFloat(e.target.value) }))}
+                className="w-24 accent-primary h-1 bg-surface-variant rounded-full appearance-none cursor-pointer" />
+            </div>
+
+            <div className="w-px h-6 bg-white/10 mx-2"></div>
+
+            <button onClick={handleSplit} title="Split/Merge Models"
+              className={`px-4 h-10 rounded-full border text-xs font-mono font-bold tracking-widest transition-all cursor-pointer ${
                 splitRef.current
-                  ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400 shadow-lg shadow-cyan-500/10'
-                  : 'bg-white/[0.04] border-white/[0.08] text-gray-400 hover:bg-white/[0.06]'
+                  ? 'bg-primary/20 border-primary/50 text-primary shadow-[0_0_10px_rgba(0,255,255,0.3)]'
+                  : 'bg-surface-variant border-transparent text-on-surface-variant hover:text-white'
               }`}>
-              {splitRef.current ? '⊟ Click to Merge' : '⊞ Click to Split'}
+              {splitRef.current ? 'MERGE' : 'SPLIT'}
             </button>
           </div>
 
@@ -479,13 +305,11 @@ export default function AnatomyViewerPage() {
             <Canvas
               camera={{ position: [0, 0.2, 4.2], fov: 50 }}
               dpr={[1, 1.5]}
-              gl={{ antialias: false, powerPreference: 'high-performance', alpha: false, stencil: false, depth: true }}
+              gl={{ antialias: false, powerPreference: 'high-performance', alpha: true, stencil: false, depth: true }}
               performance={{ min: 0.5 }}
-              style={{ position: 'absolute', inset: 0 }}
+              style={{ position: 'absolute', inset: 0, zIndex: 10 }}
             >
-              <color attach="background" args={['#060a14']} />
-
-              {/* Optimized lighting — 3 lights only */}
+              {/* Optimized lighting */}
               <ambientLight intensity={0.8} />
               <directionalLight position={[8, 12, 5]} intensity={2.2} />
               <directionalLight position={[-6, 8, -4]} intensity={1.0} color="#e0e8ff" />
@@ -503,7 +327,7 @@ export default function AnatomyViewerPage() {
                 <FastGLBModel path="/ai-in-healthcare/asset-01/myology.glb" column={2} systems={systems} onSplit={handleSplit} splitRef={splitRef} />
               </Suspense>
 
-              <gridHelper args={[8, 20, '#111827', '#0a0f1e']} position={[0, -0.99, 0]} />
+              <gridHelper args={[8, 20, '#00ffff', '#050505']} position={[0, -0.99, 0]} />
 
               <OrbitControls
                 enablePan={true}
@@ -518,71 +342,83 @@ export default function AnatomyViewerPage() {
         </div>
 
         {/* ── RIGHT PANEL: AI Diagnosis ── */}
-        <div className="w-72 bg-[#0a0f1e]/80 border-l border-white/[0.04] flex flex-col shrink-0">
-          <div className="p-4 border-b border-white/[0.04]">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-              AI Diagnosis
+        <div className="w-80 glass-panel border-l border-white/5 flex flex-col shrink-0 z-10">
+          <div className="p-5 border-b border-white/10 bg-gradient-to-b from-primary/5 to-transparent">
+            <h2 className="font-display font-bold text-sm tracking-widest text-primary flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">troubleshoot</span>
+              NEURAL DIAGNOSIS
             </h2>
           </div>
 
-          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-            {/* Red Flag */}
+          <div className="flex-1 p-5 space-y-6 overflow-y-auto">
+            {/* Red Flag Status Box */}
             {redFlag && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-medium flex items-start gap-2 animate-pulse">
-                <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                ⚠️ Critical findings — immediate clinical review required
+              <div className="bg-error/10 border border-error/30 rounded p-3 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
+                <div className="flex justify-between items-start mb-1">
+                  <span className="font-mono text-xs text-error font-bold tracking-widest">CRITICAL ANOMALY</span>
+                  <span className="material-symbols-outlined text-error text-sm animate-pulse">warning</span>
+                </div>
+                <p className="font-body text-xs text-error/80 leading-relaxed">Immediate clinical review recommended based on neural diagnostic markers.</p>
               </div>
             )}
 
-            {/* Mapped Regions */}
+            {/* Affected Organs */}
             {mappedRegions.length > 0 && (
-              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
-                <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mb-2">Affected Regions</p>
-                <div className="flex flex-wrap gap-1.5">
+              <div>
+                <h3 className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-3 border-b border-white/10 pb-1">Affected Regions</h3>
+                <div className="space-y-2">
                   {mappedRegions.map((r, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/20 text-red-400 text-[10px] font-medium capitalize">
-                      {r}
-                    </span>
+                    <div key={i} className="flex justify-between items-center bg-surface-variant/50 p-2 rounded border border-white/5">
+                      <span className="font-label text-xs text-white capitalize">{r}</span>
+                      <span className="px-1.5 py-0.5 bg-error text-white text-[9px] font-mono rounded shadow-[0_0_8px_rgba(255,51,51,0.6)]">HIGH RISK</span>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Conditions */}
-            {conditions.length > 0 ? (
-              conditions.map((c, i) => (
-                <div key={i} className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2 hover:border-white/[0.1] transition">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="text-[11px] font-semibold text-white leading-tight">{c.name}</span>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                      c.confidence >= 80 ? 'bg-red-500/15 text-red-400 border border-red-500/20' 
-                      : c.confidence >= 50 ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                      : 'bg-gray-500/15 text-gray-400 border border-gray-500/20'
-                    }`}>
-                      {c.confidence}%
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 leading-relaxed">{c.reasoning}</p>
+            {/* Conditions / Confidence Matrix */}
+            <div>
+              <h3 className="font-mono text-[10px] text-on-surface-variant uppercase tracking-widest mb-3 border-b border-white/10 pb-1">Confidence Matrix</h3>
+              {conditions.length > 0 ? (
+                <div className="space-y-5">
+                  {conditions.map((c, i) => {
+                    const color = c.confidence >= 80 ? 'bg-error' : c.confidence >= 50 ? 'bg-secondary' : 'bg-primary/50';
+                    const textColor = c.confidence >= 80 ? 'text-error' : c.confidence >= 50 ? 'text-secondary' : 'text-primary/50';
+                    return (
+                      <div key={i}>
+                        <div className="flex justify-between text-xs font-label mb-1">
+                          <span className="text-white truncate pr-2">{c.name}</span>
+                          <span className={`font-mono ${textColor}`}>{c.confidence}%</span>
+                        </div>
+                        <div className="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden mb-1.5">
+                          <div className={`${color} h-full transition-all duration-1000`} style={{ width: `${c.confidence}%` }}></div>
+                        </div>
+                        <p className="text-[9px] text-on-surface-variant/70 leading-relaxed line-clamp-3">{c.reasoning}</p>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-6">
-                <p className="text-gray-600 text-xs text-center leading-relaxed">
-                  Enter patient symptoms and click<br /><strong className="text-gray-500">Analyze &amp; Map</strong> to generate<br />AI-powered differential diagnosis.
-                </p>
-              </div>
-            )}
+              ) : (
+                <div className="py-10 text-center">
+                  <p className="font-mono text-[10px] text-on-surface-variant/50 leading-relaxed">
+                    AWAITING INPUT...<br/>RUN DIAGNOSTIC TO GENERATE<br/>CONFIDENCE MATRIX
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Disclaimer */}
-          <div className="p-3 border-t border-white/[0.04]">
-            <p className="text-[9px] text-gray-600 leading-relaxed text-center">
-              AI-assisted decision support — not a clinical diagnosis. Requires physician verification.
-            </p>
+          <div className="p-5 border-t border-white/10 glass-panel">
+            <button className="w-full py-2 bg-surface border border-white/20 text-on-surface-variant hover:text-white text-[10px] font-mono tracking-widest rounded transition-colors flex items-center justify-center gap-2 cursor-not-allowed opacity-50">
+              <span className="material-symbols-outlined text-sm">print</span>
+              EXPORT REPORT
+            </button>
           </div>
         </div>
       </div>
     </div>
   )
 }
+

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { BodyModel } from '@/components/body-model'
+import { InteractiveAnatomyViewer } from '@/components/interactive-anatomy-viewer'
 import {
   Sparkles,
   Activity,
@@ -87,14 +87,50 @@ const getConditionCodes = (conditionName: string) => {
   return CONDITION_CODES.default
 }
 
-// Map API region names to BodyModel region format
-const toBodyModelRegions = (regions: string[]) =>
-  regions.map(r => ({
+// Full organ synonym map — mirrors what the API and view-anatomy page use
+const ORGAN_EXPAND_MAP: Record<string, string[]> = {
+  'heart': ['heart'], 'cardiac': ['heart'], 'myocardium': ['heart'], 'coronary': ['heart'],
+  'aorta': ['aorta'],
+  'lungs': ['lung_left', 'lung_right'], 'lung': ['lung_left', 'lung_right'],
+  'lung_left': ['lung_left'], 'lung_right': ['lung_right'],
+  'pulmonary': ['lung_left', 'lung_right'], 'respiratory': ['lung_left', 'lung_right'],
+  'trachea': ['trachea'], 'throat': ['throat'], 'pharynx': ['throat'],
+  'nasal_cavity': ['nasal_cavity'], 'nasal': ['nasal_cavity'],
+  'brain': ['brain'], 'cerebral': ['brain'], 'neurological': ['brain'],
+  'liver': ['liver'], 'hepatic': ['liver'],
+  'stomach': ['stomach'], 'gastric': ['stomach'],
+  'intestines': ['intestines'], 'intestine': ['intestines'], 'bowel': ['intestines'],
+  'gallbladder': ['gallbladder'], 'pancreas': ['pancreas'], 'spleen': ['spleen'],
+  'appendix': ['appendix'],
+  'kidneys': ['kidney_left', 'kidney_right'], 'kidney': ['kidney_left', 'kidney_right'],
+  'kidney_left': ['kidney_left'], 'kidney_right': ['kidney_right'],
+  'renal': ['kidney_left', 'kidney_right'],
+  'bladder': ['bladder'], 'urinary': ['kidney_left', 'kidney_right', 'bladder'],
+  'skin': ['skin'], 'lymph_nodes': ['lymph_nodes'], 'lymph': ['lymph_nodes'],
+}
+
+// Map API region names to BodyModel region format — expand bilateral organs
+const toBodyModelRegions = (regions: string[], organConditions?: Record<string, any>) => {
+  const expanded: string[] = []
+  regions.forEach(r => {
+    const key = r.toLowerCase().trim()
+    const mapped = ORGAN_EXPAND_MAP[key]
+    if (mapped) {
+      mapped.forEach(id => { if (!expanded.includes(id)) expanded.push(id) })
+    } else {
+      if (!expanded.includes(key)) expanded.push(key)
+    }
+  })
+  return expanded.map(r => ({
     bodyRegion: r,
-    confidence: 'high' as const,
-    condition: '',
-    reasoning: ''
+    confidence: (organConditions?.[r]?.severity?.toLowerCase() === 'critical' ||
+                 organConditions?.[r]?.severity?.toLowerCase() === 'high') ? 'high' as const
+               : organConditions?.[r]?.severity?.toLowerCase() === 'medium' ? 'medium' as const
+               : 'low' as const,
+    condition: organConditions?.[r]?.condition || '',
+    reasoning: organConditions?.[r]?.reasoning || ''
   }))
+}
 
 export default function SymptomsPage() {
   const [symptomsInput, setSymptomsInput] = useState('')
@@ -107,6 +143,9 @@ export default function SymptomsPage() {
   const [progressStep, setProgressStep] = useState(0)
   const [result, setResult] = useState<DiagnosisResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [organConditions, setOrganConditions] = useState<Record<string, any>>({})
+  const [viewMode, setViewMode] = useState<'split' | 'single'>('single')
+  const [highlightedMeshNames, setHighlightedMeshNames] = useState<string[]>([])
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -124,6 +163,7 @@ export default function SymptomsPage() {
     setResult(null)
     setErrorMsg(null)
     setProgressStep(0)
+    setOrganConditions({})
   }
 
   const handleAnalyze = async () => {
@@ -159,6 +199,7 @@ export default function SymptomsPage() {
       if (data.error) throw new Error(data.error)
 
       const primary = data.possibleConditions?.[0]
+      setOrganConditions(data.organConditions || {})
       setResult({
         affectedRegions: data.affectedRegions || [],
         possibleConditions: data.possibleConditions || [],
@@ -178,17 +219,17 @@ export default function SymptomsPage() {
   const anatomyViewerUrl = `/ai-in-healthcare/view-anatomy?symptoms=${encodeURIComponent(symptomsInput)}&age=${patientAge}&sex=${patientGender}`
 
   return (
-    <div className="w-full h-full bg-[#030712] flex flex-col p-6 overflow-y-auto font-mono text-xs text-slate-300">
+    <div className="w-full h-full bg-surface flex flex-col p-6 overflow-y-auto font-mono text-xs text-slate-300">
 
       {/* Page Header */}
-      <div className="flex justify-between items-center border-b border-blue-950/60 pb-4 mb-6">
+      <div className="flex justify-between items-center border-b border-white/10 pb-4 mb-6">
         <div>
           <h1 className="text-sm font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
             🧬 AI Diagnostic Assistant — DeepSeek Clinical Engine
           </h1>
           <p className="text-[10px] text-slate-500 mt-0.5">Enter patient symptoms to get AI-powered differential diagnoses mapped to the 3D anatomy model.</p>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#070f2b] border border-blue-900/30 text-emerald-400 font-bold uppercase text-[9px]">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded glass-panel border border-white/10 text-emerald-400 font-bold uppercase text-[9px]">
           ● DeepSeek V3 Online
         </div>
       </div>
@@ -199,8 +240,8 @@ export default function SymptomsPage() {
         <div className="col-span-5 flex flex-col gap-4">
 
           {/* Preset Shortcuts */}
-          <div className="bg-[#091026]/40 border border-blue-950/65 rounded-xl p-4 space-y-3">
-            <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-blue-950/30 pb-1.5 tracking-wider block">
+          <div className="glass-panel border border-white/10 rounded-xl p-4 space-y-3">
+            <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
               💡 Rapid Clinical Presets
             </span>
             <div className="flex flex-col gap-2">
@@ -208,7 +249,7 @@ export default function SymptomsPage() {
                 <button
                   key={idx}
                   onClick={() => handleRunPreset(preset)}
-                  className="w-full text-left p-3 rounded-lg bg-black/40 border border-blue-950/40 hover:border-cyan-500/35 hover:bg-cyan-950/10 text-[10px] text-slate-300 transition duration-150 cursor-pointer flex justify-between items-center"
+                  className="w-full text-left p-3 rounded-lg bg-black/30 border border-white/10 hover:border-cyan-500/35 hover:bg-cyan-950/10 text-[10px] text-slate-300 transition duration-150 cursor-pointer flex justify-between items-center"
                 >
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-100">{preset.name}</span>
@@ -221,8 +262,8 @@ export default function SymptomsPage() {
           </div>
 
           {/* Symptoms Input Form */}
-          <div className="bg-[#091026]/40 border border-blue-950/65 rounded-xl p-4 flex-1 flex flex-col gap-3">
-            <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-blue-950/30 pb-1.5 tracking-wider block">
+          <div className="glass-panel border border-white/10 rounded-xl p-4 flex-1 flex flex-col gap-3">
+            <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
               ✍ Clinician Triage Entry
             </span>
 
@@ -234,7 +275,7 @@ export default function SymptomsPage() {
                   type="number"
                   value={patientAge}
                   onChange={(e) => setPatientAge(parseInt(e.target.value) || 30)}
-                  className="w-full bg-black/60 border border-blue-950/50 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
+                  className="w-full glass-panel backdrop-blur-sm border border-white/10 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
                 />
               </div>
               <div className="space-y-1">
@@ -242,7 +283,7 @@ export default function SymptomsPage() {
                 <select
                   value={patientGender}
                   onChange={(e) => setPatientGender(e.target.value as any)}
-                  className="w-full bg-black/60 border border-blue-950/50 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
+                  className="w-full glass-panel backdrop-blur-sm border border-white/10 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -255,7 +296,7 @@ export default function SymptomsPage() {
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="e.g. 3 days"
-                  className="w-full bg-black/60 border border-blue-950/50 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
+                  className="w-full glass-panel backdrop-blur-sm border border-white/10 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
                 />
               </div>
               <div className="space-y-1">
@@ -263,7 +304,7 @@ export default function SymptomsPage() {
                 <select
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as any)}
-                  className="w-full bg-black/60 border border-blue-950/50 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
+                  className="w-full glass-panel backdrop-blur-sm border border-white/10 rounded px-2 py-1.5 text-slate-100 outline-none focus:border-cyan-500"
                 >
                   <option value="Low">Low (Green)</option>
                   <option value="Medium">Medium (Yellow)</option>
@@ -287,7 +328,7 @@ export default function SymptomsPage() {
                   }
                 }}
                 placeholder={`Describe symptoms in detail...\ne.g. "Severe chest pain radiating to left arm, breathlessness, sweating for 2 hours"\n\nCtrl+Enter to submit`}
-                className="w-full flex-1 bg-black/60 border border-blue-950/50 rounded p-3 text-slate-100 outline-none focus:border-cyan-500/60 font-mono resize-none leading-relaxed min-h-[130px] placeholder-slate-700 transition"
+                className="w-full flex-1 glass-panel backdrop-blur-sm border border-white/10 rounded p-3 text-slate-100 outline-none focus:border-cyan-500/60 font-mono resize-none leading-relaxed min-h-[130px] placeholder-slate-700 transition"
               />
             </div>
 
@@ -330,13 +371,17 @@ export default function SymptomsPage() {
 
         {/* RIGHT COLUMN: 3D Anatomy Model */}
         <div className="col-span-7 flex flex-col gap-4">
-          <div className="flex-1 bg-black/40 border border-blue-950/40 rounded-2xl relative overflow-hidden flex flex-col min-h-[350px]">
-            <div className="absolute top-4 left-4 z-10 font-bold bg-[#070f2b]/80 backdrop-blur border border-blue-950/40 rounded px-2 py-1 text-[9px] text-cyan-400 uppercase tracking-widest">
+          <div className="flex-1 bg-black/30 border border-white/10 rounded-2xl relative overflow-hidden flex flex-col min-h-[350px]">
+            <div className="absolute top-4 left-4 z-10 font-bold glass-panel/80 backdrop-blur border border-white/10 rounded px-2 py-1 text-[9px] text-cyan-400 uppercase tracking-widest">
               🤖 {result ? `Mapped: ${result.affectedRegions.map(r => r.replace('_', ' ')).join(', ')}` : 'Awaiting Symptom Analysis'}
             </div>
-            <BodyModel
-              affectedRegions={result ? toBodyModelRegions(result.affectedRegions) : []}
-              patientId="immersive"
+            <InteractiveAnatomyViewer
+              affectedOrganIds={result ? toBodyModelRegions(result.affectedRegions).map(x => x.bodyRegion) : []}
+              conditionsByOrgan={organConditions}
+              highlightedMeshNames={highlightedMeshNames}
+              onOrganClick={(organ) => console.log('Clicked organ:', organ)}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
             />
           </div>
 
@@ -357,8 +402,8 @@ export default function SymptomsPage() {
 
       {/* BOTTOM SECTION: AI Clinical Outcomes */}
       {(isAnalyzing || result || errorMsg) && (
-        <div className="mt-6 bg-[#091026]/40 border border-blue-950/65 rounded-xl p-4 space-y-4 animate-in slide-in-from-bottom duration-250">
-          <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-blue-950/30 pb-1.5 tracking-wider block">
+        <div className="mt-6 glass-panel border border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-bottom duration-250">
+          <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
             🔬 DeepSeek AI Clinical Prognosis Dossier
           </span>
 
@@ -398,7 +443,7 @@ export default function SymptomsPage() {
                   </div>
                 )}
 
-                <div className="p-3 bg-black/40 border border-blue-950/40 rounded-lg space-y-2">
+                <div className="p-3 bg-black/30 border border-white/10 rounded-lg space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-[9px] text-slate-500 uppercase">Primary Diagnosis</span>
                     <span className={`font-bold text-[10px] ${
@@ -412,11 +457,11 @@ export default function SymptomsPage() {
 
                 {codes && (
                   <div className="grid grid-cols-2 gap-3 font-sans">
-                    <div className="p-2.5 bg-black/40 border border-blue-950/20 rounded text-center">
+                    <div className="p-2.5 bg-black/30 border border-white/5 rounded text-center">
                       <span className="text-[8px] text-slate-500 uppercase font-mono block mb-0.5">ICD-10 Code</span>
                       <span className="text-xs font-black text-slate-100 font-mono tracking-wide">{codes.icd10}</span>
                     </div>
-                    <div className="p-2.5 bg-black/40 border border-blue-950/20 rounded text-center">
+                    <div className="p-2.5 bg-black/30 border border-white/5 rounded text-center">
                       <span className="text-[8px] text-slate-500 uppercase font-mono block mb-0.5">SNOMED CT ID</span>
                       <span className="text-xs font-black text-slate-100 font-mono tracking-wide">{codes.snomed}</span>
                     </div>
@@ -424,7 +469,7 @@ export default function SymptomsPage() {
                 )}
 
                 {/* Affected regions */}
-                <div className="p-2.5 bg-black/40 border border-blue-950/30 rounded-lg">
+                <div className="p-2.5 bg-black/30 border border-white/10 rounded-lg">
                   <span className="text-[9px] text-slate-500 uppercase block mb-2 font-bold">Mapped Anatomical Regions</span>
                   <div className="flex flex-wrap gap-1.5">
                     {result.affectedRegions.map((r, i) => (
@@ -441,7 +486,7 @@ export default function SymptomsPage() {
                 <span className="text-[9px] text-slate-500 uppercase block font-bold">Differential Diagnoses (All)</span>
                 {result.possibleConditions.map((cond, idx) => (
                   <div key={idx} className={`p-3 rounded-lg border space-y-1 ${
-                    idx === 0 ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-black/40 border-blue-950/40'
+                    idx === 0 ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-black/30 border-white/10'
                   }`}>
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-slate-100 text-[10px] leading-snug max-w-[150px]">{cond.name}</span>
@@ -451,13 +496,13 @@ export default function SymptomsPage() {
                       }`}>{cond.confidence}%</span>
                     </div>
                     <p className="text-[9px] text-slate-400 leading-relaxed">{cond.reasoning}</p>
-                    {idx === 0 && <span className="text-[8px] font-bold uppercase text-cyan-400 border border-cyan-500/30 px-1.5 py-0.5 rounded bg-cyan-950/40">PRIMARY</span>}
+                    {idx === 0 && <span className="text-[8px] font-bold uppercase text-cyan-400 border border-cyan-500/30 px-1.5 py-0.5 rounded bg-cyan-950/30">PRIMARY</span>}
                   </div>
                 ))}
               </div>
 
               {/* Clinical directives */}
-              <div className="col-span-3 p-3 bg-black/40 border border-blue-950/40 rounded-lg space-y-2">
+              <div className="col-span-3 p-3 bg-black/30 border border-white/10 rounded-lg space-y-2">
                 <span className="text-[9px] text-slate-500 uppercase block font-bold">Clinician Directives</span>
                 <ul className="space-y-2 text-[9px] text-slate-300">
                   {result.redFlag && (
@@ -484,7 +529,7 @@ export default function SymptomsPage() {
                   </li>
                 </ul>
 
-                <div className="mt-3 pt-2 border-t border-blue-950/30 flex items-start gap-1.5 text-[9px] text-slate-500">
+                <div className="mt-3 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[9px] text-slate-500">
                   <Info className="w-3 h-3 shrink-0 mt-0.5 text-cyan-500" />
                   AI decision support only. Clinical verification required.
                 </div>

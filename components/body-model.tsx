@@ -43,51 +43,188 @@ interface BodyOrgan {
   size: [number, number, number]
 }
 
-// Map logical organ names from AI to our 3D nodes
+// ─────────────────────────────────────────────────────────────────────────
+// COMPREHENSIVE ORGAN VOCABULARY MAP
+// Every term DeepSeek can return is normalized to canonical organ IDs
+// ─────────────────────────────────────────────────────────────────────────
 const ORGAN_MAP: Record<string, string[]> = {
+  // Heart & Cardiovascular
   'heart': ['heart'],
+  'cardiac': ['heart'],
+  'myocardium': ['heart'],
+  'pericardium': ['heart'],
+  'coronary': ['heart'],
+  'aorta': ['heart', 'aorta'],
+  'aortic': ['heart', 'aorta'],
+  'ventricle': ['heart'],
+  'atrium': ['heart'],
+  'valve': ['heart'],
+  'pericardial': ['heart'],
+
+  // Lungs & Respiratory
   'lungs': ['lung_left', 'lung_right'],
-  'brain': ['brain'],
-  'liver': ['liver'],
-  'kidneys': ['kidney_left', 'kidney_right'],
-  'stomach': ['stomach'],
-  'intestines': ['intestines'],
-  'throat': ['throat'],
-  'nasal_cavity': ['nasal_cavity'],
+  'lung': ['lung_left', 'lung_right'],
+  'pulmonary': ['lung_left', 'lung_right'],
+  'bronchi': ['lung_left', 'lung_right'],
+  'bronchial': ['lung_left', 'lung_right'],
+  'pleura': ['lung_left', 'lung_right'],
+  'pleural': ['lung_left', 'lung_right'],
   'trachea': ['trachea'],
-  'bronchi': ['lung_left', 'lung_right']
+  'throat': ['throat'],
+  'pharynx': ['throat'],
+  'larynx': ['throat'],
+  'nasal_cavity': ['nasal_cavity'],
+  'nasal': ['nasal_cavity'],
+  'sinuses': ['nasal_cavity'],
+  'sinus': ['nasal_cavity'],
+  'diaphragm': ['lung_left', 'lung_right'],
+  'respiratory': ['lung_left', 'lung_right', 'trachea'],
+
+  // Brain & Nervous System
+  'brain': ['brain'],
+  'cerebral': ['brain'],
+  'cerebrum': ['brain'],
+  'cerebellum': ['brain'],
+  'meningeal': ['brain'],
+  'meninges': ['brain'],
+  'cranial': ['brain'],
+  'neurological': ['brain'],
+  'spinal': ['spinal_cord'],
+  'spine': ['spinal_cord'],
+  'spinal_cord': ['spinal_cord'],
+
+  // Liver & Hepatic
+  'liver': ['liver'],
+  'hepatic': ['liver'],
+  'hepatitis': ['liver'],
+  'biliary': ['liver', 'gallbladder'],
+  'bile': ['liver', 'gallbladder'],
+  'gallbladder': ['gallbladder'],
+  'cholecyst': ['gallbladder'],
+
+  // Kidneys & Urinary
+  'kidneys': ['kidney_left', 'kidney_right'],
+  'kidney': ['kidney_left', 'kidney_right'],
+  'renal': ['kidney_left', 'kidney_right'],
+  'nephro': ['kidney_left', 'kidney_right'],
+  'ureter': ['kidney_left', 'kidney_right'],
+  'bladder': ['bladder'],
+  'urinary': ['kidney_left', 'kidney_right', 'bladder'],
+  'urethra': ['bladder'],
+
+  // Digestive
+  'stomach': ['stomach'],
+  'gastric': ['stomach'],
+  'gastro': ['stomach'],
+  'intestines': ['intestines'],
+  'intestinal': ['intestines'],
+  'bowel': ['intestines'],
+  'colon': ['intestines'],
+  'colonic': ['intestines'],
+  'appendix': ['appendix'],
+  'appendicitis': ['appendix'],
+  'rectum': ['intestines'],
+  'duodenum': ['stomach', 'intestines'],
+  'esophagus': ['throat', 'stomach'],
+  'oesophagus': ['throat', 'stomach'],
+
+  // Pancreas
+  'pancreas': ['pancreas'],
+  'pancreatic': ['pancreas'],
+  'insulin': ['pancreas'],
+  'diabetes': ['pancreas'],
+  'diabetic': ['pancreas'],
+
+  // Spleen
+  'spleen': ['spleen'],
+  'splenic': ['spleen'],
+
+  // Skin & Musculoskeletal
+  'skin': ['skin'],
+  'integumentary': ['skin'],
+  'dermatitis': ['skin'],
+  'rash': ['skin'],
+  'muscle': ['muscle'],
+  'muscular': ['muscle'],
+  'joint': ['muscle'],
+  'bone': ['skeleton'],
+  'skeletal': ['skeleton'],
+  'fracture': ['skeleton'],
+
+  // Lymphatic
+  'lymph': ['lymph_nodes'],
+  'lymphatic': ['lymph_nodes'],
+  'lymph_nodes': ['lymph_nodes'],
+  'lymphoma': ['lymph_nodes'],
 }
 
-// Map each organ to a body system category so the Anatomy Explorer toggles work
+// ─────────────────────────────────────────────────────────────────────────
+// BODY SYSTEM ASSIGNMENT MAP
+// ─────────────────────────────────────────────────────────────────────────
 const ORGAN_SYSTEM_MAP: Record<string, keyof SystemToggles> = {
   'brain': 'nervous',
+  'spinal_cord': 'nervous',
   'throat': 'respiratory',
   'nasal_cavity': 'respiratory',
   'trachea': 'respiratory',
   'lung_left': 'respiratory',
   'lung_right': 'respiratory',
   'heart': 'cardiovascular',
+  'aorta': 'cardiovascular',
   'liver': 'digestive',
   'stomach': 'digestive',
+  'pancreas': 'digestive',
+  'gallbladder': 'digestive',
+  'spleen': 'digestive',
+  'appendix': 'digestive',
+  'intestines': 'digestive',
   'kidney_left': 'digestive',
   'kidney_right': 'digestive',
-  'intestines': 'digestive',
+  'bladder': 'digestive',
+  'skin': 'integumentary',
+  'lymph_nodes': 'lymphatic',
 }
 
-// Organ anchor positions calibrated for /anatomy.glb rendered at y=-1, scale=6.8
+// ─────────────────────────────────────────────────────────────────────────
+// ANATOMICALLY ACCURATE ORGAN POSITIONS
+// Calibrated for /anatomy.glb at y=-1, scale=6.8
+// Coordinate system: X=left/right, Y=up/down, Z=front/back
+// ─────────────────────────────────────────────────────────────────────────
 const ORGANS: BodyOrgan[] = [
-  { id: 'brain', name: 'Brain', position: [0, 2.35, 0], size: [0.3, 0.25, 0.3] },
-  { id: 'throat', name: 'Throat', position: [0, 1.75, 0.02], size: [0.1, 0.3, 0.1] },
-  { id: 'nasal_cavity', name: 'Nasal Cavity', position: [0, 2.1, 0.12], size: [0.1, 0.1, 0.1] },
-  { id: 'trachea', name: 'Trachea', position: [0, 1.4, 0.02], size: [0.08, 0.4, 0.08] },
-  { id: 'lung_left', name: 'Left Lung', position: [-0.22, 1.0, 0.02], size: [0.25, 0.5, 0.25] },
-  { id: 'lung_right', name: 'Right Lung', position: [0.22, 1.0, 0.02], size: [0.25, 0.5, 0.25] },
-  { id: 'heart', name: 'Heart', position: [-0.08, 0.95, 0.08], size: [0.2, 0.2, 0.15] },
-  { id: 'liver', name: 'Liver', position: [0.18, 0.55, 0.06], size: [0.4, 0.2, 0.25] },
-  { id: 'stomach', name: 'Stomach', position: [-0.16, 0.48, 0.08], size: [0.25, 0.2, 0.2] },
-  { id: 'kidney_left', name: 'Left Kidney', position: [-0.18, 0.5, -0.1], size: [0.12, 0.2, 0.12] },
-  { id: 'kidney_right', name: 'Right Kidney', position: [0.18, 0.5, -0.1], size: [0.12, 0.2, 0.12] },
-  { id: 'intestines', name: 'Intestines', position: [0, 0.1, 0.04], size: [0.4, 0.4, 0.25] },
+  // Head & Neck
+  { id: 'brain',         name: 'Brain',          position: [0,     2.38,  0.0],  size: [0.28, 0.22, 0.28] },
+  { id: 'nasal_cavity',  name: 'Nasal Cavity',   position: [0,     2.18,  0.14], size: [0.1,  0.1,  0.1]  },
+  { id: 'throat',        name: 'Throat/Larynx',  position: [0,     1.82,  0.06], size: [0.1,  0.18, 0.1]  },
+  { id: 'trachea',       name: 'Trachea',        position: [0,     1.55,  0.04], size: [0.07, 0.3,  0.07] },
+
+  // Thoracic — Heart slightly left of midline, lungs flanking
+  { id: 'lung_left',     name: 'Left Lung',      position: [-0.28, 1.05,  0.02], size: [0.22, 0.45, 0.22] },
+  { id: 'lung_right',    name: 'Right Lung',     position: [0.28,  1.05,  0.02], size: [0.22, 0.45, 0.22] },
+  { id: 'heart',         name: 'Heart',          position: [-0.07, 0.98,  0.1],  size: [0.18, 0.2,  0.14] },
+  { id: 'aorta',         name: 'Aorta',          position: [0,     0.88,  0.05], size: [0.06, 0.35, 0.06] },
+
+  // Abdominal — anatomically precise quadrants
+  { id: 'liver',         name: 'Liver',          position: [0.22,  0.58,  0.07], size: [0.35, 0.18, 0.22] }, // Right upper quadrant
+  { id: 'stomach',       name: 'Stomach',        position: [-0.14, 0.52,  0.09], size: [0.22, 0.18, 0.18] }, // Left upper quadrant
+  { id: 'gallbladder',   name: 'Gallbladder',    position: [0.18,  0.44,  0.1],  size: [0.08, 0.08, 0.08] }, // Under liver
+  { id: 'spleen',        name: 'Spleen',         position: [-0.3,  0.52, -0.04], size: [0.12, 0.14, 0.1]  }, // Left upper, posterior
+  { id: 'pancreas',      name: 'Pancreas',       position: [-0.06, 0.45,  0.0],  size: [0.25, 0.08, 0.1]  }, // Behind stomach, horizontal
+
+  // Retroperitoneal — Kidneys behind peritoneum, flanking spine
+  { id: 'kidney_left',   name: 'Left Kidney',    position: [-0.22, 0.42, -0.12], size: [0.1,  0.18, 0.1]  },
+  { id: 'kidney_right',  name: 'Right Kidney',   position: [0.22,  0.42, -0.12], size: [0.1,  0.18, 0.1]  },
+
+  // Pelvic
+  { id: 'intestines',    name: 'Small Intestine',position: [0,     0.18,  0.06], size: [0.32, 0.28, 0.22] },
+  { id: 'appendix',      name: 'Appendix',       position: [0.22,  0.08,  0.08], size: [0.05, 0.1,  0.05] }, // Right iliac fossa
+  { id: 'bladder',       name: 'Urinary Bladder',position: [0,    -0.12,  0.06], size: [0.14, 0.12, 0.12] },
+
+  // Spine & Nervous
+  { id: 'spinal_cord',   name: 'Spinal Cord',    position: [0,     0.8,  -0.1],  size: [0.05, 0.8,  0.05] },
+
+  // Skin / Surface
+  { id: 'skin',          name: 'Integumentary',  position: [0,     1.0,   0.18], size: [0.5,  1.0,  0.1]  },
+  { id: 'lymph_nodes',   name: 'Lymph Nodes',    position: [0,     1.1,   0.06], size: [0.2,  0.4,  0.1]  },
 ]
 
 // ---------------------------------------------------------
@@ -153,16 +290,12 @@ function AvatarBody({ opacity = 0.85, wireframe = false }: { opacity?: number, w
   return <primitive object={scene} position={[0, -1.0, 0]} scale={6.8} />
 }
 
-// ---------------------------------------------------------
-// HUD-style Pulsing Marker Component
-// ---------------------------------------------------------
-function PulsingMarker({ 
-  position, 
-  confidence, 
-  condition, 
-  reasoning,
-  organName
-}: { 
+// ─────────────────────────────────────────────────────────────────────────
+// PulsingMarker — Clean HUD callout pinned to organ centroid
+// ─────────────────────────────────────────────────────────────────────────
+function PulsingMarker({
+  position, confidence, condition, reasoning, organName
+}: {
   position: [number, number, number]
   confidence: string
   condition: string
@@ -170,69 +303,110 @@ function PulsingMarker({
   organName: string
 }) {
   const markerRef = useRef<THREE.Mesh>(null)
-  
-  const color = confidence === 'high' ? '#ef4444' : confidence === 'medium' ? '#f97316' : '#eab308'
-  const glowColor = confidence === 'high' ? 'rgba(239, 68, 68, 0.6)' : confidence === 'medium' ? 'rgba(249, 115, 22, 0.6)' : 'rgba(234, 179, 8, 0.6)'
+  const ringRef   = useRef<THREE.Mesh>(null)
+
+  const color =
+    confidence === 'high'   ? '#ef4444' :
+    confidence === 'medium' ? '#f97316' : '#eab308'
 
   useFrame((state) => {
-      if (markerRef.current) {
-          const t = state.clock.elapsedTime
-          const scale = 1 + Math.sin(t * 8) * 0.15
-          markerRef.current.scale.set(scale, scale, scale)
-      }
+    const t = state.clock.elapsedTime
+    if (markerRef.current) {
+      const s = 1 + Math.sin(t * 6) * 0.18
+      markerRef.current.scale.setScalar(s)
+    }
+    if (ringRef.current) {
+      const r = 1 + Math.sin(t * 3) * 0.35
+      ringRef.current.scale.setScalar(r)
+      ;(ringRef.current.material as THREE.MeshBasicMaterial).opacity = 0.5 - Math.sin(t * 3) * 0.35
+    }
   })
 
-  // Determine HUD label offset dynamically on the left or right of the body to prevent overlaps
   const isRight = position[0] >= 0
-  const lineLen = isRight ? 0.75 : -0.75
-  const labelOffset: [number, number, number] = [lineLen, 0.2, 0]
+  const lx = isRight ? 0.82 : -0.82
+  const labelOffset: [number, number, number] = [lx, 0.1, 0]
+  const sideStyle = isRight
+    ? { borderLeft: `2px solid ${color}`, borderRight: 'none', paddingLeft: '8px' }
+    : { borderRight: `2px solid ${color}`, borderLeft: 'none', paddingRight: '8px' }
 
   return (
     <group position={position}>
-       {/* 3D Core Dot on Organ */}
-       <mesh ref={markerRef}>
-         <sphereGeometry args={[0.045, 16, 16]} />
-         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.5} transparent opacity={0.95} />
-       </mesh>
+      {/* Core glowing dot */}
+      <mesh ref={markerRef}>
+        <sphereGeometry args={[0.04, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={3.5} transparent opacity={1} />
+      </mesh>
 
-       {/* HUD pointer line pointing to organ */}
-       <Line 
-         points={[[0, 0, 0], [labelOffset[0], labelOffset[1], labelOffset[2]]]} 
-         color={color} 
-         lineWidth={1.5}
-       />
+      {/* Expanding pulse ring */}
+      <mesh ref={ringRef}>
+        <ringGeometry args={[0.055, 0.075, 24]} />
+        <meshBasicMaterial color={color} transparent opacity={0.45} side={THREE.DoubleSide} />
+      </mesh>
 
-       {/* HUD Details Panel */}
-       <Html distanceFactor={5} position={labelOffset} zIndexRange={[100, 0]}>
-          <div 
-            className="w-56 p-3 rounded bg-black/95 border-t-2 shadow-[0_0_20px_rgba(0,0,0,0.85)] text-white pointer-events-auto flex flex-col gap-1 transition-all duration-300 font-sans"
-            style={{ 
-              borderColor: color, 
-              borderLeft: isRight ? `1px solid ${color}33` : 'none',
-              borderRight: !isRight ? `1px solid ${color}33` : 'none',
-              boxShadow: `0 0 15px ${glowColor}`
-            }}
-          >
-             <div className="flex justify-between items-center border-b border-white/10 pb-1">
-                <span className="font-mono text-[8px] tracking-widest text-gray-400 uppercase">SYSTEM ANOMALY</span>
-                <span className="text-[8px] font-mono font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-white/15" style={{ color }}>
-                   {confidence}
-                </span>
-             </div>
-             
-             <h3 className="font-bold text-[10px] uppercase tracking-wider text-white mt-0.5">
-                {organName.replace('_', ' ')}
-             </h3>
+      {/* Hairline pointer */}
+      <Line
+        points={[[0, 0, 0], labelOffset]}
+        color={color}
+        lineWidth={1.0}
+        dashed
+        dashSize={0.04}
+        gapSize={0.025}
+      />
 
-             <div className="font-semibold text-xs leading-tight mt-0.5" style={{ color }}>
-                {condition}
-             </div>
+      {/* Endpoint dot on line */}
+      <mesh position={labelOffset}>
+        <sphereGeometry args={[0.014, 8, 8]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
 
-             <p className="text-[10px] text-gray-400 leading-snug mt-1 border-t border-white/5 pt-1 line-clamp-3">
-                {reasoning}
-             </p>
+      {/* Clinical callout panel */}
+      <Html distanceFactor={5} position={labelOffset} zIndexRange={[100, 0]} center={false}>
+        <div
+          className="pointer-events-none font-sans"
+          style={{
+            width: '200px',
+            background: 'rgba(4, 6, 20, 0.97)',
+            border: `1px solid ${color}40`,
+            borderRadius: '8px',
+            boxShadow: `0 0 20px ${color}25, 0 4px 24px rgba(0,0,0,0.8)`,
+            padding: '10px 12px',
+            ...sideStyle,
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: '8px', letterSpacing: '0.12em', color: '#64748b', textTransform: 'uppercase' }}>Affected Region</span>
+            <span style={{
+              fontFamily: 'monospace', fontSize: '8px', fontWeight: 800, letterSpacing: '0.1em',
+              textTransform: 'uppercase', color, background: `${color}18`,
+              padding: '1px 6px', borderRadius: '4px', border: `1px solid ${color}35`
+            }}>{confidence}</span>
           </div>
-       </Html>
+
+          {/* Organ name */}
+          <div style={{ fontSize: '11px', fontWeight: 800, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+            {organName}
+          </div>
+
+          {/* Condition */}
+          {condition && (
+            <div style={{ fontSize: '10px', fontWeight: 700, color, marginBottom: '5px', lineHeight: 1.4 }}>
+              {condition}
+            </div>
+          )}
+
+          {/* Reasoning */}
+          {reasoning && (
+            <div style={{
+              fontSize: '9px', color: '#94a3b8', lineHeight: 1.5,
+              paddingTop: '5px', borderTop: '1px solid rgba(255,255,255,0.05)',
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+            }}>
+              {reasoning}
+            </div>
+          )}
+        </div>
+      </Html>
     </group>
   )
 }
@@ -443,7 +617,8 @@ function GLTFModelWrapper({
         if (child instanceof THREE.Mesh || (child as any).isMesh) {
           const name = child.name.toLowerCase()
           const parentName = child.parent ? child.parent.name.toLowerCase() : ''
-          const mats = Array.isArray(child.material) ? child.material : [child.material]
+          const mesh = child as THREE.Mesh
+          const mats: THREE.Material[] = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
           const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
           
           const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
@@ -641,11 +816,11 @@ function FBXModelWrapper({
     })
 
     clone.traverse((child) => {
-      const mesh = child as any
-      if (child instanceof THREE.Mesh || mesh.isMesh) {
+      const mesh = child as THREE.Mesh
+      if (child instanceof THREE.Mesh || (child as any).isMesh) {
         child.castShadow = true
         child.receiveShadow = true
-        child.material = boneMaterial.clone()
+        mesh.material = boneMaterial.clone()
       }
     })
 
@@ -847,36 +1022,44 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
           </Suspense>
         </Suspense>
 
-        {/* Render interactive organ labels & anomaly markers */}
-        {ORGANS.map(organ => {
-          const systemKey = ORGAN_SYSTEM_MAP[organ.id]
-          const isSystemActive = !activeSystems || !systemKey || !!activeSystems[systemKey]
-          if (!isSystemActive) return null
-
+        {/* Render interactive organ labels & anomaly markers ONLY after symptoms are analyzed */}
+        {(affectedRegions && affectedRegions.length > 0) && ORGANS.map(organ => {
           // Find if this organ is affected in any of the active regions
-          const matchingRegion = (affectedRegions || []).find(region => {
-            const organName = region.bodyRegion.toLowerCase()
+          const matchingRegion = affectedRegions.find(region => {
+            const organName = region.bodyRegion.toLowerCase().trim()
             const mappedNodes = ORGAN_MAP[organName] || [organName]
-            return mappedNodes.includes(organ.id)
+            return mappedNodes.includes(organ.id) || organName === organ.id
           })
 
-          // Calculate translated position for Column 2 (-1.2 on X, and vertical shift)
+          // Vertical offsets that match the GLTFModelWrapper organ explosion in column 2
+          // These align labels with the exploded organ meshes in split view
+          const ORGAN_DY: Record<string, number> = {
+            'brain':        0.0,
+            'nasal_cavity': 0.0,
+            'throat':       0.3,
+            'trachea':      0.3,
+            'lung_left':    0.3,
+            'lung_right':   0.3,
+            'heart':        0.3,
+            'aorta':        0.3,
+            'liver':        0.0,
+            'stomach':      0.0,
+            'gallbladder':  0.0,
+            'spleen':       0.0,
+            'pancreas':     0.0,
+            'kidney_left':  -0.4,
+            'kidney_right': -0.4,
+            'intestines':   -0.7,
+            'appendix':     -0.7,
+            'bladder':      -0.7,
+            'spinal_cord':  0.0,
+            'skin':         0.0,
+            'lymph_nodes':  0.0,
+          }
+
           const [bx, by, bz] = organ.position
           const dx = -1.2
-          let dy = 0
-          
-          if (organ.id === 'brain') {
-            dy = 0.0
-          } else if (['throat', 'nasal_cavity', 'trachea', 'lung_left', 'lung_right', 'heart'].includes(organ.id)) {
-            dy = 0.3
-          } else if (['liver', 'stomach'].includes(organ.id)) {
-            dy = 0.0
-          } else if (['kidney_left', 'kidney_right'].includes(organ.id)) {
-            dy = -0.4
-          } else if (organ.id === 'intestines') {
-            dy = -0.7
-          }
-          
+          const dy = ORGAN_DY[organ.id] ?? 0
           const adjustedPosition: [number, number, number] = [bx + dx, by + dy, bz]
 
           if (matchingRegion) {
@@ -892,7 +1075,7 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
             )
           }
 
-          // Otherwise render a standard hoverable label
+          // Organ is not affected — show a subtle label for context
           return (
             <OrganLabel 
               key={`label-${organ.id}`} 

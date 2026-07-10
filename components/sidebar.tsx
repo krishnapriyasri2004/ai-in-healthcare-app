@@ -9,7 +9,6 @@ import {
   Sparkles,
   ScanLine,
   CheckCircle2,
-  Activity
 } from 'lucide-react'
 
 export function Sidebar() {
@@ -24,21 +23,20 @@ export function Sidebar() {
       setIsAnalyzing(!!customEvent.detail?.loading)
     }
     window.addEventListener('sidebar-loading', handleLoading)
-    return () => {
-      window.removeEventListener('sidebar-loading', handleLoading)
-    }
+    return () => window.removeEventListener('sidebar-loading', handleLoading)
   }, [])
 
   const navItems = [
-    { href: '/scan', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/patients', label: 'Patient Workspace', icon: Users },
-    { href: '/symptoms', label: 'AI Diagnostic Assistant', icon: Sparkles },
-    { href: '/view-anatomy', label: 'Anatomy Viewer', icon: ScanLine },
+    { href: '/scan', label: 'DASHBOARD', icon: LayoutDashboard },
+    { href: '/patients', label: 'PATIENT_DB', icon: Users },
+    { href: '/symptoms', label: 'AI_DIAGNOSTICS', icon: Sparkles },
+    { href: '/view-anatomy', label: '3D_ANATOMY', icon: ScanLine },
   ]
 
   return (
-    <div className="w-56 h-full bg-[#070f2b]/85 backdrop-blur-xl border-r border-blue-950/50 flex flex-col justify-between py-6 z-20 shadow-[5px_0_20px_rgba(0,0,0,0.3)] select-none overflow-y-auto custom-scrollbar">
-      <div className="flex flex-col gap-1.5 px-3">
+    <div className="w-60 h-full bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl flex flex-col justify-between py-6 z-20 shrink-0 overflow-y-auto">
+      <div className="flex flex-col gap-2 px-4 font-mono text-xs">
+        <div className="text-[10px] text-primary/60 tracking-widest mb-2 border-b border-white/5 pb-2">SYSTEM_MODULES</div>
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -47,31 +45,32 @@ export function Sidebar() {
             <Link
               key={item.label}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group text-xs font-mono border ${
+              className={`flex items-center gap-3 px-3 py-3 rounded-sm transition-all duration-300 group ${
                 isActive
-                  ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.1)]'
-                  : 'text-gray-400 hover:text-slate-200 hover:bg-slate-900/40 border-transparent'
+                  ? 'bg-primary/20 border-l-4 border-primary text-primary shadow-[0_0_15px_rgba(0,255,255,0.15)]'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5 border-l-4 border-transparent'
               }`}
             >
-              <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-              <span className="truncate tracking-wide">{item.label}</span>
+              <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-primary' : 'text-on-surface-variant/70 group-hover:text-on-surface'}`} />
+              <span className="tracking-widest">{item.label}</span>
             </Link>
           )
         })}
       </div>
 
       {/* Quick Symptom Mapper */}
-      <div className="px-3 py-2 mt-2 mx-3 bg-[#0a1128]/60 border border-blue-950/50 rounded-xl flex flex-col gap-2 font-mono shrink-0">
-        <div className="flex items-center gap-1.5 text-[9px] text-cyan-400 font-bold uppercase tracking-wider">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
-          Quick Symptom Mapper
+      <div className="px-4 py-4 mx-4 mt-6 glass-panel rounded-lg flex flex-col gap-3 font-mono shrink-0 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 to-secondary/50"></div>
+        <div className="flex items-center gap-2 text-[10px] text-primary font-bold tracking-widest">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+          QUICK_MAPPER
         </div>
         <textarea
           value={symptomsText}
           onChange={(e) => setSymptomsText(e.target.value)}
-          placeholder="Enter symptoms (e.g. chest pain, cough, kidney pain...)"
+          placeholder="Enter symptoms..."
           disabled={isAnalyzing}
-          className="w-full min-h-[50px] max-h-[85px] p-2 bg-black/40 border border-blue-950/30 rounded-lg text-[9px] text-slate-300 placeholder-slate-600 outline-none focus:border-cyan-500/40 transition resize-none leading-relaxed custom-scrollbar"
+          className="w-full min-h-[60px] max-h-[100px] p-2 bg-surface-variant/50 border border-white/10 rounded text-[10px] text-on-surface placeholder-on-surface-variant/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition resize-none leading-relaxed"
         />
         <button
           onClick={() => {
@@ -84,52 +83,40 @@ export function Sidebar() {
             setSymptomsText('')
           }}
           disabled={!symptomsText.trim() || isAnalyzing}
-          className="w-full py-1.5 bg-cyan-950/60 hover:bg-cyan-900/40 border border-cyan-500/40 rounded-lg text-[8px] font-bold text-cyan-400 uppercase tracking-widest transition flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+          className="w-full py-2 bg-primary/10 hover:bg-primary/20 border border-primary text-primary rounded text-[9px] font-bold tracking-widest transition flex items-center justify-center gap-2 disabled:opacity-30 cursor-pointer hud-glow"
         >
           {isAnalyzing ? (
             <>
-              <span className="w-2 h-2 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
-              Mapping...
+              <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
+              PROCESSING
             </>
           ) : (
             <>
-              <Sparkles className="w-3 h-3" />
-              Map to Body
+              <Sparkles className="w-3.5 h-3.5" />
+              MAP TO BODY
             </>
           )}
         </button>
       </div>
 
-      {/* Ganga Hospital Compliance Footer */}
-      <div className="px-4 pt-4 border-t border-blue-950/40 flex flex-col gap-3 font-mono text-[9px] text-slate-500">
+      {/* Footer */}
+      <div className="px-4 pt-6 mt-6 border-t border-white/5 flex flex-col gap-3 font-mono text-[9px] text-on-surface-variant/60">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-rose-950/30 border border-rose-500/30 flex items-center justify-center text-rose-400 font-bold font-sans text-[10px]">
-            G
-          </div>
+          <div className="w-6 h-6 rounded bg-surface-variant border border-white/10 flex items-center justify-center font-bold font-display text-[11px] text-on-surface-variant">G</div>
           <div>
-            <div className="font-sans font-black text-[10px] text-slate-300 tracking-wide">GANGA HOSPITAL</div>
-            <div className="text-[7px] text-slate-500 uppercase -mt-0.5">Caring. Healing. Leading.</div>
+            <div className="font-display font-bold text-[10px] text-on-surface tracking-widest">GANGA_HOSPITAL</div>
+            <div className="text-[8px] uppercase tracking-widest text-primary/50 mt-0.5">SECURE NETWORK</div>
           </div>
         </div>
-
-        <div className="space-y-1 mt-1 text-[8px]">
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-            <span>ABDM Compliant</span>
+        <div className="space-y-1.5 mt-2 text-[9px]">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-3 h-3 text-primary/70" />
+            <span>ABDM_COMPLIANT</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-            <span>HIPAA Ready</span>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-3 h-3 text-primary/70" />
+            <span>FHIR_READY</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-            <span>FHIR Compatible</span>
-          </div>
-        </div>
-
-        <div className="text-[8px] text-slate-600 mt-1 border-t border-blue-950/20 pt-1.5 flex justify-between">
-          <span>Ver 2.6.1</span>
-          <span>SSL SECURE</span>
         </div>
       </div>
     </div>

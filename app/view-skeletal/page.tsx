@@ -40,12 +40,11 @@ function FBXModel({ path }: { path: string }) {
     })
 
     clone.traverse((child) => {
-      const mesh = child as any
-      if (child instanceof THREE.Mesh || mesh.isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
-        child.material = boneMaterial.clone()
-      }
+      if (!(child instanceof THREE.Mesh)) return
+      const m = child as THREE.Mesh
+      m.castShadow = true
+      m.receiveShadow = true
+      m.material = boneMaterial.clone()
     })
     
     return wrapper
@@ -56,12 +55,12 @@ function FBXModel({ path }: { path: string }) {
 
 export default function ViewSkeletalPage() {
   return (
-    <div className="w-full h-screen bg-[#030712] text-gray-100 flex flex-col font-sans relative overflow-hidden">
+    <div className="w-full h-screen bg-surface text-gray-100 flex flex-col font-sans relative overflow-hidden">
       {/* Top Banner/Nav */}
       <div className="absolute top-4 left-4 z-50 flex items-center gap-4">
         <Link 
           href="/scan" 
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900/80 border border-blue-950/50 hover:bg-slate-800 transition font-mono text-xs font-bold text-gray-300 backdrop-blur-md"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900/80 border border-white/10 hover:bg-slate-800 transition font-mono text-xs font-bold text-gray-300 backdrop-blur-md"
         >
           <ArrowLeft className="w-4 h-4" /> BACK TO SCANNER
         </Link>
@@ -112,7 +111,7 @@ export default function ViewSkeletalPage() {
       </div>
 
       {/* Footer Info HUD */}
-      <div className="absolute bottom-4 left-4 z-50 bg-slate-950/80 backdrop-blur-md border border-blue-950/50 p-4 rounded-lg font-mono text-[11px] text-gray-400 max-w-sm">
+      <div className="absolute bottom-4 left-4 z-50 bg-slate-950/80 backdrop-blur-md border border-white/10 p-4 rounded-lg font-mono text-[11px] text-gray-400 max-w-sm">
         <div className="text-white font-bold mb-1 uppercase tracking-wider text-xs">Model Information</div>
         <p className="mb-2">File: SkeletalSystem100.fbx</p>
         <p className="mb-2">Location: /public/asset-01/SkeletalSystem100.fbx</p>

@@ -162,10 +162,10 @@ export default function PatientsPage() {
   }
 
   return (
-    <div className="w-full h-full p-8 flex gap-6 overflow-hidden bg-[#020617] font-sans">
+    <div className="w-full h-full p-8 flex gap-6 overflow-hidden bg-surface font-sans">
       {/* Left panel: Directory registry */}
-      <div className="w-96 flex flex-col gap-4 bg-black/60 backdrop-blur-xl border border-blue-950/60 rounded-xl p-5 shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
-        <div className="flex justify-between items-center border-b border-blue-900/30 pb-3">
+      <div className="w-96 flex flex-col gap-4 glass-panel backdrop-blur-xl border border-white/10 rounded-xl p-5 shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
+        <div className="flex justify-between items-center border-b border-white/10 pb-3">
           <span className="font-bold text-sm tracking-wider uppercase text-cyan-400 flex items-center gap-2 font-mono">
             <Users className="w-4.5 h-4.5" /> Patient Directory
           </span>
@@ -185,7 +185,7 @@ export default function PatientsPage() {
             placeholder="Search registry..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-black border border-blue-950/50 rounded-lg text-xs outline-none focus:border-cyan-500/40 transition text-gray-300 font-mono"
+            className="w-full pl-9 pr-4 py-2 bg-black border border-white/10 rounded-lg text-xs outline-none focus:border-cyan-500/40 transition text-gray-300 font-mono"
           />
         </div>
 
@@ -198,7 +198,7 @@ export default function PatientsPage() {
               className={`p-3.5 rounded-lg border cursor-pointer transition-all duration-300 flex justify-between items-start ${
                 selectedPatientId === p.id
                   ? 'bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]'
-                  : 'bg-black/30 border-blue-950/40 hover:bg-white/5'
+                  : 'bg-black/30 border-white/10 hover:bg-white/5'
               }`}
             >
               <div>
@@ -219,7 +219,7 @@ export default function PatientsPage() {
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
 
           {/* Header patient profile info */}
-          <div className="bg-[#070f2b]/40 backdrop-blur-xl border border-cyan-500/20 p-6 rounded-xl shadow-lg flex justify-between items-center relative overflow-hidden">
+          <div className="glass-panel backdrop-blur-xl border border-cyan-500/20 p-6 rounded-xl shadow-lg flex justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
             <div>
               <div className="text-[10px] text-cyan-500 tracking-widest font-bold font-mono uppercase">ABHA VERIFIED CLINICAL PROFILE</div>
@@ -233,7 +233,7 @@ export default function PatientsPage() {
               </div>
             </div>
             <div className="flex gap-3 font-mono text-[10px]">
-              <div className="bg-black/40 border border-blue-900/30 p-2 px-3.5 rounded text-center">
+              <div className="glass-panel border border-white/10 p-2 px-3.5 rounded text-center">
                 <div className="text-gray-500 uppercase text-[8px] mb-0.5">Vitals Status</div>
                 <div className="text-green-500 font-bold uppercase">ABDM SYNCED</div>
               </div>
@@ -242,7 +242,7 @@ export default function PatientsPage() {
 
           {/* Vitals & Telemetry Grid */}
           <div className="grid grid-cols-5 gap-4">
-            <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5 relative overflow-hidden">
+            <div className="glass-panel border border-white/10 p-4 rounded-xl flex flex-col gap-1.5 relative overflow-hidden">
               <div className="text-[10px] font-mono text-gray-500 uppercase flex justify-between items-center">
                 HEART RATE
                 <Heart className="w-3.5 h-3.5 text-red-500 animate-pulse" />
@@ -251,25 +251,25 @@ export default function PatientsPage() {
               <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">Resting Pulse</div>
             </div>
 
-            <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5">
+            <div className="glass-panel border border-white/10 p-4 rounded-xl flex flex-col gap-1.5">
               <div className="text-[10px] font-mono text-gray-500 uppercase">BODY TEMP</div>
               <div className="text-xl font-bold text-white tracking-tight">{activePatient.vitals.temp} <span className="text-xs text-gray-400 font-normal">°C</span></div>
               <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">Core Oral</div>
             </div>
 
-            <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5">
+            <div className="glass-panel border border-white/10 p-4 rounded-xl flex flex-col gap-1.5">
               <div className="text-[10px] font-mono text-gray-500 uppercase">OXYGEN SAT</div>
               <div className="text-xl font-bold text-white tracking-tight">{activePatient.vitals.spo2} <span className="text-xs text-gray-400 font-normal">%</span></div>
               <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">SpO2 (Pulse Ox)</div>
             </div>
 
-            <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5">
+            <div className="glass-panel border border-white/10 p-4 rounded-xl flex flex-col gap-1.5">
               <div className="text-[10px] font-mono text-gray-500 uppercase">BLOOD PRESS.</div>
               <div className="text-xl font-bold text-white tracking-tight">{activePatient.vitals.bp}</div>
               <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">Systolic/Diastolic</div>
             </div>
 
-            <div className="bg-black/40 border border-blue-900/40 p-4 rounded-xl flex flex-col gap-1.5">
+            <div className="glass-panel border border-white/10 p-4 rounded-xl flex flex-col gap-1.5">
               <div className="text-[10px] font-mono text-gray-500 uppercase">BLOOD SUGAR</div>
               <div className="text-xl font-bold text-white tracking-tight">{activePatient.bloodSugar || 'N/A'} <span className="text-xs text-gray-400 font-normal">mg/dL</span></div>
               <div className="text-[9px] font-mono text-gray-500 mt-1 uppercase">Random Assay</div>
@@ -277,7 +277,7 @@ export default function PatientsPage() {
           </div>
 
           {/* ── AI SYMPTOM ANALYSIS PANEL ── */}
-          <div className="bg-[#070f2b]/60 border border-cyan-500/30 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(6,182,212,0.05)]">
+          <div className="glass-panel/60 border border-cyan-500/30 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(6,182,212,0.05)]">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-cyan-500/20 bg-black/30">
               <div className="flex items-center gap-2">
@@ -306,7 +306,7 @@ export default function PatientsPage() {
                   onChange={e => setSymptomInput(e.target.value)}
                   placeholder={`Describe ${activePatient.name}'s current symptoms in detail (e.g. location, severity, duration, associated signs)...`}
                   rows={4}
-                  className="w-full p-3 bg-black/50 border border-blue-950/50 rounded-lg text-xs text-slate-200 placeholder-slate-600 font-mono leading-relaxed outline-none focus:border-cyan-500/40 transition resize-none"
+                  className="w-full p-3 bg-black/50 border border-white/10 rounded-lg text-xs text-slate-200 placeholder-slate-600 font-mono leading-relaxed outline-none focus:border-cyan-500/40 transition resize-none"
                 />
               </div>
 
@@ -376,7 +376,7 @@ export default function PatientsPage() {
                           className={`p-3 rounded-lg border flex items-start gap-3 ${
                             i === 0
                               ? 'bg-cyan-950/30 border-cyan-500/40'
-                              : 'bg-black/40 border-blue-950/40'
+                              : 'glass-panel border-white/10'
                           }`}
                         >
                           <div className={`text-sm font-black font-mono shrink-0 mt-0.5 ${
@@ -417,34 +417,34 @@ export default function PatientsPage() {
 
           {/* Diagnosis & clinical notes */}
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-black/50 border border-blue-950/60 p-5 rounded-xl flex flex-col gap-3">
+            <div className="bg-black/50 border border-white/10 p-5 rounded-xl flex flex-col gap-3">
               <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5">
                 <ClipboardList className="w-4 h-4" /> Scanner Transcripts
               </span>
-              <div className="p-3 bg-black/60 rounded border border-blue-950/30 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
+              <div className="p-3 glass-panel rounded border border-white/10 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
                 {activePatient.symptoms || "No clinical symptoms registered for active patient. Navigate to scanner screen to analyze symptoms."}
               </div>
             </div>
 
-            <div className="bg-black/50 border border-blue-950/60 p-5 rounded-xl flex flex-col gap-3">
+            <div className="bg-black/50 border border-white/10 p-5 rounded-xl flex flex-col gap-3">
               <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4" /> Clinical Case Notes
               </span>
-              <div className="p-3 bg-black/60 rounded border border-blue-950/30 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
+              <div className="p-3 glass-panel rounded border border-white/10 font-mono text-xs text-gray-300 min-h-[90px] leading-relaxed">
                 {activePatient.notes || "No general history notes submitted."}
               </div>
             </div>
           </div>
 
           {/* Historical Scans timeline */}
-          <div className="bg-black/40 border border-blue-950/50 p-5 rounded-xl flex flex-col gap-4">
-            <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5 border-b border-blue-950/40 pb-2">
+          <div className="glass-panel border border-white/10 p-5 rounded-xl flex flex-col gap-4">
+            <span className="font-bold text-xs uppercase text-cyan-400 font-mono flex items-center gap-1.5 border-b border-white/10 pb-2">
               <Calendar className="w-4 h-4" /> Diagnostic Scan Records Timeline
             </span>
             {activePatient.history.length > 0 ? (
               <div className="space-y-3 font-mono text-xs">
                 {activePatient.history.map((record, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 rounded bg-black/50 border border-blue-950/30">
+                  <div key={idx} className="flex justify-between items-center p-3 rounded bg-black/50 border border-white/10">
                     <div className="flex gap-4">
                       <span className="text-gray-500">{record.date}</span>
                       <span className="text-white font-bold">{record.diagnosis}</span>

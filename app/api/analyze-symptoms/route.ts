@@ -1,24 +1,10 @@
-import { generateObject } from 'ai'
-import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { medicalHistory } from '@/lib/db/schema'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
 
-const analysisSchema = z.object({
-  predictedCondition: z.string(),
-  confidence: z.enum(['high', 'medium', 'low']),
-  reasoning: z.string(),
-  affectedRegions: z.array(z.object({
-    bodyRegion: z.string(), // Map to existing organ IDs (e.g. 'heart', 'lungs', 'brain')
-    confidence: z.enum(['high', 'medium', 'low']),
-    condition: z.string(),
-    reasoning: z.string()
-  })),
-  recommendations: z.array(z.string()),
-  severityScore: z.number().min(0).max(100),
-})
+
 
 export async function POST(req: Request) {
   try {
@@ -61,16 +47,35 @@ Analyze the symptoms and return strict JSON with:
     const userPrompt = `Patient Biological Sex: ${gender || 'Unknown'}${vitalsStr}\nPatient symptoms: ${symptoms}${notes ? `\nAdditional notes: ${notes}` : ''}`
 
     let object
-    try {
-      const { object: aiObject } = await generateObject({
-        model: 'openai/gpt-4o',
-        schema: analysisSchema,
-        system: systemPrompt,
-        prompt: userPrompt,
-      })
-      object = aiObject
-    } catch (e) {
-      console.log('[analyze-symptoms] Using demo response due to:', e)
+    const apiKey = process.env.OPENAI_API_KEY
+    if (apiKey) {
+      try {
+        const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.1,
+            max_tokens: 1500,
+            response_format: { type: 'json_object' }
+          })
+        })
+        if (oaiRes.ok) {
+          const oaiData = await oaiRes.json()
+          const content = oaiData.choices?.[0]?.message?.content?.trim()
+          if (content) {
+            try { object = JSON.parse(content) } catch { /* fall through */ }
+          }
+        }
+      } catch (e) {
+        console.log('[analyze-symptoms] OpenAI fetch error:', e)
+      }
+    }
+    if (!object) {
       const text = (symptoms + ' ' + (notes || '')).toLowerCase()
       if (text.includes('chest') || text.includes('heart') || text.includes('retrosternal') || text.includes('khanna')) {
         object = {
@@ -188,7 +193,7 @@ Analyze the symptoms and return strict JSON with:
           likelihood: object.confidence,
           description: object.reasoning
         }]),
-        affectedOrgans: JSON.stringify(object.affectedRegions.map(r => ({
+        affectedOrgans: JSON.stringify(object.affectedRegions.map((r: any) => ({
           id: r.bodyRegion,
           severity: r.confidence,
           condition: r.condition,
