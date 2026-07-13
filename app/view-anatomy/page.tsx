@@ -7,7 +7,7 @@ import {
   Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { InteractiveAnatomyViewer, ORGAN_MAP } from '@/components/interactive-anatomy-viewer'
+import { InteractiveAnatomyViewer, ORGAN_MAP, invalidateFnRef } from '@/components/interactive-anatomy-viewer'
 
 export default function ViewAnatomyPage() {
   const [viewMode, setViewMode] = useState<'split' | 'single'>('split')
@@ -25,11 +25,13 @@ export default function ViewAnatomyPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [possibleConditions, setPossibleConditions] = useState<Array<{ name: string; confidence: number; reasoning: string }>>([])
+  const [recommendedInvestigations, setRecommendedInvestigations] = useState<string[]>([])
   const [redFlag, setRedFlag] = useState<boolean>(false)
   const [highlightedMeshNames, setHighlightedMeshNames] = useState<string[]>([])
   
   // Clinically mapped organs matching active symptom analysis
   const [affectedOrganIds, setAffectedOrganIds] = useState<string[]>([])
+  const [affectedAnatomyList, setAffectedAnatomyList] = useState<Array<{label: string, mesh_id: string}>>([])
   const [conditionsByOrgan, setConditionsByOrgan] = useState<Record<string, { condition: string; reasoning: string; severity: string }>>({})
 
   // Detail modal state
@@ -174,7 +176,9 @@ export default function ViewAnatomyPage() {
     setRedFlag(false)
     setHighlightedMeshNames([])
     setAffectedOrganIds([])
+    setAffectedAnatomyList([])
     setConditionsByOrgan({})
+    setRecommendedInvestigations([])
     setErrorMsg(null)
     setSelectedOrgan(null)
     isSplittedRef.current = false
@@ -190,7 +194,9 @@ export default function ViewAnatomyPage() {
     setRedFlag(false)
     setHighlightedMeshNames([])
     setAffectedOrganIds([])
+    setAffectedAnatomyList([])
     setConditionsByOrgan({})
+    setRecommendedInvestigations([])
 
     try {
       const response = await fetch('/ai-in-healthcare/api/analyze-symptoms-viewer', {
@@ -199,114 +205,96 @@ export default function ViewAnatomyPage() {
         body: JSON.stringify({ age, sex, duration, severity, symptoms: symptomsInput })
       })
 
-      if (!response.ok) throw new Error('API server error.')
+      if (!response.ok) {
+        let errorMsg = 'API server error.'
+        try {
+          const errData = await response.json()
+          if (errData.error) errorMsg = errData.error
+        } catch (_) {}
+        throw new Error(errorMsg)
+      }
+      
       const data = await response.json()
       if (data.error) throw new Error(data.error)
 
-      setPossibleConditions(data.possibleConditions || [])
-      setRedFlag(!!data.redFlag)
+      // Map new differential_diagnoses strings to the UI structure and sort by confidence
+      const diagnoses = (data.differential_diagnoses || [])
+        .map((d: any) => ({
+          name: d.condition || 'Unknown Condition',
+          confidence: typeof d.confidence === 'number' ? d.confidence : 0,
+          reasoning: d.reasoning || 'AI-generated clinical differential.'
+        }))
+        .sort((a: any, b: any) => b.confidence - a.confidence)
 
-      // ── Resolve AI region strings → canonical organ IDs ───────────────────
-      const meshNames: string[] = []
+      setPossibleConditions(diagnoses)
+      setRecommendedInvestigations(data.recommended_investigations || [])
+      setRedFlag(false)
+
+      const rawAnatomy = data.affected_anatomy || []
+      
       const organIds: string[] = []
+      const meshNames: string[] = []
       const organConditions: Record<string, { condition: string; reasoning: string; severity: string }> = {}
 
-      // Mesh keyword → GLB material/mesh name matchers for emissive highlighting
-      const MESH_KEYWORDS: Record<string, string[]> = {
-        'heart':        ['heart', 'atrium', 'ventricle', 'cardiac', 'myocard'],
-        'lung_left':    ['lung', 'pulmon', 'bronchi', 'pleura', 'lobe'],
-        'lung_right':   ['lung', 'pulmon', 'bronchi', 'pleura', 'lobe'],
-        'brain':        ['brain', 'cerebr', 'cranial', 'cortex', 'cerebellum'],
-        'liver':        ['liver', 'hepat'],
-        'stomach':      ['stomach', 'gastric', 'esophag'],
-        'intestines':   ['intestine', 'bowel', 'colon', 'ileum', 'jejunum'],
-        'kidney_left':  ['kidney', 'renal'],
-        'kidney_right': ['kidney', 'renal'],
-        'trachea':      ['trachea', 'cartilage', 'windpipe'],
-        'throat':       ['throat', 'larynx', 'pharynx'],
-        'nasal_cavity': ['nasal', 'sinus'],
-        'spleen':       ['spleen', 'splenic'],
-        'pancreas':     ['pancrea'],
-        'appendix':     ['appendix'],
-        'bladder':      ['bladder'],
-        'gallbladder':  ['gallbladder', 'cholecyst'],
-        'aorta':        ['aorta', 'artery', 'vein'],
-        'spinal_cord':  ['spine', 'spinal', 'vertebr'],
-        'skin':         ['skin', 'integumentary', 'derm'],
-        'lymph_nodes':  ['lymph', 'node'],
-      }
+      const VALID_MESH_IDS = [
+        'brain', 'heart', 'lung_left', 'lung_right',
+        'liver', 'stomach', 'kidney_left', 'kidney_right',
+        'intestines', 'throat', 'trachea', 'nasal_cavity',
+        'spleen', 'pancreas', 'appendix', 'bladder', 'gallbladder',
+        'aorta', 'spinal_cord', 'skin', 'lymph_nodes',
+        'skeleton', 'muscles'
+      ]
 
-      // Normalize one raw string → canonical organ IDs (with partial-match fallback)
-      const resolveToOrganIds = (raw: string): string[] => {
-        const key = raw.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_')
-        if (ORGAN_MAP[key]) return ORGAN_MAP[key]
-        // Partial match — e.g. "pulmonary_congestion" still hits "pulmonary"
-        for (const [mapKey, ids] of Object.entries(ORGAN_MAP)) {
-          if (key.includes(mapKey) || mapKey.includes(key)) return ids
+      // Group labels by mesh_id
+      const groupedByMesh: Record<string, string[]> = {}
+      const uniqueLabels = new Set<string>()
+      const anatomyList: Array<{label: string, mesh_id: string}> = []
+
+      rawAnatomy.forEach((item: any) => {
+        if (!item.mesh_id || item.label === "Unable to determine") return
+        if (!VALID_MESH_IDS.includes(item.mesh_id)) return
+        
+        if (!uniqueLabels.has(item.label)) {
+          uniqueLabels.add(item.label)
+          anatomyList.push(item)
         }
-        return []
-      }
-
-      // Process each affected region from API
-      ;(data.affectedRegions || []).forEach((r: string) => {
-        const ids = resolveToOrganIds(r)
-        ids.forEach(id => {
-          if (!organIds.includes(id)) organIds.push(id)
-          const keywords = MESH_KEYWORDS[id] || [id.replace(/_/g, '')]
-          keywords.forEach(kw => { if (!meshNames.includes(kw)) meshNames.push(kw) })
-        })
+        
+        if (!groupedByMesh[item.mesh_id]) {
+          groupedByMesh[item.mesh_id] = []
+        }
+        groupedByMesh[item.mesh_id].push(item.label)
+        
+        // Add both the mesh_id and the specific anatomical label for highlighting
+        meshNames.push(item.mesh_id.toLowerCase())
+        meshNames.push(item.label.toLowerCase())
       })
 
-      // Also normalize organConditions keys from API response → copy to all resolved IDs
-      const primaryCond = data.possibleConditions?.[0]
-      if (data.organConditions) {
-        Object.entries(data.organConditions).forEach(([rawKey, val]: [string, any]) => {
-          const ids = resolveToOrganIds(rawKey)
-          ids.forEach(id => {
-            if (!organConditions[id]) {
-              organConditions[id] = {
-                condition: val.condition || primaryCond?.name || 'Affected Region',
-                reasoning: val.reasoning || primaryCond?.reasoning || 'Clinically mapped from presenting symptoms.',
-                severity: val.severity || severity
-              }
-            }
-          })
-        })
-      }
-
-      // Fill any organ still missing a condition with the primary diagnosis
-      organIds.forEach(id => {
-        if (!organConditions[id]) {
-          organConditions[id] = primaryCond
-            ? { condition: primaryCond.name, reasoning: primaryCond.reasoning, severity }
-            : { condition: 'Affected Region', reasoning: 'Clinical mapping based on presenting symptoms.', severity }
+      Object.entries(groupedByMesh).forEach(([meshId, labels]) => {
+        organIds.push(meshId)
+        organConditions[meshId] = {
+          condition: labels.join(', '), 
+          reasoning: `System: ${data.body_system || 'Unknown'} | Region: ${data.body_region || 'Unknown'}`,
+          severity: severity
         }
       })
 
       setHighlightedMeshNames(meshNames)
       setAffectedOrganIds(organIds)
+      setAffectedAnatomyList(anatomyList)
       setConditionsByOrgan(organConditions)
 
-      // Auto-enable ALL relevant anatomy layers so affected organs are immediately visible
-      // The organs column (column 2) shows when digestive, respiratory, cardiovascular, OR nervous is active
-      const needsOrgans = organIds.some(id =>
-        ['heart', 'liver', 'stomach', 'intestines', 'spleen', 'pancreas',
-         'appendix', 'gallbladder', 'bladder', 'kidney_left', 'kidney_right', 'aorta'].includes(id)
-      )
-      const needsRespiratory = organIds.some(id =>
-        ['lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity'].includes(id)
-      )
-      const needsCardio = organIds.some(id => ['heart', 'aorta'].includes(id))
-      const needsNervous = organIds.some(id => ['brain', 'spinal_cord'].includes(id))
-
-      // Always turn ON all systems that have affected organs — never reduce already-on systems
-      setSystems(prev => ({
-        ...prev,
-        digestive:      true,  // Always show organ column so callouts are visible
-        respiratory:    true,  // Always show organ column so callouts are visible
-        cardiovascular: true,  // Always show organ column so callouts are visible
-        nervous:        true,  // Always show organ column so callouts are visible
-      }))
+      // Apply system toggles directly from AI without hardcoded heuristics
+      const aiSystems = data.systems_to_enable || []
+      setSystems({
+        skeletal: aiSystems.includes('skeletal') || aiSystems.includes('skeleton'),
+        muscular: aiSystems.includes('muscular') || aiSystems.includes('muscles'),
+        nervous: aiSystems.includes('nervous') || aiSystems.includes('nerves'),
+        cardiovascular: aiSystems.includes('cardiovascular') || aiSystems.includes('vessels'),
+        respiratory: aiSystems.includes('respiratory') || aiSystems.includes('lungs'),
+        digestive: aiSystems.includes('digestive') || aiSystems.includes('organs'),
+        lymphatic: aiSystems.includes('lymphatic'),
+        integumentary: aiSystems.includes('integumentary') || aiSystems.includes('skin')
+      })
 
       // Auto-split on successful analysis in Split View mode to display organs clearly
       if (viewMode === 'split') {
@@ -321,21 +309,7 @@ export default function ViewAnatomyPage() {
 
     } catch (e: any) {
       console.error(e)
-      setErrorMsg(e.message || 'Connection failure. Running fallback stub.')
-      // Graceful fallback
-      setPossibleConditions([
-        { name: 'Transient GI Distress (Fallback)', confidence: 70, reasoning: 'GI inflammation fallback due to API endpoint delay.' }
-      ])
-      setHighlightedMeshNames(['stomach', 'intestine'])
-      setAffectedOrganIds(['stomach', 'intestines'])
-      setConditionsByOrgan({
-        'stomach': { condition: 'Gastric Irritation', reasoning: 'Secondary vomiting secondary to peritoneal stimulation.', severity: severity },
-        'intestines': { condition: 'Acute Appendicitis', reasoning: 'Migrating RLQ tenderness and abdominal guarding.', severity: severity }
-      })
-      if (viewMode === 'split') {
-        isSplittedRef.current = true
-        updateSplitStatusHUD()
-      }
+      setErrorMsg(e.message || 'Connection failure. AI analysis could not be completed.')
     } finally {
       setIsLoading(false)
     }
@@ -616,7 +590,91 @@ export default function ViewAnatomyPage() {
           setViewMode={setViewMode}
         />
 
-        
+        {/* RIGHT COLUMN: Results Panel (25% Width) */}
+        {(possibleConditions.length > 0 || isLoading) && (
+          <div className="w-[25%] min-w-[320px] bg-surface/40 backdrop-blur-3xl border-l border-primary/20 shadow-2xl p-4 flex flex-col overflow-y-auto custom-scrollbar shrink-0 shadow-sm transition-all">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-4">
+              <span className="font-bold text-xs uppercase text-primary tracking-wider flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" /> AI Clinical Results
+              </span>
+            </div>
+
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center h-40 text-center gap-3">
+                <span className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
+                <p className="text-[10px] text-cyan-400 font-mono uppercase animate-pulse">Running Diagnostic AI...</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {redFlag && (
+                  <div className="bg-red-950/40 border border-red-500/50 p-3 rounded-xl flex items-start gap-2 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-red-400 font-bold uppercase text-[10px] tracking-wider mb-0.5">Medical Emergency</h4>
+                      <p className="text-[9px] text-red-200/80 leading-relaxed">Symptoms indicate a potentially life-threatening condition requiring immediate medical attention.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Affected Anatomy */}
+                {affectedAnatomyList.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Affected Anatomy</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {affectedAnatomyList.map((item, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-cyan-950/30 border border-cyan-500/30 rounded-md text-[10px] font-bold text-cyan-300 shadow-[0_0_8px_rgba(0,255,255,0.1)]">
+                          {item.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Differential Diagnoses */}
+                <div className="space-y-3 pt-2">
+                  <h3 className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Differential Diagnoses</h3>
+                  {possibleConditions.map((cond, idx) => (
+                    <div key={idx} className="bg-black/30 border border-white/10 rounded-xl p-3 hover:border-primary/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className="text-[11px] font-bold text-white leading-tight">{cond.name}</h4>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border tracking-wider shrink-0 ${
+                          cond.confidence >= 80 ? 'bg-cyan-950/50 text-cyan-400 border-cyan-500/30' :
+                          cond.confidence >= 50 ? 'bg-amber-950/50 text-amber-400 border-amber-500/30' :
+                          'bg-slate-800 text-slate-300 border-slate-600'
+                        }`}>
+                          {cond.confidence}%
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 leading-relaxed font-sans">{cond.reasoning}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Recommended Investigations */}
+                {recommendedInvestigations.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <h3 className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Recommended Investigations</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recommendedInvestigations.map((inv, idx) => (
+                        <span key={idx} className="px-2 py-1 bg-blue-950/30 border border-blue-500/20 rounded-md text-[9.5px] font-medium text-blue-200">
+                          {inv}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Disclaimer */}
+                <div className="mt-8 p-3 bg-slate-900/50 border border-slate-800 rounded-lg flex gap-2">
+                  <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                  <p className="text-[8px] text-slate-500 font-sans leading-relaxed">
+                    <strong>DISCLAIMER:</strong> AI-generated clinical decision support. Not a confirmed diagnosis. Always exercise clinical judgment and perform appropriate diagnostic testing.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
 

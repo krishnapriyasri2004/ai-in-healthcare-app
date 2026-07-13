@@ -79,6 +79,9 @@ export const ORGANS: BodyOrgan[] = [
   // Integumentary & Lymphatic
   { id: 'skin',         name: 'Skin/Integumentary',position: [0,      1.00,  0.18] },
   { id: 'lymph_nodes',  name: 'Lymph Nodes',       position: [0,      1.08,  0.06] },
+  // Musculoskeletal
+  { id: 'skeleton',     name: 'Skeletal System',   position: [0,     -0.80,  0.10] },
+  { id: 'muscles',      name: 'Muscular System',   position: [0,     -0.80, -0.10] },
 ]
 
 // Comprehensive synonym → canonical organ ID map
@@ -165,9 +168,9 @@ export const ORGAN_MAP: Record<string, string[]> = {
   'lymphadenopathy': ['lymph_nodes'],
 
   // Musculoskeletal
-  'muscle': ['muscle'], 'muscular': ['muscle'], 'myalgia': ['muscle'],
-  'joint': ['muscle', 'skeleton'], 'bone': ['skeleton'],
-  'skeletal': ['skeleton'], 'arthritis': ['muscle', 'skeleton'],
+  'muscle': ['muscles'], 'muscles': ['muscles'], 'muscular': ['muscles'], 'myalgia': ['muscles'],
+  'joint': ['muscles', 'skeleton'], 'bone': ['skeleton'], 'knee': ['skeleton'],
+  'skeletal': ['skeleton'], 'arthritis': ['muscles', 'skeleton'],
 }
 
 // Vertical offset for exploded organ view in Split View mode
@@ -212,6 +215,8 @@ const ORGAN_ANATOMY: Record<string, { system: string; description: string; actio
   'Spinal Cord':       { system: 'Nervous',       description: 'The main conduit for signals between the brain and the body. Housed within the vertebral column; injury can cause paralysis.', actions: ['MRI spine with contrast', 'Neurological exam', 'Neurosurgery consult', 'Steroid protocol if SCI'] },
   'Skin/Integumentary':{ system: 'Integumentary', description: 'The body largest organ. Acts as a barrier against infection, regulates temperature, and provides sensory perception.', actions: ['Skin biopsy / swab', 'Wound culture', 'Dermatology referral', 'Wound care protocol'] },
   'Lymph Nodes':       { system: 'Lymphatic',     description: 'Small glands throughout the body that filter lymph fluid and mount immune responses. Enlargement signals infection or malignancy.', actions: ['CBC with differential', 'LDH & uric acid', 'CT chest/abdomen/pelvis', 'Haematology referral'] },
+  'Skeletal System':   { system: 'Skeletal',      description: 'The structural framework of the body consisting of bones and joints. Provides support, protection, and facilitates movement.', actions: ['X-Ray affected area', 'CT scan for complex fractures', 'Orthopedics consult', 'Immobilisation if indicated'] },
+  'Muscular System':   { system: 'Muscular',      description: 'The network of skeletal muscles that enables movement, maintains posture, and circulates blood throughout the body.', actions: ['MRI for soft tissue/ligaments', 'CK level assessment', 'Physiotherapy evaluation', 'Rest, Ice, Compression, Elevation'] },
 }
 
 function OrganDetailModal({ organ, condition, reasoning, severity, onClose }: {
@@ -629,7 +634,7 @@ const CameraController = forwardRef<CameraHandle>(function CameraController(_, r
 })
 
 // Bridge that stores R3F invalidate() outside Canvas scope
-const invalidateFnRef = { current: (() => {}) as () => void }
+export const invalidateFnRef = { current: (() => {}) as () => void }
 function InvalidateBridge() {
   const { invalidate } = useThree()
   useEffect(() => { invalidateFnRef.current = invalidate }, [invalidate])
