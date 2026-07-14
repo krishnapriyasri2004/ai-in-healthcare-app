@@ -217,6 +217,18 @@ export default function SymptomsPage() {
     }
   }
 
+  // Debounced auto-analysis when symptoms are entered
+  useEffect(() => {
+    const trimmed = symptomsInput.trim()
+    if (!trimmed || isAnalyzing) return
+
+    const timer = setTimeout(() => {
+      handleAnalyze()
+    }, 1500)
+
+    return () => clearTimeout(timer)
+  }, [symptomsInput])
+
   const codes = result ? getConditionCodes(result.primaryCondition) : null
   const anatomyViewerUrl = `/ai-in-healthcare/view-anatomy?symptoms=${encodeURIComponent(symptomsInput)}&age=${patientAge}&sex=${patientGender}`
 

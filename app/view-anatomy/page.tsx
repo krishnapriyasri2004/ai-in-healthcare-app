@@ -327,6 +327,18 @@ export default function ViewAnatomyPage() {
     }
   }
 
+  // Debounced auto-analysis when symptoms are entered
+  useEffect(() => {
+    const trimmed = symptomsInput.trim()
+    if (!trimmed) return
+
+    const timer = setTimeout(() => {
+      handleAnalyze()
+    }, 1500)
+
+    return () => clearTimeout(timer)
+  }, [symptomsInput])
+
   const handleAnatomyValidated = (labels: string[]) => {
     setValidatedLabels(new Set(labels))
   }
