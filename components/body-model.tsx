@@ -34,6 +34,7 @@ interface BodyModelProps {
   vitals?: { temp: string; hr: string; spo2: string; bp: string }
   patientId?: string
   symptomHighlightedRegions?: string[] // Added for symptom analysis highlights
+  skeletalModel?: string
 }
 
 interface BodyOrgan {
@@ -498,7 +499,8 @@ function GLTFModelWrapper({
   opacity,
   wireframe,
   activeSystems,
-  symptomHighlightedRegions
+  symptomHighlightedRegions,
+  renderOrder
 }: {
   path: string
   positionX: number
@@ -506,14 +508,49 @@ function GLTFModelWrapper({
   wireframe: boolean
   activeSystems?: SystemToggles
   symptomHighlightedRegions?: string[]
+  renderOrder?: number
 }) {
   const { scene } = useGLTF(path)
+  const { scene: skeletonScene } = useGLTF('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
   
+  const masterParams = useMemo(() => {
+    const clone = SkeletonUtils.clone(skeletonScene)
+    const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+    if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
+    else clone.rotation.x = -Math.PI / 2
+    
+    clone.updateWorldMatrix(true, true)
+    const box = new THREE.Box3()
+    let hasMesh = false
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name.toLowerCase()
+        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper') || name.includes('camera') || name.includes('light')) return
+        if (child.geometry) {
+          if (!child.geometry.boundingBox) child.geometry.computeBoundingBox()
+          const meshBox = child.geometry.boundingBox!.clone().applyMatrix4(child.matrixWorld)
+          if (!hasMesh) { box.copy(meshBox); hasMesh = true } else box.union(meshBox)
+        }
+      }
+    })
+    if (!hasMesh) box.setFromObject(clone)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    const scaleFactor = 2.0 / (size.y || 1)
+    return {
+      scaleFactor,
+      centerX: center.x,
+      centerY: center.y,
+      centerZ: center.z,
+      minY: box.min.y
+    }
+  }, [skeletonScene])
+
   const cloned = useMemo(() => {
     const clone = SkeletonUtils.clone(scene)
 
     // 1. Apply model-specific root rotations BEFORE bounding box computation
-    if (path.includes('myology') || path.includes('scene')) {
+    if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
       const sketchfabModel = clone.getObjectByName('Sketchfab_model')
       if (sketchfabModel) {
         sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
@@ -522,57 +559,12 @@ function GLTFModelWrapper({
       }
     }
 
-    // For skin column, reset parent rotation so skin faces forward
-    if (path.includes('splanchnology') && positionX === -2.4) {
-      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-      if (sketchfabModel) {
-        sketchfabModel.rotation.set(0, 0, 0)
-      }
-    }
-
-    // ────────────────────────────────────────────────────────────
-    // STEP 1: Compute bounding box from ALL meshes (full body)
-    //         BEFORE removing any meshes per column.
-    // ────────────────────────────────────────────────────────────
-    clone.updateWorldMatrix(true, true)
-    
-    const box = new THREE.Box3()
-    let hasMesh = false
-    clone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const name = child.name.toLowerCase()
-        if (name.includes('floor') || name.includes('ground') || name.includes('plane') || name.includes('grid') || name.includes('helper') || name.includes('camera') || name.includes('light')) {
-          return
-        }
-        if (child.geometry) {
-          if (!child.geometry.boundingBox) {
-            child.geometry.computeBoundingBox()
-          }
-          const meshBox = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
-          if (!hasMesh) {
-            box.copy(meshBox)
-            hasMesh = true
-          } else {
-            box.union(meshBox)
-          }
-        }
-      }
-    })
-    
-    if (!hasMesh) {
-      box.setFromObject(clone)
-    }
-
-    const size = box.getSize(new THREE.Vector3())
-    const center = box.getCenter(new THREE.Vector3())
-    const targetHeight = 2.0
-    const scaleFactor = targetHeight / (size.y || 1)
-    
-    clone.scale.setScalar(scaleFactor)
+    // Align all models to the skeleton (master reference) parameters
+    clone.scale.setScalar(masterParams.scaleFactor)
     clone.position.set(
-      positionX - center.x * scaleFactor,
-      -box.min.y * scaleFactor - 1.0,
-      -center.z * scaleFactor
+      positionX - masterParams.centerX * masterParams.scaleFactor,
+      -masterParams.minY * masterParams.scaleFactor - 1.0,
+      -masterParams.centerZ * masterParams.scaleFactor
     )
 
     // ────────────────────────────────────────────────────────────
@@ -583,9 +575,13 @@ function GLTFModelWrapper({
         // Organs column: remove skin, bones, skull – keep all organs including brain
         const toRemove: THREE.Object3D[] = []
         clone.traverse((child) => {
-          const name = child.name.toLowerCase()
-          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) {
-            toRemove.push(child)
+          if (child instanceof THREE.Mesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material]
+            const matNames = mats.map((m: any) => m ? (m.name || '').toLowerCase() : '')
+            const name = child.name.toLowerCase()
+            const isSkin = matNames.some(n => n.includes('skin')) || name.includes('skin')
+            const isBone = matNames.some(n => n.includes('bone') || n.includes('skull')) || name.includes('bone') || name.includes('skull')
+            if (isSkin || isBone) toRemove.push(child)
           }
         })
         toRemove.forEach((child) => {
@@ -596,8 +592,10 @@ function GLTFModelWrapper({
         const toRemove: THREE.Object3D[] = []
         clone.traverse((child) => {
           if (child instanceof THREE.Mesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material]
+            const matNames = mats.map((m: any) => m ? (m.name || '').toLowerCase() : '')
             const name = child.name.toLowerCase()
-            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            const isSkin = matNames.some(n => n.includes('skin')) || name.includes('skin') || name.includes('integumentary') || name.includes('body')
             if (!isSkin) {
               toRemove.push(child)
             }
@@ -607,6 +605,17 @@ function GLTFModelWrapper({
           if (child.parent) child.parent.remove(child)
         })
       }
+    } else if (path.includes('skeleton')) {
+      const toRemove: THREE.Object3D[] = []
+      clone.traverse((child) => {
+        const name = child.name.toLowerCase()
+        if (name.includes('outline')) {
+          toRemove.push(child)
+        }
+      })
+      toRemove.forEach((child) => {
+        if (child.parent) child.parent.remove(child)
+      })
     }
 
     // ────────────────────────────────────────────────────────────
@@ -625,7 +634,7 @@ function GLTFModelWrapper({
           if (!isBrain) {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {
-              child.position.y += offset / scaleFactor
+              child.position.y += offset / masterParams.scaleFactor
             }
           }
         }
@@ -709,11 +718,25 @@ function GLTFModelWrapper({
             } else {
               visible = false
             }
+          } else if (path.includes('skeleton')) {
+            // Column 3: Skeleton
+            if (positionX === 0.0) {
+              visible = !!activeSystems.skeletal
+            } else {
+              visible = false
+            }
           } else if (path.includes('myology')) {
             // Column 5: Muscular
             if (positionX === 2.4) {
               const isMuscular = name.includes('muscular') || name.includes('muscle')
               visible = isMuscular && !!activeSystems.muscular
+            } else {
+              visible = false
+            }
+          } else if (path.includes('joe')) {
+            // Column 1: Joe
+            if (positionX === -2.4) {
+              visible = !!activeSystems.integumentary
             } else {
               visible = false
             }
@@ -727,21 +750,28 @@ function GLTFModelWrapper({
         mats.forEach((m: any) => {
           if (m) {
             m.transparent = true
-            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
-            if (isSkin) {
-              if (positionX === -2.4) {
-                m.opacity = 1.0 // Solid textured skin/shorts/eyes
-                m.wireframe = false
-                m.depthWrite = true
-              } else {
-                // Realistic semi-transparent skin instead of blue hologram wireframe
-                m.opacity = 0.15
-                m.wireframe = false
-                m.depthWrite = false
-              }
-            } else {
-              m.opacity = opacity
+            if (path.includes('joe')) {
+              m.transparent = false
+              m.opacity = 1.0
+              m.depthWrite = true
               m.wireframe = wireframe
+            } else {
+              const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+              if (isSkin) {
+                if (positionX === -2.4) {
+                  m.opacity = 1.0 // Solid textured skin/shorts/eyes
+                  m.wireframe = false
+                  m.depthWrite = true
+                } else {
+                  // Realistic semi-transparent skin instead of blue hologram wireframe
+                  m.opacity = 0.15
+                  m.wireframe = false
+                  m.depthWrite = false
+                }
+              } else {
+                m.opacity = opacity
+                m.wireframe = wireframe
+              }
             }
             
             // Apply symptom analysis emissive highlight
@@ -749,6 +779,29 @@ function GLTFModelWrapper({
               m.emissive.set('#000000')
               m.emissiveIntensity = 0.0
             }
+
+            // Enhance vessels visibility (scene.gltf)
+            if (path.includes('scene') && m.name) {
+              const matName = m.name.toLowerCase()
+              if (matName.includes('artery')) {
+                m.color.set('#ff2b36') // Vibrant crimson red
+                m.roughness = 0.2
+                m.metalness = 0.2
+                if (m.emissive) {
+                  m.emissive.set('#5e0004') // Subtle glow base
+                  m.emissiveIntensity = 0.6
+                }
+              } else if (matName.includes('vein')) {
+                m.color.set('#2b7fff') // Vibrant cobalt blue
+                m.roughness = 0.2
+                m.metalness = 0.2
+                if (m.emissive) {
+                  m.emissive.set('#00185e') // Subtle glow base
+                  m.emissiveIntensity = 0.6
+                }
+              }
+            }
+
             if (symptomHighlightedRegions && symptomHighlightedRegions.length > 0) {
               const isHighlighted = symptomHighlightedRegions.some(reg => name.includes(reg.toLowerCase()))
               if (isHighlighted && m.emissive) {
@@ -764,7 +817,7 @@ function GLTFModelWrapper({
     })
   }, [cloned, opacity, wireframe, activeSystems, path, positionX, symptomHighlightedRegions])
 
-  return <primitive object={cloned} />
+  return <primitive object={cloned} renderOrder={renderOrder} />
 }
 
 // ---------------------------------------------------------
@@ -877,7 +930,8 @@ function ModelInstance({
   opacity,
   wireframe,
   activeSystems,
-  symptomHighlightedRegions
+  symptomHighlightedRegions,
+  renderOrder
 }: {
   path: string
   positionX: number
@@ -885,6 +939,7 @@ function ModelInstance({
   wireframe: boolean
   activeSystems?: SystemToggles
   symptomHighlightedRegions?: string[]
+  renderOrder?: number
 }) {
   const isFbx = path.toLowerCase().endsWith('.fbx')
   if (isFbx) {
@@ -907,6 +962,7 @@ function ModelInstance({
       wireframe={wireframe}
       activeSystems={activeSystems}
       symptomHighlightedRegions={symptomHighlightedRegions}
+      renderOrder={renderOrder}
     />
   )
 }
@@ -921,7 +977,8 @@ function SideBySideModel({
   opacity = 1.0, 
   wireframe = false,
   activeSystems,
-  symptomHighlightedRegions
+  symptomHighlightedRegions,
+  renderOrder
 }: { 
   path: string
   system?: 'skeletal_nervous' | 'cardiovascular_visceral' | 'muscular'
@@ -930,6 +987,7 @@ function SideBySideModel({
   wireframe?: boolean 
   activeSystems?: SystemToggles
   symptomHighlightedRegions?: string[]
+  renderOrder?: number
 }) {
   return (
     <ModelInstance
@@ -939,6 +997,7 @@ function SideBySideModel({
       wireframe={wireframe}
       activeSystems={activeSystems}
       symptomHighlightedRegions={symptomHighlightedRegions}
+      renderOrder={renderOrder}
     />
   )
 }
@@ -946,7 +1005,15 @@ function SideBySideModel({
 // ---------------------------------------------------------
 // Main Canvas Component
 // ---------------------------------------------------------
-export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, activeSystems, vitals, symptomHighlightedRegions }: BodyModelProps) {
+export function BodyModel({ 
+  affectedRegions, 
+  opacity = 0.85, 
+  wireframe = false, 
+  activeSystems, 
+  vitals, 
+  symptomHighlightedRegions,
+  skeletalModel = '/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb'
+}: BodyModelProps) {
   return (
     <div className="w-full h-full relative group bg-[#030712] overflow-hidden">
       {/* 3D Viewport Canvas */}
@@ -961,18 +1028,6 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
         <spotLight position={[0, -5, 5]} intensity={1.0} angle={0.8} penumbra={1} color="#f5f0eb" />
 
         <Suspense fallback={null}>
-          {/* Column 1: Body Skin/Integumentary */}
-          <Suspense fallback={null}>
-            <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
-              positionX={-2.4} 
-              opacity={opacity} 
-              wireframe={wireframe} 
-              activeSystems={activeSystems}
-              symptomHighlightedRegions={symptomHighlightedRegions}
-            />
-          </Suspense>
-
           {/* Column 2: Visceral Organs (from splanchnology.glb, exploded) */}
           <Suspense fallback={null}>
             <SideBySideModel 
@@ -985,10 +1040,10 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
             />
           </Suspense>
           
-          {/* Column 3: Skeletal System (from SkeletalSystem100.fbx) */}
+          {/* Column 3: Skeletal System */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/SkeletalSystem100.fbx" 
+              path={skeletalModel} 
               positionX={0.0} 
               opacity={opacity} 
               wireframe={wireframe} 
@@ -1018,6 +1073,19 @@ export function BodyModel({ affectedRegions, opacity = 0.85, wireframe = false, 
               wireframe={wireframe} 
               activeSystems={activeSystems}
               symptomHighlightedRegions={symptomHighlightedRegions}
+            />
+          </Suspense>
+
+          {/* Column 1: Joe (Realistic Human Body) — Rendered last with high renderOrder to paint over other layers */}
+          <Suspense fallback={null}>
+            <SideBySideModel 
+              path="/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb" 
+              positionX={-2.4} 
+              opacity={opacity} 
+              wireframe={wireframe} 
+              activeSystems={activeSystems}
+              symptomHighlightedRegions={symptomHighlightedRegions}
+              renderOrder={10}
             />
           </Suspense>
         </Suspense>

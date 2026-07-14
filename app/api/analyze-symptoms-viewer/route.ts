@@ -5,27 +5,17 @@ import { z } from 'zod'
 
 const localAI = createOpenAI({
   baseURL: 'http://127.0.0.1:1234/v1',
-  apiKey: 'not-needed',
-  compatibility: 'compatible'
+  apiKey: 'not-needed'
 })
 
-const VALID_MESH_IDS = [
-  'brain', 'heart', 'lung_left', 'lung_right',
-  'liver', 'stomach', 'kidney_left', 'kidney_right',
-  'intestines', 'throat', 'trachea', 'nasal_cavity',
-  'spleen', 'pancreas', 'appendix', 'bladder', 'gallbladder',
-  'aorta', 'spinal_cord', 'skin', 'lymph_nodes',
-  'skeleton', 'muscles'
-] as const
-
+// No hardcoded mesh IDs anymore. The frontend will dynamically resolve anatomy.
 const AnalysisSchema = z.object({
   body_system: z.string().describe('The primary body system affected (e.g. Musculoskeletal, Cardiovascular).'),
   body_region: z.string().describe('The specific body region affected (e.g. Right Knee, Chest).'),
   affected_anatomy: z.array(z.object({
     label: z.string(),
-    mesh_id: z.string().nullable()
-  })).describe('List of affected anatomical structures with their corresponding mesh IDs.'),
-  systems_to_enable: z.array(z.string()).describe('List of 3D system layers to enable (e.g. skeletal, muscular, respiratory).'),
+    description: z.string()
+  })).describe('List of affected anatomical structures with their standard names and detailed clinical descriptions.'),
   differential_diagnoses: z.array(z.object({
     condition: z.string(),
     confidence: z.number(),
@@ -73,15 +63,14 @@ CRITICAL RULES:
 1. Analyze ONLY the CURRENT patient symptoms.
 2. Classify the affected body system first.
 3. Identify ALL relevant anatomical structures affected (not just one).
-4. Map EACH structure to the correct GLB mesh ID from this strict list: ${VALID_MESH_IDS.join(', ')}.
-5. Display ONLY anatomical names as labels in "affected_anatomy" (e.g., Patella, ACL, Meniscus, Femur, Tibia). NEVER display pathological findings such as "Intestinal Distress" or "Bronchoconstriction".
-6. If you cannot confidently identify the anatomy or map it to a mesh, return "Unable to determine" for the label and null for the mesh_id. Do NOT guess.
-7. Inform the frontend which 3D systems need to be enabled to view these meshes (e.g., "skeletal", "muscular", "respiratory", "digestive", "nervous", "cardiovascular", "integumentary", "lymphatic").
-8. Generate clinically relevant Differential Diagnoses based on the symptoms, assigning a confidence score (0-100) and clinical reasoning for each.
-9. Recommend appropriate investigations based on the suspected conditions.
-10. YOU MUST OUTPUT YOUR RESPONSE AS A SINGLE, VALID JSON OBJECT.
-11. DO NOT add any conversational text like "Okay, I understand" or "Here is the analysis".
-12. IMPORTANT: Do not group everything under "Skeleton". Map specific structures like ACL, MCL, Meniscus, Patellar Tendon, Cartilage, and Ligaments individually as separate entries in affected_anatomy.
+4. Display ONLY standard anatomical names as labels in "affected_anatomy" (e.g., Patella, ACL, Meniscus, Femur, Tibia, Coronary Artery). NEVER display pathological findings such as "Intestinal Distress" or "Bronchoconstriction".
+5. Provide a brief, detailed anatomical description for each structure.
+6. DO NOT attempt to map or guess 3D mesh IDs or system layers.
+7. Generate clinically relevant Differential Diagnoses based on the symptoms, assigning a confidence score (0-100) and clinical reasoning for each.
+8. Recommend appropriate investigations based on the suspected conditions.
+9. YOU MUST OUTPUT YOUR RESPONSE AS A SINGLE, VALID JSON OBJECT.
+10. DO NOT add any conversational text like "Okay, I understand" or "Here is the analysis".
+11. IMPORTANT: Map specific individual structures (e.g., ACL, MCL, Meniscus, Patellar Tendon) rather than broad generic systems (e.g., Skeleton, Muscles).
 
 REQUIRED JSON FORMAT:
 {
@@ -90,14 +79,13 @@ REQUIRED JSON FORMAT:
   "affected_anatomy": [
     {
       "label": "Patella",
-      "mesh_id": "skeleton"
+      "description": "A thick, circular-triangular bone which articulates with the femur and covers the anterior articular surface of the knee joint."
     },
     {
       "label": "Meniscus",
-      "mesh_id": "skeleton"
+      "description": "Crescent-shaped fibrocartilaginous structure in the knee that partly divides the joint cavity."
     }
   ],
-  "systems_to_enable": ["skeletal", "muscular"],
   "differential_diagnoses": [
     {
       "condition": "Knee Sprain",

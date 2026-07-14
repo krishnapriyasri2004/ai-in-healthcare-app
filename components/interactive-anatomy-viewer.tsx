@@ -3,7 +3,7 @@
 import React, { Suspense, useMemo, useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, useGLTF, useFBX, Html, Line } from '@react-three/drei'
+import { OrbitControls, useGLTF, useFBX, Html, Line, TransformControls } from '@react-three/drei'
 import * as THREE from 'three'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import Link from 'next/link'
@@ -120,43 +120,43 @@ export const ORGAN_MAP: Record<string, string[]> = {
   'spinal': ['spinal_cord'], 'spine': ['spinal_cord'], 'spinal_cord': ['spinal_cord'],
 
   // Liver
-  'liver': ['liver'], 'hepatic': ['liver'], 'hepatitis': ['liver'],
-  'biliary': ['liver', 'gallbladder'], 'bile': ['liver', 'gallbladder'],
+  'liver': ['liver', 'hepatic', 'organ'], 'hepatitis': ['liver', 'organ'],
+  'biliary': ['liver', 'gallbladder', 'organ'], 'bile': ['liver', 'gallbladder', 'organ'],
 
   // Gallbladder
-  'gallbladder': ['gallbladder'], 'cholecyst': ['gallbladder'], 'gall_bladder': ['gallbladder'],
+  'gallbladder': ['gallbladder', 'organ'], 'cholecyst': ['gallbladder', 'organ'], 'gall_bladder': ['gallbladder', 'organ'],
 
   // Kidneys — ALWAYS bilateral
-  'kidneys': ['kidney_left', 'kidney_right'], 'kidney': ['kidney_left', 'kidney_right'],
-  'kidney_left': ['kidney_left'], 'kidney_right': ['kidney_right'],
-  'renal': ['kidney_left', 'kidney_right'], 'nephro': ['kidney_left', 'kidney_right'],
-  'ureter': ['kidney_left', 'kidney_right'],
+  'kidneys': ['kidney_left', 'kidney_right', 'gland'], 'kidney': ['kidney_left', 'kidney_right', 'gland'],
+  'kidney_left': ['kidney_left', 'gland'], 'kidney_right': ['kidney_right', 'gland'],
+  'renal': ['kidney_left', 'kidney_right', 'gland'], 'nephro': ['kidney_left', 'kidney_right', 'gland'],
+  'ureter': ['kidney_left', 'kidney_right', 'gland'],
 
   // Bladder & Urinary
-  'bladder': ['bladder'], 'urinary': ['kidney_left', 'kidney_right', 'bladder'],
-  'urethra': ['bladder'], 'urological': ['kidney_left', 'kidney_right', 'bladder'],
+  'bladder': ['bladder', 'gland'], 'urinary': ['kidney_left', 'kidney_right', 'bladder', 'gland'],
+  'urethra': ['bladder', 'gland'], 'urological': ['kidney_left', 'kidney_right', 'bladder', 'gland'],
 
   // Stomach & GI
-  'stomach': ['stomach'], 'gastric': ['stomach'], 'gastro': ['stomach'],
-  'esophagus': ['throat', 'stomach'], 'oesophagus': ['throat', 'stomach'],
+  'stomach': ['stomach', 'organ'], 'gastric': ['stomach', 'organ'], 'gastro': ['stomach', 'organ'],
+  'esophagus': ['throat', 'stomach', 'organ'], 'oesophagus': ['throat', 'stomach', 'organ'],
 
   // Intestines
-  'intestines': ['intestines'], 'intestinal': ['intestines'],
-  'intestine': ['intestines'], 'bowel': ['intestines'], 'colon': ['intestines'],
-  'colonic': ['intestines'], 'rectum': ['intestines'],
-  'duodenum': ['stomach', 'intestines'],
-  'small_intestine': ['intestines'], 'large_intestine': ['intestines'],
-  'ileum': ['intestines'], 'jejunum': ['intestines'], 'sigmoid': ['intestines'],
+  'intestines': ['intestines', 'intestine'], 'intestinal': ['intestines', 'intestine'],
+  'intestine': ['intestines', 'intestine'], 'bowel': ['intestines', 'intestine'], 'colon': ['intestines', 'intestine'],
+  'colonic': ['intestines', 'intestine'], 'rectum': ['intestines', 'intestine'],
+  'duodenum': ['stomach', 'intestines', 'organ', 'intestine'],
+  'small_intestine': ['intestines', 'intestine'], 'large_intestine': ['intestines', 'intestine'],
+  'ileum': ['intestines', 'intestine'], 'jejunum': ['intestines', 'intestine'], 'sigmoid': ['intestines', 'intestine'],
 
   // Appendix
-  'appendix': ['appendix'], 'appendicitis': ['appendix'],
+  'appendix': ['appendix', 'intestine'], 'appendicitis': ['appendix', 'intestine'],
 
   // Pancreas
-  'pancreas': ['pancreas'], 'pancreatic': ['pancreas'],
-  'insulin': ['pancreas'], 'diabetes': ['pancreas'], 'diabetic': ['pancreas'],
+  'pancreas': ['pancreas', 'organ'], 'pancreatic': ['pancreas', 'organ'],
+  'insulin': ['pancreas', 'organ'], 'diabetes': ['pancreas', 'organ'], 'diabetic': ['pancreas', 'organ'],
 
   // Spleen
-  'spleen': ['spleen'], 'splenic': ['spleen'],
+  'spleen': ['spleen', 'organ'], 'splenic': ['spleen', 'organ'],
 
   // Skin
   'skin': ['skin'], 'integumentary': ['skin'], 'dermal': ['skin'],
@@ -647,42 +647,70 @@ if (typeof window !== 'undefined') {
   useGLTF.preload('/ai-in-healthcare/asset-01/splanchnology.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/scene.gltf')
   useGLTF.preload('/ai-in-healthcare/asset-01/myology.glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb')
 }
+
+// ---------------------------------------------------------
+// ActiveTransformTarget: Draggable 3D gizmo helper
+// ---------------------------------------------------------
+const ActiveTransformTarget = React.memo(function ActiveTransformTarget({ 
+  organId, baseX, baseY, baseZ, offset, onAdjust 
+}: { 
+  organId: string; baseX: number; baseY: number; baseZ: number; 
+  offset: { x: number, y: number, z: number }; 
+  onAdjust: (organ: string, x: number, y: number, z: number) => void 
+}) {
+  const ref = useRef<THREE.Group>(null)
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.position.set(offset.x, offset.y, offset.z)
+    }
+  }, [offset.x, offset.y, offset.z])
+
+  return (
+    <group position={[baseX, baseY, baseZ]}>
+      <group ref={ref}>
+        {/* Glowing red drag target dot */}
+        <mesh>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          <meshBasicMaterial color="#ef4444" depthTest={false} />
+        </mesh>
+      </group>
+      <TransformControls 
+        object={ref} 
+        mode="translate"
+        size={0.65}
+        onObjectChange={() => {
+          if (ref.current) {
+            const { x, y, z } = ref.current.position
+            onAdjust(organId, x, y, z)
+          }
+        }}
+      />
+    </group>
+  )
+})
 
 // ---------------------------------------------------------
 // GLTF Model Component (Preserves Embedded Textures/Colors)
 // ---------------------------------------------------------
 const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
-  path, positionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick, onOrganClick
+  path, positionX, splitPositionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick, onOrganClick, labelOffsets, activeAdjustOrgan, onAdjustLabel, renderOrder
 }: {
-  path: string; positionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void; onOrganClick?: (organ: string, condition?: string, reasoning?: string, severity?: string) => void
+  path: string; positionX: number; splitPositionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void; onOrganClick?: (organ: string, condition?: string, reasoning?: string, severity?: string) => void; labelOffsets?: Record<string, { x: number, y: number, z: number }>; activeAdjustOrgan?: string | null; onAdjustLabel?: (organ: string, x: number, y: number, z: number) => void; renderOrder?: number
 }) {
   const { scene } = useGLTF(path)
+  const { scene: skeletonScene } = useGLTF('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
   const groupRef = useRef<THREE.Group>(null)
 
-  const cloned = useMemo(() => {
-    const clone = SkeletonUtils.clone(scene)
-
-    // Apply model-specific root rotations BEFORE bounding box computation
-    if (path.includes('myology') || path.includes('scene')) {
-      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-      if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-      else clone.rotation.x = -Math.PI / 2
-    }
-
-    // For skin column, reset parent rotation so skin faces forward
-    if (path.includes('splanchnology') && positionX === -2.4) {
-      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-      if (sketchfabModel) sketchfabModel.rotation.set(0, 0, 0)
-    }
-
-    // ────────────────────────────────────────────────────────────
-    // STEP 1: Compute bounding box from ALL meshes (full body)
-    //         BEFORE removing any meshes. This ensures every column
-    //         shares the exact same scale and centering so the brain
-    //         in the organ column lines up with the skull in the
-    //         skeleton column.
-    // ────────────────────────────────────────────────────────────
+  const masterParams = useMemo(() => {
+    const clone = SkeletonUtils.clone(skeletonScene)
+    const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+    if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
+    else clone.rotation.x = -Math.PI / 2
+    
     clone.updateWorldMatrix(true, true)
     const box = new THREE.Box3()
     let hasMesh = false
@@ -698,38 +726,75 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       }
     })
     if (!hasMesh) box.setFromObject(clone)
-
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
-    const targetHeight = 2.0
-    const scaleFactor = targetHeight / (size.y || 1)
-    clone.scale.setScalar(scaleFactor)
-    clone.position.set(0, -box.min.y * scaleFactor - 1.0, -center.z * scaleFactor)
+    const scaleFactor = 2.0 / (size.y || 1)
+    return {
+      scaleFactor,
+      centerX: center.x,
+      centerY: center.y,
+      centerZ: center.z,
+      minY: box.min.y
+    }
+  }, [skeletonScene])
+
+  const cloned = useMemo(() => {
+    const clone = SkeletonUtils.clone(scene)
+
+    // Apply model-specific root rotations BEFORE bounding box computation
+    if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
+      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+      if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
+      else clone.rotation.x = -Math.PI / 2
+    }
+
+    // Align all models to the skeleton (master reference) parameters
+    clone.scale.setScalar(masterParams.scaleFactor)
+    clone.position.set(
+      -masterParams.centerX * masterParams.scaleFactor,
+      -masterParams.minY * masterParams.scaleFactor - 1.0,
+      -masterParams.centerZ * masterParams.scaleFactor
+    )
 
     // ────────────────────────────────────────────────────────────
     // STEP 2: NOW remove unwanted meshes per column (after bbox)
     // ────────────────────────────────────────────────────────────
     if (path.includes('splanchnology')) {
-      if (positionX === -1.2) {
+      if (splitPositionX === -1.2) {
         // Organs column: remove skin, bones, skull – keep all organs including brain
         const toRemove: THREE.Object3D[] = []
         clone.traverse((child) => {
-          const name = child.name.toLowerCase()
-          if (name.includes('skin') || name.includes('bone') || name.includes('skull')) toRemove.push(child)
+          if (child instanceof THREE.Mesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material]
+            const matNames = mats.map((m: any) => m ? (m.name || '').toLowerCase() : '')
+            const name = child.name.toLowerCase()
+            const isSkin = matNames.some(n => n.includes('skin')) || name.includes('skin')
+            const isBone = matNames.some(n => n.includes('bone') || n.includes('skull')) || name.includes('bone') || name.includes('skull')
+            if (isSkin || isBone) toRemove.push(child)
+          }
         })
         toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
-      } else if (positionX === -2.4) {
+      } else if (splitPositionX === -2.4) {
         // Skin column: remove everything except skin meshes
         const toRemove: THREE.Object3D[] = []
         clone.traverse((child) => {
           if (child instanceof THREE.Mesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material]
+            const matNames = mats.map((m: any) => m ? (m.name || '').toLowerCase() : '')
             const name = child.name.toLowerCase()
-            const isSkin = name.includes('skin') || name.includes('integumentary') || name.includes('body') || name.includes('short') || name.includes('eye') || name.includes('head') || name.includes('lash') || name.includes('nail') || name.includes('hair')
+            const isSkin = matNames.some(n => n.includes('skin')) || name.includes('skin') || name.includes('integumentary') || name.includes('body')
             if (!isSkin) toRemove.push(child)
           }
         })
         toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
       }
+    } else if (path.includes('skeleton')) {
+      const toRemove: THREE.Object3D[] = []
+      clone.traverse((child) => {
+        const name = child.name.toLowerCase()
+        if (name.includes('outline')) toRemove.push(child)
+      })
+      toRemove.forEach(c => { if (c.parent) c.parent.remove(c) })
     }
 
     // ────────────────────────────────────────────────────────────
@@ -746,14 +811,14 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       const mats: THREE.Material[] = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
 
-      const isColumn2Organ = positionX === -1.2 && path.includes('splanchnology')
+      const isColumn2Organ = splitPositionX === -1.2 && path.includes('splanchnology')
       if (isColumn2Organ) {
         const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
         if (!isBrain) {
           const offset = getOrganVerticalOffset(name, matNames)
           if (offset !== 0) {
             mesh.userData.originalY = mesh.userData.originalY ?? mesh.position.y
-            mesh.userData.offsetY = offset / scaleFactor
+            mesh.userData.offsetY = offset / masterParams.scaleFactor
           }
         }
       }
@@ -782,12 +847,36 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
 
       // One-time material setup
       if (!child.userData._matSetup) {
-        const isSkinMat = name.includes('skin') || name.includes('body') || name.includes('short') ||
+        const isSkinMat = !path.includes('joe') && (
+          name.includes('skin') || name.includes('body') || name.includes('short') ||
           name.includes('eye') || name.includes('head') || name.includes('hair')
+        )
         mats.forEach((m: any) => {
           if (!m) return
           if (isSkinMat) { m.transparent = true; m.opacity = 0.18; m.depthWrite = false }
           else { m.transparent = false; m.opacity = 1.0 }
+
+          // Enhance vessels visibility (scene.gltf)
+          if (path.includes('scene') && m.name) {
+            const matName = m.name.toLowerCase()
+            if (matName.includes('artery')) {
+              m.color.set('#ff2b36') // Vibrant crimson red
+              m.roughness = 0.2
+              m.metalness = 0.2
+              if (m.emissive) {
+                m.emissive.set('#5e0004') // Subtle glow base
+                m.emissiveIntensity = 0.6
+              }
+            } else if (matName.includes('vein')) {
+              m.color.set('#2b7fff') // Vibrant cobalt blue
+              m.roughness = 0.2
+              m.metalness = 0.2
+              if (m.emissive) {
+                m.emissive.set('#00185e') // Subtle glow base
+                m.emissiveIntensity = 0.6
+              }
+            }
+          }
         })
         child.userData._matSetup = true
       }
@@ -815,7 +904,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     clone.userData._meshList = meshList
 
     return clone
-  }, [scene, positionX, path])
+  }, [scene, splitPositionX, path])
 
   // ── Cached mesh list and animated organs — built once from clone ──────────
   const meshList = useMemo(
@@ -824,14 +913,14 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   )
 
   const animatedMeshes = useMemo(() => {
-    if (positionX !== -1.2 || !path.includes('splanchnology')) return []
+    if (splitPositionX !== -1.2 || !path.includes('splanchnology')) return []
     const out: { mesh: THREE.Object3D; originalY: number; offsetY: number }[] = []
     cloned.traverse((c) => {
       if (c.userData.offsetY !== undefined)
         out.push({ mesh: c, originalY: c.userData.originalY ?? c.position.y, offsetY: c.userData.offsetY })
     })
     return out
-  }, [cloned, positionX, path])
+  }, [cloned, splitPositionX, path])
 
 
   // ── Compute Annotation Labels ────────────────────────────────────────────────
@@ -845,10 +934,17 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       if (!(c instanceof THREE.Mesh)) return
       
       const name = c.name.toLowerCase()
+      const matNames = Array.isArray(c.material) ? c.material.map((m: any) => m?.name?.toLowerCase() || '') : [c.material?.name?.toLowerCase() || '']
       let organId = null
       
       for (const org of affectedOrganIds) {
-        if (name.includes(org.replace('_', '')) || name.includes(org.split('_')[0])) {
+        const query = org.replace('_', '')
+        const querySplit = org.split('_')[0]
+        
+        if (
+           name.includes(query) || name.includes(querySplit) ||
+           matNames.some(n => n.includes(query) || n.includes(querySplit))
+        ) {
            organId = org
            break
         }
@@ -860,22 +956,30 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
          if (!c.geometry.boundingBox) c.geometry.computeBoundingBox()
          const center = new THREE.Vector3()
          c.geometry.boundingBox.getCenter(center)
-         center.applyMatrix4(c.matrixWorld)
          
+         // Compute center relative to the cloned group, not world, to prevent double-shifting
+         // Since c might be nested, we use matrixWorld but inverse-transform by the root clone
+         const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
+         const localCenter = cloned.worldToLocal(worldCenter)
+         
+         const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
          out.push({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
            severity: conditionsByOrgan[organId].severity || 'Medium',
-           x: center.x,
-           y: center.y,
-           z: center.z,
-           mesh: c
+           baseX: localCenter.x,
+           baseY: localCenter.y,
+           baseZ: localCenter.z,
+           x: localCenter.x + offset.x,
+           y: localCenter.y + offset.y,
+           z: localCenter.z + offset.z,
+           mesh: c,
+           reasoning: conditionsByOrgan[organId].reasoning || ''
          })
       }
     })
-    console.log('[Annotations Debug] Generated:', out)
     return out
-  }, [cloned, affectedOrganIds, conditionsByOrgan])
+  }, [cloned, affectedOrganIds, conditionsByOrgan, labelOffsets])
 
   const { invalidate } = useThree()
 
@@ -904,8 +1008,10 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     const isSplanchnology = path.includes('splanchnology')
     const isScene = path.includes('scene')
     const isMyology = path.includes('myology')
-    const isSkinCol = positionX === -2.4
-    const isOrganCol = positionX === -1.2
+    const isSkeletonGLB = path.includes('skeleton')
+    const isJoe = path.includes('joe')
+    const isSkinCol = splitPositionX === -2.4
+    const isOrganCol = splitPositionX === -1.2
 
     for (let i = 0; i < meshList.length; i++) {
       const e = meshList[i]
@@ -923,10 +1029,29 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           else if (e.isRespiratory && !activeSystems.respiratory && !activeSystems.digestive) show = false
           else if (e.isDigestive  && !activeSystems.digestive)             show = false
         }
-      } else if (isScene)   show = e.isVessel && activeSystems.cardiovascular
-        else if (isMyology)   show = activeSystems.muscular
+      } else if (isScene)       show = e.isVessel && activeSystems.cardiovascular
+      else if (isMyology)     show = activeSystems.muscular
+      else if (isSkeletonGLB) show = activeSystems.skeletal
+      else if (isJoe) {
+        if (splitPositionX === -2.4) show = activeSystems.integumentary
+        else show = false
+      }
 
       m.visible = show
+
+      // Keep Joe model fully solid/opaque as originally textured
+      if (isJoe) {
+        for (let j = 0; j < e.mats.length; j++) {
+          const mat = e.mats[j] as any
+          if (!mat) continue
+          if (mat.transparent !== false || mat.opacity !== 1.0) {
+            mat.transparent = false
+            mat.opacity = 1.0
+            mat.depthWrite = true
+            mat.needsUpdate = true
+          }
+        }
+      }
 
       // Emissive highlight — check both mesh name AND all material names
       const hl = highlightedMeshNames.length > 0 && (
@@ -945,19 +1070,19 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       }
     }
     invalidate()
-  }, [meshList, activeSystems, highlightedMeshNames, positionX, path, visible, invalidate])
+  }, [meshList, activeSystems, highlightedMeshNames, splitPositionX, path, visible, invalidate])
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Per-column callout layout computation
   // ─────────────────────────────────────────────────────────────────────────────
   // Determine which organs this column is responsible for displaying labels on.
   // COLUMN_SCOPE[key]: null = all, string[] = only those IDs, missing key = none
-  const colKey = String(positionX)
+  const colKey = String(splitPositionX)
   const colScope = Object.prototype.hasOwnProperty.call(COLUMN_SCOPE, colKey)
     ? COLUMN_SCOPE[colKey]
     : []  // default: no callouts (e.g. skeleton FBX column at 0)
   const [colLX, colRX] = COLUMN_LX[colKey] ?? [-0.58, 0.58]
-  const isOrgansModel  = positionX === -1.2 && path.includes('splanchnology')
+  const isOrgansModel  = splitPositionX === -1.2 && path.includes('splanchnology')
 
   // Filter affectedOrganIds to only the organs visible in this column
   const columnAffectedIds = useMemo(() => {
@@ -974,6 +1099,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   return (
     <group
       ref={groupRef}
+      renderOrder={renderOrder}
       onClick={(e) => { e.stopPropagation(); onModelClick() }}
     >
       <primitive object={cloned} />
@@ -983,52 +1109,55 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
          const isSplitted = viewMode === 'split' && isSplittedRef.current
          const offsetY = (isSplitted && ann.mesh.userData.offsetY) ? ann.mesh.userData.offsetY : 0
          
+         const isAdjusting = activeAdjustOrgan === ann.organ
+         const offset = labelOffsets?.[ann.organ] || { x: 0, y: 0, z: 0 }
+
          return (
-           <Html
-             key={`ann-${i}`}
-             position={[ann.x, ann.y + offsetY, ann.z + 0.1]}
-             center
-             distanceFactor={10}
-             zIndexRange={[100, 0]}
-             className="pointer-events-none"
-           >
-             <div className="flex flex-col items-center justify-center translate-x-4 -translate-y-4">
-               <div className="w-16 h-px bg-cyan-400/60 rotate-45 transform origin-bottom-left -translate-y-2 translate-x-2"></div>
-               <div className={`px-2 py-1.5 backdrop-blur-md border rounded-md shadow-lg flex flex-col gap-0.5 min-w-[120px] ${
-                 ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50' : 
-                 ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50' : 
-                 'bg-amber-950/80 border-amber-500/50'
-               }`}>
-                 <span className="text-[8px] uppercase tracking-widest text-gray-300 font-mono">{ann.organ.replace('_', ' ')}</span>
-                 <span className="text-[10px] font-bold text-white leading-tight font-sans">{ann.condition}</span>
+           <group key={`ann-group-${i}`}>
+             {isAdjusting && onAdjustLabel && (
+               <ActiveTransformTarget 
+                 organId={ann.organ}
+                 baseX={ann.baseX}
+                 baseY={ann.baseY + offsetY}
+                 baseZ={ann.baseZ}
+                 offset={offset}
+                 onAdjust={onAdjustLabel}
+               />
+             )}
+             
+             <Html
+               position={[ann.x, ann.y + offsetY, ann.z + 0.1]}
+               center
+               zIndexRange={[100, 0]}
+               className="pointer-events-auto cursor-pointer"
+             >
+               <div className="relative group">
+                 {/* Connecting Dot */}
+                 {!isAdjusting && (
+                   <div className="absolute top-1/2 left-0 w-2 h-2 -translate-y-1/2 -translate-x-1 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"></div>
+                 )}
+                 
+                 {/* Label Box */}
+                 <div 
+                   onClick={(e) => {
+                     e.stopPropagation()
+                     if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
+                   }}
+                   className={`ml-4 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
+                   ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
+                   ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
+                   'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
+                 }`}>
+                   <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest font-mono mb-0.5">{ann.organ.replace('_', ' ')}</span>
+                   <span className="text-[11px] font-bold text-white leading-tight drop-shadow-md">{ann.condition}</span>
+                 </div>
                </div>
-             </div>
-           </Html>
+             </Html>
+           </group>
          )
       })}
 
 
-      {/* Per-column smart callouts — each model shows labels for its own organ structures */}
-      {visible && calloutLayout.length > 0 && calloutLayout.map(({ organ, labelX, labelY }) => {
-        const organCond = conditionsByOrgan[organ.id]
-        // Explosion offset only applies to organs column (meshes only move there)
-        const offset = isOrgansModel ? getOrganVerticalOffset(organ.id, [organ.id]) : 0
-        return (
-          <SmartCallout
-            key={organ.id}
-            markerPosition={organ.position}
-            labelX={labelX}
-            labelY={labelY}
-            organName={organ.name}
-            condition={organCond?.condition}
-            reasoning={organCond?.reasoning}
-            severity={organCond?.severity}
-            isSplittedRef={isSplittedRef}
-            verticalOffset={offset / 6.8}
-            onOrganClick={onOrganClick}
-          />
-        )
-      })}
     </group>
   )
 })
@@ -1040,9 +1169,9 @@ function buildMeshList(_clone: THREE.Group) { return [] as any[] }
 // FBX Model (Skeletal) — performance-optimised
 // ---------------------------------------------------------
 const RealisticFBXModel = React.memo(function RealisticFBXModel({
-  path, positionX, activeSystems, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick
+  path, positionX, activeSystems, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick, onOrganClick, labelOffsets, activeAdjustOrgan, onAdjustLabel
 }: {
-  path: string; positionX: number; activeSystems: SystemToggles; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void
+  path: string; positionX: number; activeSystems: SystemToggles; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void; onOrganClick?: (organ: string, condition?: string, reasoning?: string, severity?: string) => void; labelOffsets?: Record<string, { x: number, y: number, z: number }>; activeAdjustOrgan?: string | null; onAdjustLabel?: (organ: string, x: number, y: number, z: number) => void
 }) {
   const fbx = useFBX(path)
   const groupRef = useRef<THREE.Group>(null)
@@ -1055,7 +1184,17 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
     let hasMesh = false
     const fbxMeshes: { mesh: any; mats: any[] }[] = []
 
-    clone.traverse((child) => {
+    clone.traverse((child: any) => {
+      if (
+        child.isLine || 
+        child.isLineSegments || 
+        child instanceof THREE.Line || 
+        child.name.toLowerCase().includes('line') ||
+        child.name.toLowerCase().includes('helper')
+      ) {
+        child.visible = false
+        return
+      }
       if (!(child instanceof THREE.Mesh)) return
       const name = child.name.toLowerCase()
       if (name.includes('floor') || name.includes('ground') || name.includes('plane')) return
@@ -1104,10 +1243,17 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
       if (!(c instanceof THREE.Mesh)) return
       
       const name = c.name.toLowerCase()
+      const matNames = Array.isArray(c.material) ? c.material.map((m: any) => m?.name?.toLowerCase() || '') : [c.material?.name?.toLowerCase() || '']
       let organId = null
       
       for (const org of affectedOrganIds) {
-        if (name.includes(org.replace('_', '')) || name.includes(org.split('_')[0])) {
+        const query = org.replace('_', '')
+        const querySplit = org.split('_')[0]
+        
+        if (
+           name.includes(query) || name.includes(querySplit) ||
+           matNames.some(n => n.includes(query) || n.includes(querySplit))
+        ) {
            organId = org
            break
         }
@@ -1119,22 +1265,30 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
          if (!c.geometry.boundingBox) c.geometry.computeBoundingBox()
          const center = new THREE.Vector3()
          c.geometry.boundingBox.getCenter(center)
-         center.applyMatrix4(c.matrixWorld)
+         
+         // Fix double-shifting by using local coordinates relative to the clone
+         const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
+         const localCenter = cloned.worldToLocal(worldCenter)
+         
+         const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
          
          out.push({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
            severity: conditionsByOrgan[organId].severity || 'Medium',
-           x: center.x,
-           y: center.y,
-           z: center.z,
-           mesh: c
+           baseX: localCenter.x,
+           baseY: localCenter.y,
+           baseZ: localCenter.z,
+           x: localCenter.x + offset.x,
+           y: localCenter.y + offset.y,
+           z: localCenter.z + offset.z,
+           mesh: c,
+           reasoning: conditionsByOrgan[organId].reasoning || ''
          })
       }
     })
-    console.log('[Annotations Debug] Generated:', out)
     return out
-  }, [cloned, affectedOrganIds, conditionsByOrgan])
+  }, [cloned, affectedOrganIds, conditionsByOrgan, labelOffsets])
 
   // Visibility — iterate cached array only
   useEffect(() => {
@@ -1161,30 +1315,53 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
          const isSplitted = viewMode === 'split' && isSplittedRef.current
          const offsetY = (isSplitted && ann.mesh.userData.offsetY) ? ann.mesh.userData.offsetY : 0
          
+         const isAdjusting = activeAdjustOrgan === ann.organ
+         const offset = labelOffsets?.[ann.organ] || { x: 0, y: 0, z: 0 }
+
          return (
-           <Html
-             key={`ann-${i}`}
-             position={[ann.x, ann.y + offsetY, ann.z + 0.1]}
-             center
-             distanceFactor={10}
-             zIndexRange={[100, 0]}
-             className="pointer-events-none"
-           >
-             <div className="flex flex-col items-center justify-center translate-x-4 -translate-y-4">
-               <div className="w-16 h-px bg-cyan-400/60 rotate-45 transform origin-bottom-left -translate-y-2 translate-x-2"></div>
-               <div className={`px-2 py-1.5 backdrop-blur-md border rounded-md shadow-lg flex flex-col gap-0.5 min-w-[120px] ${
-                 ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50' : 
-                 ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50' : 
-                 'bg-amber-950/80 border-amber-500/50'
-               }`}>
-                 <span className="text-[8px] uppercase tracking-widest text-gray-300 font-mono">{ann.organ.replace('_', ' ')}</span>
-                 <span className="text-[10px] font-bold text-white leading-tight font-sans">{ann.condition}</span>
+           <group key={`ann-group-${i}`}>
+             {isAdjusting && onAdjustLabel && (
+               <ActiveTransformTarget 
+                 organId={ann.organ}
+                 baseX={ann.baseX}
+                 baseY={ann.baseY + offsetY}
+                 baseZ={ann.baseZ}
+                 offset={offset}
+                 onAdjust={onAdjustLabel}
+               />
+             )}
+             
+             <Html
+               position={[ann.x, ann.y + offsetY, ann.z + 0.05]}
+               center
+               zIndexRange={[100, 0]}
+               className="pointer-events-auto cursor-pointer"
+             >
+               <div className="relative group">
+                 {/* Connecting Dot */}
+                 {!isAdjusting && (
+                   <div className="absolute top-1/2 left-0 w-2 h-2 -translate-y-1/2 -translate-x-1 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"></div>
+                 )}
+                 
+                 {/* Label Box */}
+                 <div 
+                   onClick={(e) => {
+                     e.stopPropagation()
+                     if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
+                   }}
+                   className={`ml-4 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
+                   ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
+                   ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
+                   'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
+                 }`}>
+                   <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest font-mono mb-0.5">{ann.organ.replace('_', ' ')}</span>
+                   <span className="text-[11px] font-bold text-white leading-tight drop-shadow-md">{ann.condition}</span>
+                 </div>
                </div>
-             </div>
-           </Html>
+             </Html>
+           </group>
          )
       })}
-
     </group>
   )
 })
@@ -1195,8 +1372,8 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
 
 
 interface InteractiveAnatomyViewerProps {
-  affectedOrganIds: string[];
-  conditionsByOrgan: Record<string, { condition: string; reasoning: string; severity: string }>;
+  affectedOrganIds?: string[];
+  conditionsByOrgan?: Record<string, { condition: string; reasoning: string; severity: string }>;
   highlightedMeshNames: string[];
   onOrganClick: (organ: string, condition?: string, reasoning?: string, severity?: string) => void;
   viewMode: 'split' | 'single';
@@ -1204,8 +1381,8 @@ interface InteractiveAnatomyViewerProps {
 }
 
 export function InteractiveAnatomyViewer({
-  affectedOrganIds,
-  conditionsByOrgan,
+  affectedOrganIds = [],
+  conditionsByOrgan = {},
   highlightedMeshNames,
   onOrganClick,
   viewMode,
@@ -1213,6 +1390,54 @@ export function InteractiveAnatomyViewer({
 }: InteractiveAnatomyViewerProps) {
   const isSplittedRef = useRef<boolean>(false)
   const cameraRef = useRef<CameraHandle>(null)
+
+  const [labelOffsets, setLabelOffsets] = useState<Record<string, { x: number, y: number, z: number }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('anatomy-label-offsets')
+      return saved ? JSON.parse(saved) : {}
+    }
+    return {}
+  })
+
+  useEffect(() => {
+    localStorage.setItem('anatomy-label-offsets', JSON.stringify(labelOffsets))
+  }, [labelOffsets])
+
+  const [activeAdjustOrgan, setActiveAdjustOrgan] = useState<string | null>(null)
+  
+  const adjustableOrgans = affectedOrganIds.filter(id => conditionsByOrgan[id])
+
+  useEffect(() => {
+    if (adjustableOrgans.length > 0 && !activeAdjustOrgan) {
+      setActiveAdjustOrgan(adjustableOrgans[0])
+    }
+  }, [adjustableOrgans, activeAdjustOrgan])
+
+  const adjustOffset = (organ: string, axis: 'x' | 'y' | 'z', delta: number) => {
+    setLabelOffsets(prev => {
+      const current = prev[organ] || { x: 0, y: 0, z: 0 }
+      return {
+        ...prev,
+        [organ]: {
+          ...current,
+          [axis]: parseFloat((current[axis] + delta).toFixed(3))
+        }
+      }
+    })
+  }
+
+  const resetOffset = (organ: string) => {
+    setLabelOffsets(prev => {
+      const copy = { ...prev }
+      delete copy[organ]
+      return copy
+    })
+  }
+
+  const copyCoordinatesToClipboard = () => {
+    navigator.clipboard.writeText(JSON.stringify(labelOffsets, null, 2))
+    alert('Label offsets copied to clipboard! You can paste them in the chat.')
+  }
 
   const [systems, setSystems] = useState<SystemToggles>({
     skeletal: true,
@@ -1222,7 +1447,7 @@ export function InteractiveAnatomyViewer({
     respiratory: true,
     digestive: true,
     lymphatic: true,
-    integumentary: false,
+    integumentary: true,
   })
 
   const toggleSystem = (sys: keyof SystemToggles) => {
@@ -1259,16 +1484,79 @@ export function InteractiveAnatomyViewer({
               </span>
             </div>
 
+            {/* 🔧 LABEL ADJUSTMENT CONSOLE: Floating card on Canvas (Right side) */}
+            {adjustableOrgans.length > 0 && (
+              <div className="absolute right-4 top-16 z-20 bg-slate-950/90 backdrop-blur-xl border border-white/10 rounded-xl p-4 shadow-2xl flex flex-col gap-3 font-mono text-[9px] w-64 max-h-[85vh] overflow-y-auto">
+                <span className="text-cyan-400 font-bold block text-[10px] border-b border-cyan-500/20 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                  <span>🔧</span> Label Adjuster Console
+                </span>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-400 font-bold block text-[8px] uppercase tracking-wider">Select Label to Reposition</label>
+                  <select 
+                    value={activeAdjustOrgan || ''} 
+                    onChange={(e) => setActiveAdjustOrgan(e.target.value)}
+                    className="w-full bg-black/60 border border-white/10 rounded px-2.5 py-1.5 text-white text-[9px] outline-none focus:border-cyan-500/40"
+                  >
+                    {adjustableOrgans.map(org => (
+                      <option key={org} value={org}>
+                        {org.replace(/_/g, ' ').toUpperCase()} ({conditionsByOrgan[org]?.condition.substring(0, 15)}...)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {activeAdjustOrgan && (
+                  <div className="flex flex-col gap-2.5 mt-1 pt-2.5 border-t border-white/5 text-gray-300">
+                    <p className="text-[10px] leading-relaxed text-cyan-300 font-bold">
+                      💡 Click & Drag the 🔴 red target dot with 3D arrows directly on the model to move the label.
+                    </p>
+                    <p className="text-[8px] text-gray-400 leading-normal">
+                      The camera rotation is automatically disabled while dragging the target point.
+                    </p>
+                    
+                    {/* Active Values */}
+                    <div className="flex justify-between items-center bg-black/40 px-2 py-1.5 rounded text-[8px] text-cyan-300 font-bold border border-cyan-500/10 mt-1">
+                      <span>X: {(labelOffsets[activeAdjustOrgan]?.x || 0).toFixed(3)}</span>
+                      <span>Y: {(labelOffsets[activeAdjustOrgan]?.y || 0).toFixed(3)}</span>
+                      <span>Z: {(labelOffsets[activeAdjustOrgan]?.z || 0).toFixed(3)}</span>
+                    </div>
+
+                    {/* Reset button */}
+                    <button 
+                      onClick={() => resetOffset(activeAdjustOrgan)}
+                      className="w-full mt-1.5 py-1 rounded bg-red-950/20 border border-red-500/30 hover:bg-red-900/30 text-red-400 text-[8px] font-bold uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Reset This Position
+                    </button>
+                  </div>
+                )}
+
+                {/* Exporter */}
+                <div className="flex flex-col gap-1.5 mt-2 pt-2.5 border-t border-white/10">
+                  <span className="text-gray-400 font-bold block text-[8px] uppercase tracking-wider">Reposition Config Output</span>
+                  <pre className="w-full bg-black/80 border border-white/10 rounded p-2 text-[7.5px] text-cyan-300 overflow-x-auto max-h-24 select-all font-mono leading-relaxed">
+                    {JSON.stringify(labelOffsets, null, 2)}
+                  </pre>
+                  <button 
+                    onClick={copyCoordinatesToClipboard}
+                    className="w-full py-1.5 bg-cyan-950/80 border border-cyan-500/40 hover:bg-cyan-900/60 rounded text-cyan-300 font-bold uppercase tracking-widest text-[8px] transition cursor-pointer"
+                  >
+                    Copy Offset Coordinates
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* CLINICIAN CHECKBOX SELECTOR: Floating card on Canvas */}
             <div className="absolute left-4 top-16 z-20 glass-panel border-white/5 rounded-xl p-3 shadow-md flex flex-col gap-2 font-mono text-[9px] w-40">
               <span className="text-on-surface-variant font-bold block mb-1 text-[8.5px] border-b border-white/10 pb-1 uppercase tracking-wider">Select Layers</span>
               {[
-                { label: 'Skin',      key: 'integumentary', icon: '🫁', color: 'text-orange-300' },
+                { label: 'Outer Body', key: 'integumentary', icon: '👤', color: 'text-emerald-400' },
                 { label: 'Skeleton',  key: 'skeletal',       icon: '🦴', color: 'text-amber-400' },
                 { label: 'Muscles',   key: 'muscular',       icon: '💪', color: 'text-rose-400'  },
                 { label: 'Organs',    key: 'digestive',      icon: '🫀', color: 'text-red-400'   },
-                { label: 'Vessels',   key: 'cardiovascular', icon: '🩸', color: 'text-blue-400'  },
-                { label: 'Nerves',    key: 'nervous',        icon: '⚡', color: 'text-yellow-400'}
+                { label: 'Vessels',   key: 'cardiovascular', icon: '🩸', color: 'text-blue-400'  }
               ].map(sys => {
                 const isActive = (systems as any)[sys.key]
                 return (
@@ -1362,28 +1650,12 @@ export function InteractiveAnatomyViewer({
                 <directionalLight position={[-8, 8, -4]} intensity={1.0} color="#ddd8f0" />
 
                 <Suspense fallback={null}>
-                  {/* Column 1: Body Skin/Integumentary */}
-                  <Suspense fallback={null}>
-                    <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/splanchnology.glb" 
-                      positionX={-2.4} 
-                      activeSystems={systems}
-                      highlightedMeshNames={highlightedMeshNames}
-                      viewMode={viewMode}
-                      visible={systems.integumentary}
-                      isSplittedRef={isSplittedRef}
-                      affectedOrganIds={affectedOrganIds}
-                      conditionsByOrgan={conditionsByOrgan}
-                      onModelClick={handleModelClick}
-                      onOrganClick={handleOrganClick}
-                    />
-                  </Suspense>
-
                   {/* Column 2: Visceral Organs — visible when ANY organ system is active */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/splanchnology.glb" 
-                      positionX={-1.2} 
+                      positionX={viewMode === 'single' ? 0.0 : -1.2} 
+                      splitPositionX={-1.2}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -1393,21 +1665,29 @@ export function InteractiveAnatomyViewer({
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
                       onOrganClick={handleOrganClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
                     />
                   </Suspense>
                   
-                  {/* Column 3: Skeletal System (FBX) */}
+                  {/* Column 3: Skeletal System (from free_pack_-_human_skeleton.glb) */}
                   <Suspense fallback={null}>
-                    <RealisticFBXModel 
-                      path="/ai-in-healthcare/asset-01/SkeletalSystem100.fbx" 
-                      positionX={0.0} 
+                    <RealisticGLTFModel 
+                      path="/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb" 
+                      positionX={viewMode === 'single' ? 0.0 : 0.0} 
+                      splitPositionX={0.0}
                       activeSystems={systems}
+                      highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
                       visible={systems.skeletal}
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
                     />
                   </Suspense>
 
@@ -1415,7 +1695,8 @@ export function InteractiveAnatomyViewer({
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/scene.gltf" 
-                      positionX={1.2} 
+                      positionX={viewMode === 'single' ? 0.0 : 1.2} 
+                      splitPositionX={1.2}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -1424,6 +1705,9 @@ export function InteractiveAnatomyViewer({
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
                     />
                   </Suspense>
 
@@ -1431,7 +1715,8 @@ export function InteractiveAnatomyViewer({
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/myology.glb" 
-                      positionX={2.4} 
+                      positionX={viewMode === 'single' ? 0.0 : 2.4} 
+                      splitPositionX={2.4}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -1440,6 +1725,31 @@ export function InteractiveAnatomyViewer({
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
                       onModelClick={handleModelClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
+                    />
+                  </Suspense>
+
+                  {/* Column 1: Joe (Realistic Human Body) — Rendered last with high renderOrder to paint over other layers */}
+                  <Suspense fallback={null}>
+                    <RealisticGLTFModel 
+                      path="/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb" 
+                      positionX={viewMode === 'single' ? 0.0 : -2.4} 
+                      splitPositionX={-2.4}
+                      activeSystems={systems}
+                      highlightedMeshNames={highlightedMeshNames}
+                      viewMode={viewMode}
+                      visible={systems.integumentary}
+                      isSplittedRef={isSplittedRef}
+                      affectedOrganIds={affectedOrganIds}
+                      conditionsByOrgan={conditionsByOrgan}
+                      onModelClick={handleModelClick}
+                      onOrganClick={handleOrganClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
+                      renderOrder={10}
                     />
                   </Suspense>
                 </Suspense>

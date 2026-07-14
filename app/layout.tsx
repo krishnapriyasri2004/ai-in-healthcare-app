@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import Script from 'next/script'
 import { Header } from '@/components/header'
 import { Sidebar } from '@/components/sidebar'
+import { AppProvider } from '@/components/AppContext'
 import './globals.css'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -63,12 +64,14 @@ export default function RootLayout({
         <Header />
 
         {/* Console layout with Sidebar */}
-        <div className="flex-1 flex pt-16 h-screen overflow-hidden">
-          <Sidebar />
-          <div className="flex-1 relative overflow-hidden">
-            {children}
+        <AppProvider>
+          <div className="flex-1 flex pt-16 h-screen overflow-hidden">
+            <Sidebar />
+            <div className="flex-1 relative overflow-hidden">
+              {children}
+            </div>
           </div>
-        </div>
+        </AppProvider>
 
         {process.env.NODE_ENV === 'production' && <Analytics />}
         <Script id="register-sw" strategy="afterInteractive">

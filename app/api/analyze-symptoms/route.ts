@@ -47,8 +47,6 @@ Analyze the symptoms and return strict JSON with:
     const userPrompt = `Patient Biological Sex: ${gender || 'Unknown'}${vitalsStr}\nPatient symptoms: ${symptoms}${notes ? `\nAdditional notes: ${notes}` : ''}`
 
     let object
-    
-    let object
     const apiKey = process.env.HUGGINGFACE_API_TOKEN || process.env.HF_TOKEN || process.env.MEDGEMMA_API_KEY
     if (apiKey) {
       try {
@@ -80,8 +78,7 @@ ${userPrompt}<end_of_turn>
           // Gemma often returns markdown blocks
           content = content.replace(/```json/g, '').replace(/```/g, '').trim()
           
-          // Because we prompted the model with "{
-", we need to prepend it
+          // Because we prompted the model with "{", we need to prepend it
           if (!content.startsWith('{')) content = '{' + content
           
           if (content) {

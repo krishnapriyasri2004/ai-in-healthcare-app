@@ -4,22 +4,23 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { 
   ArrowLeft, Activity, Sparkles, AlertTriangle, Info, AlertCircle, RefreshCw, Layers,
-  Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap
+  Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap, Search
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { InteractiveAnatomyViewer, ORGAN_MAP, invalidateFnRef } from '@/components/interactive-anatomy-viewer'
+import { InteractiveAnatomyViewer, invalidateFnRef, ORGAN_MAP } from '@/components/interactive-anatomy-viewer'
+import { useAppContext } from '@/components/AppContext'
 
 export default function ViewAnatomyPage() {
+  const { activePatient } = useAppContext()
   const [viewMode, setViewMode] = useState<'split' | 'single'>('split')
   const isSplittedRef = useRef<boolean>(false) // High performance split toggle Ref
-  const cameraRef     = useRef<CameraHandle>(null) // Camera control HUD ref
   
   // Patient symptom input fields
-  const [age, setAge] = useState<number>(38)
-  const [sex, setSex] = useState<'Male' | 'Female'>('Male')
+  const [age, setAge] = useState<number>(activePatient?.age || 38)
+  const [sex, setSex] = useState<'Male' | 'Female'>((activePatient?.gender as 'Male' | 'Female') || 'Male')
   const [duration, setDuration] = useState<string>('3 days')
   const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('High')
-  const [symptomsInput, setSymptomsInput] = useState<string>('')
+  const [symptomsInput, setSymptomsInput] = useState<string>(activePatient?.symptoms || '')
 
   // Analysis result states
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -119,34 +120,40 @@ export default function ViewAnatomyPage() {
     recognition.start()
   }, [isRecording])
 
-  // Auto-fill and auto-analyze when coming from Patient Workspace via URL params
+  // Auto-fill and auto-analyze when coming from Patient Workspace via URL params or global Context
   const searchParams = useSearchParams()
   useEffect(() => {
+    let shouldAnalyze = false;
+    
+    // Check URL params first (for external links)
     const urlSymptoms = searchParams.get('symptoms')
     const urlAge = searchParams.get('age')
     const urlSex = searchParams.get('sex')
+    
     if (urlSymptoms) {
       setSymptomsInput(urlSymptoms)
       if (urlAge) setAge(parseInt(urlAge) || 38)
       if (urlSex === 'Female' || urlSex === 'Male') setSex(urlSex)
+      shouldAnalyze = true
+    } else if (activePatient && activePatient.symptoms) {
+      // Use global context if no URL params
+      setSymptomsInput(activePatient.symptoms)
+      setAge(activePatient.age || 38)
+      if (activePatient.gender) setSex(activePatient.gender)
+      shouldAnalyze = true
+    }
+
+    if (shouldAnalyze) {
       // Auto-trigger analysis after a short delay for page to mount
       setTimeout(() => {
         document.getElementById('analyze-btn')?.click()
       }, 800)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // 3D layers toggles — organs ON by default so model is immediately visible
-  const [systems, setSystems] = useState<SystemToggles>({
-    skeletal: false,
-    muscular: false,
-    nervous: true,        // brain visible by default
-    cardiovascular: true, // heart visible by default
-    respiratory: true,    // lungs visible by default
-    digestive: true,      // organs visible by default
-    lymphatic: false,
-    integumentary: false
-  })
-
+  }, [searchParams, activePatient]) 
+  // Anatomy State
+  const [anatomyList, setAnatomyList] = useState<Array<{label: string, description: string, severity: string}>>([])
+  const [validatedLabels, setValidatedLabels] = useState<Set<string>>(new Set())
+  const [isSymptomSubmitted, setIsSymptomSubmitted] = useState(false)
   // Set split status text in the DOM directly for instant zero-lag feedback
   const updateSplitStatusHUD = () => {
     const statusTextEl = document.getElementById('split-status-text')
@@ -174,14 +181,13 @@ export default function ViewAnatomyPage() {
     setSymptomsInput('')
     setPossibleConditions([])
     setRedFlag(false)
-    setHighlightedMeshNames([])
-    setAffectedOrganIds([])
-    setAffectedAnatomyList([])
-    setConditionsByOrgan({})
+    setAnatomyList([])
+    setValidatedLabels(new Set())
     setRecommendedInvestigations([])
     setErrorMsg(null)
     setSelectedOrgan(null)
     isSplittedRef.current = false
+    setIsSymptomSubmitted(false)
     updateSplitStatusHUD()
   }
 
@@ -231,92 +237,88 @@ export default function ViewAnatomyPage() {
       setRedFlag(false)
 
       const rawAnatomy = data.affected_anatomy || []
-      
-      const organIds: string[] = []
-      const meshNames: string[] = []
-      const organConditions: Record<string, { condition: string; reasoning: string; severity: string }> = {}
-
-      const VALID_MESH_IDS = [
-        'brain', 'heart', 'lung_left', 'lung_right',
-        'liver', 'stomach', 'kidney_left', 'kidney_right',
-        'intestines', 'throat', 'trachea', 'nasal_cavity',
-        'spleen', 'pancreas', 'appendix', 'bladder', 'gallbladder',
-        'aorta', 'spinal_cord', 'skin', 'lymph_nodes',
-        'skeleton', 'muscles'
-      ]
-
-      // Group labels by mesh_id
-      const groupedByMesh: Record<string, string[]> = {}
+      const newList: Array<{label: string, description: string, severity: string}> = []
       const uniqueLabels = new Set<string>()
-      const anatomyList: Array<{label: string, mesh_id: string}> = []
+
+      const newAffectedIds: string[] = []
+      const newConditionsByOrgan: Record<string, any> = {}
 
       rawAnatomy.forEach((item: any) => {
-        if (!item.mesh_id || item.label === "Unable to determine") return
-        if (!VALID_MESH_IDS.includes(item.mesh_id)) return
-        
+        if (!item.label || item.label === "Unable to determine") return
         if (!uniqueLabels.has(item.label)) {
           uniqueLabels.add(item.label)
-          anatomyList.push(item)
+          newList.push({
+            label: item.label,
+            description: item.description || '',
+            severity: severity
+          })
+
+          // Extract primary diagnosis for reasoning
+          const bestDiag = data.differential_diagnoses && data.differential_diagnoses.length > 0 
+            ? data.differential_diagnoses[0] 
+            : null
+
+          // Robust synonym matching
+          const term = item.label.toLowerCase()
+          let matchedIds: string[] = []
+          
+          // 1. Dictionary Match via ORGAN_MAP
+          for (const [key, ids] of Object.entries(ORGAN_MAP)) {
+             if (term.includes(key)) matchedIds.push(...ids)
+          }
+
+          // 2. Exact word tokens (so FBX matches specific bones/muscles like "patella", "femur", "biceps")
+          const tokens = term.split(/[\s-]+/)
+          tokens.forEach(t => {
+             const clean = t.replace(/[^a-z0-9]/g, '')
+             if (clean.length > 2) matchedIds.push(clean) // minimum 3 chars to avoid noise like 'of', 'left'
+          })
+
+          // 3. Full sanitized term
+          matchedIds.push(term.replace(/[^a-z0-9]/g, '_'))
+          
+          // 4. Force skeleton/muscle systems for broad queries so they show up at all
+          if (term.includes('bone') || term.includes('spine') || term.includes('joint')) {
+             matchedIds.push('skeleton')
+          }
+          if (term.includes('muscle') || term.includes('tendon') || term.includes('ligament')) {
+             matchedIds.push('muscles')
+          }
+          if (term.includes('vein') || term.includes('artery') || term.includes('blood')) {
+             matchedIds.push('cardiovascular')
+          }
+
+          // Deduplicate and update state maps
+          const uniqueMatched = Array.from(new Set(matchedIds))
+          uniqueMatched.forEach(id => {
+             if (!newAffectedIds.includes(id)) newAffectedIds.push(id)
+             if (!newConditionsByOrgan[id]) {
+                newConditionsByOrgan[id] = {
+                   condition: bestDiag ? bestDiag.condition : item.label,
+                   reasoning: bestDiag ? bestDiag.reasoning : item.description,
+                   severity: severity
+                }
+             }
+          })
         }
-        
-        if (!groupedByMesh[item.mesh_id]) {
-          groupedByMesh[item.mesh_id] = []
-        }
-        groupedByMesh[item.mesh_id].push(item.label)
-        
-        // Add both the mesh_id and the specific anatomical label for highlighting
-        meshNames.push(item.mesh_id.toLowerCase())
-        meshNames.push(item.label.toLowerCase())
       })
 
-      Object.entries(groupedByMesh).forEach(([meshId, labels]) => {
-        organIds.push(meshId)
-        organConditions[meshId] = {
-          condition: labels.join(', '), 
-          reasoning: `System: ${data.body_system || 'Unknown'} | Region: ${data.body_region || 'Unknown'}`,
-          severity: severity
-        }
-      })
+      setAnatomyList(newList)
+      setAffectedOrganIds(newAffectedIds)
+      setConditionsByOrgan(newConditionsByOrgan)
+      setValidatedLabels(new Set(newList.map(item => item.label))) // Med-Gemma mapping ensures all labels are anchored
+      setIsSymptomSubmitted(prev => !prev) // Toggle to trigger reset in viewer
 
-      setHighlightedMeshNames(meshNames)
-      setAffectedOrganIds(organIds)
-      setAffectedAnatomyList(anatomyList)
-      setConditionsByOrgan(organConditions)
-
-      // Apply system toggles directly from AI without hardcoded heuristics
-      const aiSystems = data.systems_to_enable || []
-      setSystems({
-        skeletal: aiSystems.includes('skeletal') || aiSystems.includes('skeleton'),
-        muscular: aiSystems.includes('muscular') || aiSystems.includes('muscles'),
-        nervous: aiSystems.includes('nervous') || aiSystems.includes('nerves'),
-        cardiovascular: aiSystems.includes('cardiovascular') || aiSystems.includes('vessels'),
-        respiratory: aiSystems.includes('respiratory') || aiSystems.includes('lungs'),
-        digestive: aiSystems.includes('digestive') || aiSystems.includes('organs'),
-        lymphatic: aiSystems.includes('lymphatic'),
-        integumentary: aiSystems.includes('integumentary') || aiSystems.includes('skin')
-      })
-
-      // Auto-split on successful analysis in Split View mode to display organs clearly
-      if (viewMode === 'split') {
-        isSplittedRef.current = true
-        updateSplitStatusHUD()
-      }
-
-      // Force canvas repaint — required because frameloop="demand" won't repaint
-      // automatically when React state updates (only WebGL invalidate triggers repaints)
-      setTimeout(() => invalidateFnRef.current(), 50)
-      setTimeout(() => invalidateFnRef.current(), 200)
-
-    } catch (e: any) {
-      console.error(e)
-      setErrorMsg(e.message || 'Connection failure. AI analysis could not be completed.')
+    } catch (err: any) {
+      console.error(err)
+      setErrorMsg(err.message || 'An unexpected error occurred.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const toggleSystem = (key: keyof SystemToggles) => {
-    setSystems(prev => ({ ...prev, [key]: !prev[key] }))
+  const handleAnatomyValidated = (labels: string[]) => {
+    setValidatedLabels(new Set(labels))
   }
 
   // Sync splitted mode on top tabs click
@@ -329,16 +331,6 @@ export default function ViewAnatomyPage() {
 
   return (
     <div className="w-full h-screen glass-panel text-gray-100 flex flex-col font-mono text-xs select-none overflow-hidden relative">
-      
-      {selectedOrgan && (
-        <OrganDetailModal
-          organ={selectedOrgan.organ}
-          condition={selectedOrgan.condition}
-          reasoning={selectedOrgan.reasoning}
-          severity={selectedOrgan.severity}
-          onClose={() => setSelectedOrgan(null)}
-        />
-      )}
 
       {/* HEADER: Deep Dark Command Header */}
       <div className="bg-[#0b132b] border-b border-white/10 px-4 py-3 z-10 flex justify-between items-center shadow-md shrink-0">
@@ -388,8 +380,8 @@ export default function ViewAnatomyPage() {
       <div className="flex-1 w-full flex overflow-hidden min-h-0">
 
         {/* LEFT COLUMN: Patient Symptom Input (22% Width) */}
-        <div className="w-[22%] min-w-[280px] bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl p-4 flex flex-col justify-between overflow-y-auto custom-scrollbar shrink-0 shadow-sm">
-          <div className="space-y-3">
+        <div className="w-[22%] min-w-[280px] bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl p-4 flex flex-col justify-start gap-4 overflow-y-auto custom-scrollbar shrink-0 shadow-sm">
+          <div className="space-y-4">
 
             {/* Section Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
@@ -588,56 +580,85 @@ export default function ViewAnatomyPage() {
           onOrganClick={handleOrganClick}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          // Legacy props that may still be required if I didn't clean them up in InteractiveAnatomyViewer
+          anatomyList={anatomyList}
+          onAnatomyValidated={handleAnatomyValidated}
+          isSymptomSubmitted={isSymptomSubmitted}
         />
 
-        {/* RIGHT COLUMN: Results Panel (25% Width) */}
+        {/* RIGHT COLUMN: Results Panel (20% Width - Compact) */}
         {(possibleConditions.length > 0 || isLoading) && (
-          <div className="w-[25%] min-w-[320px] bg-surface/40 backdrop-blur-3xl border-l border-primary/20 shadow-2xl p-4 flex flex-col overflow-y-auto custom-scrollbar shrink-0 shadow-sm transition-all">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-4">
-              <span className="font-bold text-xs uppercase text-primary tracking-wider flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5" /> AI Clinical Results
+          <div className="w-[20%] min-w-[260px] bg-surface/40 backdrop-blur-3xl border-l border-primary/20 shadow-2xl p-3.5 flex flex-col overflow-y-auto custom-scrollbar shrink-0 shadow-sm transition-all">
+            <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-3">
+              <span className="font-bold text-[10px] uppercase text-primary tracking-wider flex items-center gap-1.5">
+                <Activity className="w-3 h-3" /> AI Clinical Results
               </span>
             </div>
 
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-40 text-center gap-3">
-                <span className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
-                <p className="text-[10px] text-cyan-400 font-mono uppercase animate-pulse">Running Diagnostic AI...</p>
+              <div className="flex flex-col items-center justify-center h-40 text-center gap-2">
+                <span className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
+                <p className="text-[9px] text-cyan-400 font-mono uppercase animate-pulse">Running Diagnostic AI...</p>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {redFlag && (
-                  <div className="bg-red-950/40 border border-red-500/50 p-3 rounded-xl flex items-start gap-2 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
-                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <div className="bg-red-950/40 border border-red-500/50 p-2.5 rounded-lg flex items-start gap-1.5 shadow-[0_0_10px_rgba(239,68,68,0.15)]">
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-red-400 font-bold uppercase text-[10px] tracking-wider mb-0.5">Medical Emergency</h4>
-                      <p className="text-[9px] text-red-200/80 leading-relaxed">Symptoms indicate a potentially life-threatening condition requiring immediate medical attention.</p>
+                      <h4 className="text-red-400 font-bold uppercase text-[9px] tracking-wider mb-0.5">Medical Emergency</h4>
+                      <p className="text-[8px] text-red-200/80 leading-relaxed">Symptoms indicate a potentially life-threatening condition requiring immediate medical attention.</p>
                     </div>
                   </div>
                 )}
 
-                {/* Affected Anatomy */}
-                {affectedAnatomyList.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Affected Anatomy</h3>
-                    <div className="flex flex-wrap gap-1.5">
-                      {affectedAnatomyList.map((item, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-cyan-950/30 border border-cyan-500/30 rounded-md text-[10px] font-bold text-cyan-300 shadow-[0_0_8px_rgba(0,255,255,0.1)]">
-                          {item.label}
-                        </span>
-                      ))}
+                {/* NEW: Affected Anatomy Section */}
+                <div className="mb-3 bg-slate-900/40 rounded-xl p-2.5 border border-blue-900/30">
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Search className="w-3 h-3 text-blue-400" /> Affected Anatomy
+                  </h3>
+                  
+                  {anatomyList.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {anatomyList.map((item, idx) => {
+                        const isFound = validatedLabels.has(item.label)
+                        return (
+                          <div key={idx} className="bg-black/40 border border-white/5 rounded-lg p-2">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className={`text-[9px] font-bold uppercase tracking-wider ${isFound ? 'text-cyan-400' : 'text-slate-500 line-through'}`}>
+                                {item.label}
+                              </span>
+                              {!isFound && (
+                                <span className="text-[7.5px] bg-red-950/50 text-red-400 border border-red-500/20 px-1 py-0.5 rounded font-mono uppercase">
+                                  Mesh not found
+                                </span>
+                              )}
+                              {isFound && (
+                                <span className="text-[7.5px] bg-cyan-950/50 text-cyan-400 border border-cyan-500/20 px-1 py-0.5 rounded font-mono uppercase">
+                                  Validated
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-[8.5px] ${isFound ? 'text-slate-300' : 'text-slate-600'} leading-relaxed`}>
+                              {item.description}
+                            </p>
+                          </div>
+                        )
+                      })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-[9px] text-slate-500 italic px-1.5">No specific anatomy detected.</div>
+                  )}
+                </div>
 
                 {/* Differential Diagnoses */}
-                <div className="space-y-3 pt-2">
-                  <h3 className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Differential Diagnoses</h3>
+                <div className="space-y-2.5 pt-1">
+                  <h3 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Differential Diagnoses</h3>
                   {possibleConditions.map((cond, idx) => (
-                    <div key={idx} className="bg-black/30 border border-white/10 rounded-xl p-3 hover:border-primary/30 transition-colors">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h4 className="text-[11px] font-bold text-white leading-tight">{cond.name}</h4>
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border tracking-wider shrink-0 ${
+                    <div key={idx} className="bg-black/30 border border-white/10 rounded-xl p-2.5 hover:border-primary/30 transition-colors">
+                      <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                        <h4 className="text-[10px] font-bold text-white leading-tight">{cond.name}</h4>
+                        <span className={`text-[8px] font-black px-1 py-0.5 rounded border tracking-wider shrink-0 ${
                           cond.confidence >= 80 ? 'bg-cyan-950/50 text-cyan-400 border-cyan-500/30' :
                           cond.confidence >= 50 ? 'bg-amber-950/50 text-amber-400 border-amber-500/30' :
                           'bg-slate-800 text-slate-300 border-slate-600'
@@ -645,18 +666,18 @@ export default function ViewAnatomyPage() {
                           {cond.confidence}%
                         </span>
                       </div>
-                      <p className="text-[9.5px] text-slate-400 leading-relaxed font-sans">{cond.reasoning}</p>
+                      <p className="text-[8.5px] text-slate-400 leading-relaxed font-sans">{cond.reasoning}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Recommended Investigations */}
                 {recommendedInvestigations.length > 0 && (
-                  <div className="space-y-3 pt-2">
-                    <h3 className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Recommended Investigations</h3>
-                    <div className="flex flex-wrap gap-1.5">
+                  <div className="space-y-2.5 pt-1">
+                    <h3 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Recommended Investigations</h3>
+                    <div className="flex flex-wrap gap-1">
                       {recommendedInvestigations.map((inv, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-blue-950/30 border border-blue-500/20 rounded-md text-[9.5px] font-medium text-blue-200">
+                        <span key={idx} className="px-1.5 py-0.5 bg-blue-950/30 border border-blue-500/20 rounded text-[8.5px] font-medium text-blue-200">
                           {inv}
                         </span>
                       ))}
@@ -665,10 +686,10 @@ export default function ViewAnatomyPage() {
                 )}
 
                 {/* Disclaimer */}
-                <div className="mt-8 p-3 bg-slate-900/50 border border-slate-800 rounded-lg flex gap-2">
-                  <Info className="w-4 h-4 text-slate-500 shrink-0" />
-                  <p className="text-[8px] text-slate-500 font-sans leading-relaxed">
-                    <strong>DISCLAIMER:</strong> AI-generated clinical decision support. Not a confirmed diagnosis. Always exercise clinical judgment and perform appropriate diagnostic testing.
+                <div className="mt-6 p-2 bg-slate-900/50 border border-slate-800 rounded-lg flex gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <p className="text-[7.5px] text-slate-500 font-sans leading-relaxed">
+                    <strong>DISCLAIMER:</strong> AI decision support. Not a confirmed diagnosis. Always exercise clinical judgment and perform testing.
                   </p>
                 </div>
               </div>

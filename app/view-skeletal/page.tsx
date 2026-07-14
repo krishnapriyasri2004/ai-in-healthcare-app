@@ -1,22 +1,27 @@
 'use client'
 
-import React, { Suspense, useMemo } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, ContactShadows, useFBX, Html } from '@react-three/drei'
+import { OrbitControls, ContactShadows, useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import Link from 'next/link'
 import { Activity, ArrowLeft } from 'lucide-react'
 
-function FBXModel({ path }: { path: string }) {
-  const fbx = useFBX(path)
+// Preload models for view-skeletal page
+if (typeof window !== 'undefined') {
+  useGLTF.preload('/ai-in-healthcare/asset-01/human_skeleton_hd.glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/male_skeleton.glb')
+}
+
+function GLTFModel({ path }: { path: string }) {
+  const { scene } = useGLTF(path)
   
   const wrapper = useMemo(() => {
-    const clone = fbx.clone()
+    const clone = SkeletonUtils.clone(scene)
 
-    // Wrap in parent Group and rotate the wrapper (not the clone)
-    // so skinned mesh bone bind poses are not broken
     const wrapper = new THREE.Group()
-    wrapper.rotation.x = -Math.PI / 2
     wrapper.add(clone)
     wrapper.updateMatrixWorld(true)
 
@@ -31,29 +36,30 @@ function FBXModel({ path }: { path: string }) {
     const center2 = box2.getCenter(new THREE.Vector3())
     wrapper.position.set(-center2.x, -box2.min.y - 1.1, -center2.z)
 
-    const boneMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#e8dcc8'),
-      roughness: 0.60,
-      metalness: 0.05,
-      emissive: new THREE.Color('#221e16'),
-      emissiveIntensity: 0.15,
-    })
-
     clone.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return
       const m = child as THREE.Mesh
       m.castShadow = true
       m.receiveShadow = true
-      m.material = boneMaterial.clone()
+      if (m.material) {
+        if (Array.isArray(m.material)) {
+          m.material = m.material.map((mat: any) => mat.clone())
+        } else {
+          m.material = m.material.clone()
+        }
+      }
     })
     
     return wrapper
-  }, [fbx])
+  }, [scene])
 
   return <primitive object={wrapper} />
 }
 
 export default function ViewSkeletalPage() {
+  const skeletalModel = '/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb'
+  const modelName = 'free_pack_-_human_skeleton.glb'
+
   return (
     <div className="w-full h-screen bg-surface text-gray-100 flex flex-col font-sans relative overflow-hidden">
       {/* Top Banner/Nav */}
@@ -68,7 +74,7 @@ export default function ViewSkeletalPage() {
 
       <div className="absolute top-4 right-4 z-50 bg-slate-950/80 backdrop-blur-md border border-cyan-500/30 px-4 py-2 rounded-lg font-mono text-xs shadow-lg flex items-center gap-2">
         <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
-        <span className="text-cyan-400 font-bold uppercase">Viewing SkeletalSystem100.fbx</span>
+        <span className="text-cyan-400 font-bold uppercase">Viewing {modelName}</span>
       </div>
 
       {/* 3D Canvas */}
@@ -85,11 +91,11 @@ export default function ViewSkeletalPage() {
             <Html center>
               <div className="flex flex-col items-center gap-4 font-mono text-cyan-400 text-sm">
                 <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                <div>LOADING SKELETAL FBX MODEL (41MB)...</div>
+                <div>LOADING SKELETAL GLB MODEL...</div>
               </div>
             </Html>
           }>
-            <FBXModel path="/ai-in-healthcare/asset-01/SkeletalSystem100.fbx" />
+            <GLTFModel path={skeletalModel} />
           </Suspense>
 
           <ContactShadows 
@@ -113,8 +119,8 @@ export default function ViewSkeletalPage() {
       {/* Footer Info HUD */}
       <div className="absolute bottom-4 left-4 z-50 bg-slate-950/80 backdrop-blur-md border border-white/10 p-4 rounded-lg font-mono text-[11px] text-gray-400 max-w-sm">
         <div className="text-white font-bold mb-1 uppercase tracking-wider text-xs">Model Information</div>
-        <p className="mb-2">File: SkeletalSystem100.fbx</p>
-        <p className="mb-2">Location: /public/asset-01/SkeletalSystem100.fbx</p>
+        <p className="mb-2">File: {modelName}</p>
+        <p className="mb-2">Location: {skeletalModel}</p>
         <p>Interact using Left Click to rotate, Right Click to pan, and Scroll to zoom.</p>
       </div>
     </div>

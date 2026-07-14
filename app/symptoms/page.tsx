@@ -13,22 +13,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
-
-interface Condition {
-  name: string
-  confidence: number
-  reasoning: string
-}
-
-interface DiagnosisResult {
-  affectedRegions: string[]
-  possibleConditions: Condition[]
-  redFlag: boolean
-  // enriched fields computed client-side
-  primaryCondition: string
-  primaryConfidence: number
-  primaryReasoning: string
-}
+import { useAppContext, DiagnosisResult, Condition } from '@/components/AppContext'
 
 const PRESET_SCENARIOS = [
   {
@@ -133,9 +118,10 @@ const toBodyModelRegions = (regions: string[], organConditions?: Record<string, 
 }
 
 export default function SymptomsPage() {
-  const [symptomsInput, setSymptomsInput] = useState('')
-  const [patientAge, setPatientAge] = useState(35)
-  const [patientGender, setPatientGender] = useState<'Male' | 'Female'>('Male')
+  const { activePatient, setActiveDiagnosisResult } = useAppContext()
+  const [symptomsInput, setSymptomsInput] = useState(activePatient?.symptoms || '')
+  const [patientAge, setPatientAge] = useState(activePatient?.age || 35)
+  const [patientGender, setPatientGender] = useState<'Male' | 'Female'>((activePatient?.gender as 'Male' | 'Female') || 'Male')
   const [duration, setDuration] = useState('2 days')
   const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('High')
 
@@ -154,16 +140,19 @@ export default function SymptomsPage() {
     setPatientAge(preset.age)
     setPatientGender(preset.gender)
     setResult(null)
+    setActiveDiagnosisResult(null)
     setErrorMsg(null)
     textareaRef.current?.focus()
   }
 
   const handleClear = () => {
-    setSymptomsInput('')
+    setSymptomsInput(activePatient?.symptoms || '')
     setResult(null)
+    setActiveDiagnosisResult(null)
     setErrorMsg(null)
     setProgressStep(0)
     setOrganConditions({})
+    setViewMode('single')
   }
 
   const handleAnalyze = async () => {
@@ -172,6 +161,7 @@ export default function SymptomsPage() {
     setIsAnalyzing(true)
     setProgressStep(0)
     setResult(null)
+    setActiveDiagnosisResult(null)
     setErrorMsg(null)
 
     // Progressive loading animation
@@ -200,14 +190,17 @@ export default function SymptomsPage() {
 
       const primary = data.possibleConditions?.[0]
       setOrganConditions(data.organConditions || {})
-      setResult({
+      const finalResult = {
         affectedRegions: data.affectedRegions || [],
         possibleConditions: data.possibleConditions || [],
         redFlag: !!data.redFlag,
         primaryCondition: primary?.name || 'Unknown',
         primaryConfidence: primary?.confidence || 0,
         primaryReasoning: primary?.reasoning || ''
-      })
+      }
+      setResult(finalResult)
+      setActiveDiagnosisResult(finalResult)
+      setViewMode('single')
     } catch (err: any) {
       setErrorMsg(err.message || 'Analysis failed. Please try again.')
     } finally {
@@ -376,8 +369,6 @@ export default function SymptomsPage() {
               🤖 {result ? `Mapped: ${result.affectedRegions.map(r => r.replace('_', ' ')).join(', ')}` : 'Awaiting Symptom Analysis'}
             </div>
             <InteractiveAnatomyViewer
-              affectedOrganIds={result ? toBodyModelRegions(result.affectedRegions).map(x => x.bodyRegion) : []}
-              conditionsByOrgan={organConditions}
               highlightedMeshNames={highlightedMeshNames}
               onOrganClick={(organ) => console.log('Clicked organ:', organ)}
               viewMode={viewMode}
