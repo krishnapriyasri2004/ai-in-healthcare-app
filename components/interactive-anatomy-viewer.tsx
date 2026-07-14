@@ -645,8 +645,8 @@ function InvalidateBridge() {
 // on page load rather than waiting for the Suspense boundary to mount
 if (typeof window !== 'undefined') {
   useGLTF.preload('/ai-in-healthcare/asset-01/splanchnology.glb')
-  useGLTF.preload('/ai-in-healthcare/asset-01/scene.gltf')
-  useGLTF.preload('/ai-in-healthcare/asset-01/myology.glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/scene-v1 (1).glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/myology-v1.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb')
 }
@@ -745,7 +745,9 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
       const sketchfabModel = clone.getObjectByName('Sketchfab_model')
       if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-      else clone.rotation.x = -Math.PI / 2
+      else if (path.includes('joe') || (!path.includes('-v1') && !path.includes('scene-v1'))) {
+        clone.rotation.x = -Math.PI / 2
+      }
     }
 
     // Align all models to the skeleton (master reference) parameters
@@ -1694,7 +1696,7 @@ export function InteractiveAnatomyViewer({
                   {/* Column 4: Cardiovascular vessels */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/scene.gltf" 
+                      path="/ai-in-healthcare/asset-01/scene-v1 (1).glb" 
                       positionX={viewMode === 'single' ? 0.0 : 1.2} 
                       splitPositionX={1.2}
                       activeSystems={systems}
@@ -1714,7 +1716,7 @@ export function InteractiveAnatomyViewer({
                   {/* Column 5: Muscular system */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/myology.glb" 
+                      path="/ai-in-healthcare/asset-01/myology-v1.glb" 
                       positionX={viewMode === 'single' ? 0.0 : 2.4} 
                       splitPositionX={2.4}
                       activeSystems={systems}

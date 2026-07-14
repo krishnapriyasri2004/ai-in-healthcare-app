@@ -554,7 +554,7 @@ function GLTFModelWrapper({
       const sketchfabModel = clone.getObjectByName('Sketchfab_model')
       if (sketchfabModel) {
         sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-      } else {
+      } else if (path.includes('joe') || (!path.includes('-v1') && !path.includes('scene-v1'))) {
         clone.rotation.x = -Math.PI / 2
       }
     }
@@ -1052,10 +1052,10 @@ export function BodyModel({
             />
           </Suspense>
 
-          {/* Column 4: Cardiovascular vessels (from scene.gltf) */}
+          {/* Column 4: Cardiovascular vessels (from scene-v1 (1).glb) */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/scene.gltf" 
+              path="/ai-in-healthcare/asset-01/scene-v1 (1).glb" 
               positionX={1.2} 
               opacity={opacity} 
               wireframe={wireframe} 
@@ -1064,10 +1064,10 @@ export function BodyModel({
             />
           </Suspense>
 
-          {/* Column 5: Muscular system (from myology.glb) */}
+          {/* Column 5: Muscular system (from myology-v1.glb) */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/myology.glb" 
+              path="/ai-in-healthcare/asset-01/myology-v1.glb" 
               positionX={2.4} 
               opacity={opacity} 
               wireframe={wireframe} 
