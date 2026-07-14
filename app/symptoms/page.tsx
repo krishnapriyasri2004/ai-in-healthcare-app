@@ -135,6 +135,15 @@ export default function SymptomsPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  useEffect(() => {
+    if (!symptomsInput.trim()) {
+      setHighlightedMeshNames([])
+      setResult(null)
+      setActiveDiagnosisResult(null)
+      setOrganConditions({})
+    }
+  }, [symptomsInput, setActiveDiagnosisResult])
+
   const handleRunPreset = (preset: typeof PRESET_SCENARIOS[0]) => {
     setSymptomsInput(preset.symptoms)
     setPatientAge(preset.age)

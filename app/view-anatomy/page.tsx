@@ -35,10 +35,20 @@ export default function ViewAnatomyPage() {
   const [affectedAnatomyList, setAffectedAnatomyList] = useState<Array<{label: string, mesh_id: string}>>([])
   const [conditionsByOrgan, setConditionsByOrgan] = useState<Record<string, { condition: string; reasoning: string; severity: string }>>({})
 
-  // Detail modal state
   const [selectedOrgan, setSelectedOrgan] = useState<{
     organ: string; condition?: string; reasoning?: string; severity?: string
   } | null>(null)
+
+  useEffect(() => {
+    if (!symptomsInput.trim()) {
+      setHighlightedMeshNames([])
+      setAffectedOrganIds([])
+      setConditionsByOrgan({})
+      setPossibleConditions([])
+      setRedFlag(false)
+      setIsSymptomSubmitted(false)
+    }
+  }, [symptomsInput])
 
   const handleOrganClick = (organ: string, condition?: string, reasoning?: string, sev?: string) => {
     setSelectedOrgan({ organ, condition, reasoning, severity: sev })
