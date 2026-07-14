@@ -1076,15 +1076,16 @@ export function BodyModel({
             />
           </Suspense>
 
-          {/* Column 1: Body Skin/Integumentary */}
+          {/* Column 1: Joe (Realistic Human Body) — Rendered last with high renderOrder to paint over other layers */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+              path="/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb" 
               positionX={-2.4} 
               opacity={opacity} 
               wireframe={wireframe} 
               activeSystems={activeSystems}
               symptomHighlightedRegions={symptomHighlightedRegions}
+              renderOrder={10}
             />
           </Suspense>
         </Suspense>

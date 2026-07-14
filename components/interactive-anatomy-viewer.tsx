@@ -1731,10 +1731,10 @@ export function InteractiveAnatomyViewer({
                     />
                   </Suspense>
 
-                  {/* Column 1: Body Skin/Integumentary */}
+                  {/* Column 1: Joe (Realistic Human Body) — Rendered last with high renderOrder to paint over other layers */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+                      path="/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb" 
                       positionX={viewMode === 'single' ? 0.0 : -2.4} 
                       splitPositionX={-2.4}
                       activeSystems={systems}
@@ -1749,6 +1749,7 @@ export function InteractiveAnatomyViewer({
                       labelOffsets={labelOffsets}
                       activeAdjustOrgan={activeAdjustOrgan}
                       onAdjustLabel={adjustOffset}
+                      renderOrder={10}
                     />
                   </Suspense>
                 </Suspense>
