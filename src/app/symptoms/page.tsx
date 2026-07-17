@@ -600,7 +600,7 @@ export default function SymptomsPage() {
                    progressStep === 2 ? 'MAPPING AFFECTED ANATOMICAL REGIONS...' :
                    'GENERATING DIFFERENTIAL DIAGNOSES...'}
                 </span>
-                <p className="text-[9px] text-slate-500 uppercase">Ganga Hospital ABDM Security Gateway Active</p>
+                <p className="text-[9px] text-slate-500 uppercase">ABDM Security Gateway Active</p>
               </div>
             </div>
           ) : result && (

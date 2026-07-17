@@ -22,13 +22,13 @@ export function Header() {
         {/* Divider */}
         <div className="h-8 w-px bg-primary/20" />
 
-        {/* Ganga Hospital Coimbatore */}
+        {/* Clinical Gateway Logo */}
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-secondary/30 border border-secondary/50 flex items-center justify-center text-secondary">
             <Shield className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h2 className="text-[11px] font-bold text-on-surface font-display tracking-wide">GANGA HOSPITAL, COIMBATORE</h2>
+            <h2 className="text-[11px] font-bold text-on-surface font-display tracking-wide">ABDM CLINIC GATEWAY</h2>
             <p className="text-[9px] uppercase tracking-wider text-on-surface-variant font-mono">
               AI-Powered Decision Support
             </p>
@@ -56,10 +56,10 @@ export function Header() {
         
         <div className="flex items-center gap-2.5">
           <div className="w-8.5 h-8.5 rounded-full bg-surface-variant border border-primary/40 flex items-center justify-center text-primary font-bold text-xs uppercase shadow-[0_0_10px_rgba(0,255,255,0.1)]">
-            PN
+            SN
           </div>
           <div>
-            <div className="text-[11px] font-bold text-on-surface">Dr. Priya N.</div>
+            <div className="text-[11px] font-bold text-on-surface">Dr. Sachi N.</div>
             <div className="text-[9px] font-mono text-primary/70 uppercase tracking-wider">Orthopaedics</div>
           </div>
         </div>

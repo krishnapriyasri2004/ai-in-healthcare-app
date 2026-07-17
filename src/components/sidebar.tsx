@@ -102,9 +102,9 @@ export function Sidebar() {
       {/* Footer */}
       <div className="px-4 pt-6 mt-6 border-t border-white/5 flex flex-col gap-3 font-mono text-[9px] text-on-surface-variant/60">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-surface-variant border border-white/10 flex items-center justify-center font-bold font-display text-[11px] text-on-surface-variant">G</div>
+          <div className="w-6 h-6 rounded bg-surface-variant border border-white/10 flex items-center justify-center font-bold font-display text-[11px] text-on-surface-variant">A</div>
           <div>
-            <div className="font-display font-bold text-[10px] text-on-surface tracking-widest">GANGA_HOSPITAL</div>
+            <div className="font-display font-bold text-[10px] text-on-surface tracking-widest">AROGYA_AI</div>
             <div className="text-[8px] uppercase tracking-widest text-primary/50 mt-0.5">SECURE NETWORK</div>
           </div>
         </div>

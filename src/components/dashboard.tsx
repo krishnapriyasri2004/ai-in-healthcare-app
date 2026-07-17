@@ -158,7 +158,7 @@ export function Dashboard() {
           <div>
             <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1.5">{dateStr}</p>
             <h1 className="text-[26px] font-black text-white tracking-tight leading-none">
-              {greeting}, <span className="text-cyan-400">Dr. Priya Nair</span>
+              {greeting}, <span className="text-cyan-400">Dr. Sachi Nair</span>
             </h1>
             <p className="text-sm text-slate-400 mt-2 font-light">
               {activeAlerts.length > 0
@@ -640,7 +640,7 @@ export function Dashboard() {
         {/* ── FOOTER ───────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between pt-5 border-t border-blue-950/30 text-[10px] text-slate-700 font-mono">
           <div className="flex items-center gap-4">
-            <span className="text-slate-400 font-bold">GANGA HOSPITAL</span>
+            <span className="text-slate-400 font-bold">AROGYA AI</span>
             <Minus className="w-3 h-3" />
             <span>ABDM Compliant</span>
             <Minus className="w-3 h-3" />
