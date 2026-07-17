@@ -121,7 +121,7 @@ ${userPrompt}<end_of_turn>
           ],
           severityScore: 90
         }
-      } else if (text.includes('dengue') || text.includes('retro-orbital') || text.includes('petechia') || text.includes('priya') || (text.includes('fever') && text.includes('joint'))) {
+      } else if (text.includes('dengue') || text.includes('retro-orbital') || text.includes('petechia') || text.includes('srinidhi') || (text.includes('fever') && text.includes('joint'))) {
         object = {
           predictedCondition: 'Dengue Hemorrhagic Fever (Suspected)',
           confidence: 'high' as const,

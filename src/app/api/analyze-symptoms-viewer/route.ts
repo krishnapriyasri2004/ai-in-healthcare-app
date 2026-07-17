@@ -226,6 +226,39 @@ REQUIRED JSON FORMAT:
           recommended_investigations: ["Lumbar Puncture (CSF analysis)", "Contrast-Enhanced MRI of brain", "Blood Culture"]
         };
       }
+      // Scenario F: Jaundice / Liver / Abdominal Bloating (Liver / Kidneys)
+      else if (query.includes('jaundice') || query.includes('liver') || query.includes('urine') || query.includes('kidney') || query.includes('renal') || query.includes('yellow')) {
+        parsedJson = {
+          body_system: "Digestive / Urinary",
+          body_region: "Abdomen",
+          affected_anatomy: [
+            { label: "Liver", description: "The large glandular organ that filters blood, secretes bile, and detoxifies chemicals." },
+            { label: "Kidney Left", description: "The left organ that filters blood to remove waste products and produce urine." },
+            { label: "Kidney Right", description: "The right kidney." }
+          ],
+          differential_diagnoses: [
+            { condition: "Acute Hepatorenal Syndrome", confidence: 75, reasoning: "Presence of jaundice, yellow skin, and urinary backlog." },
+            { condition: "Chronic Hepatitis / Cirrhosis", confidence: 60, reasoning: "Progressive liver dysfunction leading to portal hypertension." }
+          ],
+          recommended_investigations: ["Liver Function Tests (LFT)", "Renal Function Tests (RFT / Serum Creatinine)", "Abdominal USG"]
+        };
+      }
+      // Scenario G: Gastric pain / Stomach ache / Nausea / Vomiting (Stomach / Intestines)
+      else if (query.includes('stomach') || query.includes('vomit') || query.includes('nausea') || query.includes('gastric') || query.includes('acid') || query.includes('heartburn') || query.includes('digestive')) {
+        parsedJson = {
+          body_system: "Digestive",
+          body_region: "Abdomen",
+          affected_anatomy: [
+            { label: "Stomach", description: "The muscular organ that receives food and performs primary mechanical and chemical digestion." },
+            { label: "Intestines", description: "The digestive tract where water and nutrients are absorbed." }
+          ],
+          differential_diagnoses: [
+            { condition: "Acute Gastritis / GERD", confidence: 85, reasoning: "Upper abdominal discomfort, acidity, nausea, or vomiting." },
+            { condition: "Peptic Ulcer Disease", confidence: 65, reasoning: "Localized epigastric burning pain relieved or exacerbated by food." }
+          ],
+          recommended_investigations: ["Upper GI Endoscopy", "H. pylori stool antigen test", "Abdominal USG"]
+        };
+      }
       // Fallback Default
       else {
         parsedJson = {
