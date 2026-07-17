@@ -258,7 +258,7 @@ export default function SymptomsPage() {
   }, [symptomsInput])
 
   const codes = result ? getConditionCodes(result.primaryCondition) : null
-  const anatomyViewerUrl = `/ai-in-healthcare/view-anatomy?symptoms=${encodeURIComponent(symptomsInput)}&age=${patientAge}&sex=${patientGender}`
+  const anatomyViewerUrl = `/view-anatomy?symptoms=${encodeURIComponent(symptomsInput)}&age=${patientAge}&sex=${patientGender}`
 
   return (
     <div className="w-full h-full bg-surface flex flex-col p-6 overflow-y-auto font-mono text-xs text-slate-300">
