@@ -533,6 +533,16 @@ const COLUMN_SCOPE: Record<string, string[] | null> = {
   '2.4':  ['skeleton'],
 }
 
+const SCENE_V1_ORGANS: Record<string, [number, number, number]> = {
+  'heart': [0.03, 0.45, 0.15],
+  'aorta': [0.03, 0.52, 0.08],
+  'lung_left': [0.18, 0.42, 0.12],
+  'lung_right': [-0.18, 0.42, 0.12],
+  'trachea': [0.0, 0.68, 0.08],
+  'throat': [0.0, 0.82, 0.08],
+  'nasal_cavity': [0.0, 0.92, 0.08],
+}
+
 // Label horizontal offsets per column:
 // Organs/Cardiovascular column gets the full ±0.92 spread; flanking columns use ±0.58
 // to avoid labels running off-screen in split-view.
@@ -1282,14 +1292,20 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       if (seenOrgans.has(orgId)) continue
       if (!conditionsByOrgan[orgId]) continue
       
-      const organDef = ORGANS.find(o => o.id === orgId)
-      if (!organDef) continue
+      const isSceneV1 = path.includes('scene-v1')
+      const fallbackPos = new THREE.Vector3()
+      
+      if (isSceneV1 && SCENE_V1_ORGANS[orgId]) {
+        const coords = SCENE_V1_ORGANS[orgId]
+        fallbackPos.set(coords[0], coords[1], coords[2])
+      } else {
+        const organDef = ORGANS.find(o => o.id === orgId)
+        if (!organDef) continue
+        fallbackPos.set(organDef.position[0], organDef.position[1], organDef.position[2])
+        fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
+      }
       
       seenOrgans.add(orgId)
-      
-      // Scale and position the fallback coordinates to align with the scaled clone
-      const fallbackPos = new THREE.Vector3(organDef.position[0], organDef.position[1], organDef.position[2])
-      fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
       
       const offset = labelOffsets?.[orgId] || { x: 0, y: 0, z: 0 }
       let ox = offset.x

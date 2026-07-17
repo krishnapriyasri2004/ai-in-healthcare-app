@@ -20,7 +20,7 @@ export default function Home() {
             <Activity className="w-3.5 h-3.5" /> Monday, 13 July 2026
           </div>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white leading-tight">
-            Good Afternoon, <br/><span className="text-gray-300 font-medium">Dr. Sachin Nair, MD</span>
+            Good Afternoon, <br/><span className="text-gray-300 font-medium">Dr. Srinidhi, MD</span>
           </h1>
           <p className="text-[12px] text-gray-400 font-sans mt-2">
             You have <strong className="text-white">3 pending alerts</strong> and <strong className="text-white">{patients.length} appointments</strong> scheduled.
