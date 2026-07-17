@@ -26,6 +26,7 @@ export interface SystemToggles {
   digestive: boolean
   lymphatic: boolean
   integumentary: boolean
+  visceral: boolean
 }
 
 interface BodyOrgan {
@@ -35,53 +36,95 @@ interface BodyOrgan {
 }
 
 export const ORGAN_SYSTEM_MAP: Record<string, keyof SystemToggles> = {
+  // Nervous
   'brain': 'nervous',
+  'spinal_cord': 'nervous',
+  // Respiratory
   'throat': 'respiratory',
   'nasal_cavity': 'respiratory',
   'trachea': 'respiratory',
   'lung_left': 'respiratory',
   'lung_right': 'respiratory',
+  // Cardiovascular
   'heart': 'cardiovascular',
+  'aorta': 'cardiovascular',
+  // Digestive / Visceral
   'liver': 'digestive',
   'stomach': 'digestive',
   'kidney_left': 'digestive',
   'kidney_right': 'digestive',
   'intestines': 'digestive',
+  'gallbladder': 'digestive',
+  'pancreas': 'digestive',
+  'spleen': 'digestive',
+  'appendix': 'digestive',
+  'bladder': 'digestive',
+  // Integumentary
+  'skin': 'integumentary',
+  'lymph_nodes': 'lymphatic',
+  // Musculoskeletal
+  'skeleton': 'skeletal',
+  'muscles': 'muscular',
 }
 
 // Anatomically accurate organ positions (centered at 0,0,0 for target height 2.0)
+// Anatomically accurate organ positions (centered at 0,0,0 for target height 2.0, Y range -1.0 to 1.0)
 export const ORGANS: BodyOrgan[] = [
   // Head & Neck
-  { id: 'brain',        name: 'Brain',            position: [0,      2.35,  0.0]  },
-  { id: 'nasal_cavity', name: 'Nasal Cavity',      position: [0,      2.12,  0.12] },
-  { id: 'throat',       name: 'Throat/Larynx',     position: [0,      1.78,  0.04] },
-  { id: 'trachea',      name: 'Trachea',           position: [0,      1.42,  0.02] },
+  { id: 'brain',        name: 'Brain',            position: [0,      0.90,  0.0]  },
+  { id: 'nasal_cavity', name: 'Nasal Cavity',      position: [0,      0.82,  0.05] },
+  { id: 'throat',       name: 'Throat/Larynx',     position: [0,      0.70,  0.02] },
+  { id: 'trachea',      name: 'Trachea',           position: [0,      0.55,  0.01] },
   // Thoracic
-  { id: 'lung_left',    name: 'Left Lung',         position: [-0.24,  1.0,   0.02] },
-  { id: 'lung_right',   name: 'Right Lung',        position: [0.24,   1.0,   0.02] },
-  { id: 'heart',        name: 'Heart',             position: [-0.08,  0.95,  0.08] },
-  { id: 'aorta',        name: 'Aorta',             position: [0,      0.82,  0.05] },
+  { id: 'lung_left',    name: 'Left Lung',         position: [-0.10,  0.40,  0.01] },
+  { id: 'lung_right',   name: 'Right Lung',        position: [0.10,   0.40,  0.01] },
+  { id: 'heart',        name: 'Heart',             position: [-0.03,  0.35,  0.04] },
+  { id: 'aorta',        name: 'Aorta',             position: [0,      0.45,  0.02] },
   // Abdominal
-  { id: 'liver',        name: 'Liver',             position: [0.20,   0.56,  0.06] },
-  { id: 'stomach',      name: 'Stomach',           position: [-0.15,  0.50,  0.08] },
-  { id: 'gallbladder',  name: 'Gallbladder',       position: [0.18,   0.43,  0.09] },
-  { id: 'spleen',       name: 'Spleen',            position: [-0.28,  0.50, -0.04] },
-  { id: 'pancreas',     name: 'Pancreas',          position: [-0.05,  0.44,  0.00] },
+  { id: 'liver',        name: 'Liver',             position: [0.08,   0.20,  0.03] },
+  { id: 'stomach',      name: 'Stomach',           position: [-0.06,  0.20,  0.03] },
+  { id: 'gallbladder',  name: 'Gallbladder',       position: [0.07,   0.15,  0.04] },
+  { id: 'spleen',       name: 'Spleen',            position: [-0.11,  0.20, -0.02] },
+  { id: 'pancreas',     name: 'Pancreas',          position: [-0.02,  0.16,  0.00] },
   // Retroperitoneal
-  { id: 'kidney_left',  name: 'Left Kidney',       position: [-0.20,  0.42, -0.11] },
-  { id: 'kidney_right', name: 'Right Kidney',      position: [0.20,   0.42, -0.11] },
+  { id: 'kidney_left',  name: 'Left Kidney',       position: [-0.08,  0.15, -0.05] },
+  { id: 'kidney_right', name: 'Right Kidney',      position: [0.08,   0.15, -0.05] },
   // Pelvic
-  { id: 'intestines',   name: 'Intestines',        position: [0,      0.12,  0.04] },
-  { id: 'appendix',     name: 'Appendix',          position: [0.22,   0.05,  0.06] },
-  { id: 'bladder',      name: 'Urinary Bladder',   position: [0,     -0.10,  0.06] },
+  { id: 'intestines',   name: 'Intestines',        position: [0,      0.00,  0.02] },
+  { id: 'appendix',     name: 'Appendix',          position: [0.09,  -0.05,  0.03] },
+  { id: 'bladder',      name: 'Urinary Bladder',   position: [0,     -0.35,  0.03] },
   // Nervous
-  { id: 'spinal_cord',  name: 'Spinal Cord',       position: [0,      0.80, -0.10] },
+  { id: 'spinal_cord',  name: 'Spinal Cord',       position: [0,      0.30, -0.05] },
   // Integumentary & Lymphatic
-  { id: 'skin',         name: 'Skin/Integumentary',position: [0,      1.00,  0.18] },
-  { id: 'lymph_nodes',  name: 'Lymph Nodes',       position: [0,      1.08,  0.06] },
+  { id: 'skin',         name: 'Skin/Integumentary',position: [0,      0.40,  0.08] },
+  { id: 'lymph_nodes',  name: 'Lymph Nodes',       position: [0,      0.43,  0.03] },
   // Musculoskeletal
-  { id: 'skeleton',     name: 'Skeletal System',   position: [0,     -0.80,  0.10] },
-  { id: 'muscles',      name: 'Muscular System',   position: [0,     -0.80, -0.10] },
+  { id: 'skeleton',     name: 'Skeletal System',   position: [0,     -0.32,  0.04] },
+  { id: 'muscles',      name: 'Muscular System',   position: [0,     -0.32, -0.04] },
+  // Common Bones
+  { id: 'skull',        name: 'Skull',             position: [0,      0.88,  0.02] },
+  { id: 'spine',        name: 'Spine',             position: [0,      0.48, -0.04] },
+  { id: 'vertebrae',    name: 'Vertebrae',         position: [0,      0.48, -0.04] },
+  { id: 'ribs',         name: 'Ribcage/Ribs',      position: [0,      0.40,  0.02] },
+  { id: 'pelvis',       name: 'Pelvis',            position: [0,     -0.20,  0.01] },
+  { id: 'femur',        name: 'Femur',             position: [0.08,  -0.45,  0.00] },
+  { id: 'tibia',        name: 'Tibia',             position: [0.08,  -0.80,  0.00] },
+  { id: 'fibula',       name: 'Fibula',            position: [0.10,  -0.80, -0.01] },
+  { id: 'patella',      name: 'Patella',           position: [0.08,  -0.65,  0.04] },
+  { id: 'humerus',      name: 'Humerus',           position: [0.18,   0.40,  0.00] },
+  { id: 'radius',       name: 'Radius',            position: [0.22,   0.20,  0.00] },
+  { id: 'ulna',         name: 'Ulna',              position: [0.20,   0.20, -0.01] },
+  { id: 'clavicle',     name: 'Clavicle',          position: [0.06,   0.58,  0.03] },
+  { id: 'scapula',      name: 'Scapula',           position: [0.08,   0.54, -0.04] },
+  // Common Muscles
+  { id: 'biceps',       name: 'Biceps',            position: [0.18,   0.40,  0.03] },
+  { id: 'triceps',      name: 'Triceps',           position: [0.18,   0.40, -0.03] },
+  { id: 'quadriceps',   name: 'Quadriceps',        position: [0.08,  -0.45,  0.03] },
+  { id: 'hamstrings',   name: 'Hamstrings',        position: [0.08,  -0.45, -0.03] },
+  { id: 'deltoid',      name: 'Deltoid',           position: [0.19,   0.50,  0.01] },
+  { id: 'pectoral',     name: 'Pectoral',          position: [0.06,   0.46,  0.03] },
+  { id: 'gluteus',      name: 'Gluteus',           position: [0.08,  -0.25, -0.03] },
+  { id: 'calf',         name: 'Calf/Gastrocnemius',position: [0.08,  -0.80, -0.03] },
 ]
 
 // Comprehensive synonym → canonical organ ID map
@@ -477,12 +520,20 @@ function SmartCallout({
 // Column  1.2 → scene.gltf cardiovascular: heart, aorta, lungs (vessel-bearing organs)
 // Column  2.4 → myology.glb muscular: skin/lymph if affected, else nothing
 const COLUMN_SCOPE: Record<string, string[] | null> = {
+  // Joe/Skin column — only skin & lymph
   '-2.4': ['skin', 'lymph_nodes'],
-  '-1.2': null,  // null = all affected organs
-  // Cardiovascular column: vessels supply ALL organs, so show any affected organ
-  // that has vascular relevance (heart, aorta, lungs + any organ with blood supply)
-  '1.2':  ['heart', 'aorta', 'lung_left', 'lung_right', 'kidney_left', 'kidney_right', 'liver', 'spleen'],
-  '2.4':  ['skin', 'lymph_nodes'],
+  // Organs column (scene-v1.glb) — cardiovascular + digestive + respiratory + nervous organs
+  '-1.2': ['heart', 'aorta', 'lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity',
+           'liver', 'stomach', 'gallbladder', 'pancreas', 'spleen',
+           'kidney_left', 'kidney_right', 'intestines', 'appendix', 'bladder',
+           'brain', 'spinal_cord'],
+  // Skeleton column — skeletal system organs
+  '0':    ['skeleton'],
+  '0.0':  ['skeleton'],
+  // Visceral column (Male anatomy) — all internal organs
+  '1.2':  null,  // null = all affected organs
+  // Muscles column — muscular system
+  '2.4':  ['muscles'],
 }
 
 // Label horizontal offsets per column:
@@ -491,6 +542,8 @@ const COLUMN_SCOPE: Record<string, string[] | null> = {
 const COLUMN_LX: Record<string, [number, number]> = {
   '-2.4': [-0.58,  0.58],
   '-1.2': [-0.92,  0.92],
+  '0':    [-0.58,  0.58],
+  '0.0':  [-0.58,  0.58],
   '1.2':  [-0.58,  0.58],
   '2.4':  [-0.58,  0.58],
 }
@@ -556,6 +609,7 @@ export interface CameraHandle {
   frontView:   () => void
   sideView:    () => void
   topView:     () => void
+  wholeSplitView: () => void
 }
 
 const CameraController = forwardRef<CameraHandle>(function CameraController(_, ref) {
@@ -614,6 +668,7 @@ const CameraController = forwardRef<CameraHandle>(function CameraController(_, r
     frontView:   () => moveTo(0, 0.2, 4.6),
     sideView:    () => moveTo(4.4, 0.2, 0.2),
     topView:     () => moveTo(0, 5.0, 0.2),
+    wholeSplitView: () => moveTo(0, 0.2, 6.8),
   }), [rotate, zoom, moveTo])
 
   return (
@@ -644,8 +699,9 @@ function InvalidateBridge() {
 // Preload all models at module level so the browser fetches them immediately
 // on page load rather than waiting for the Suspense boundary to mount
 if (typeof window !== 'undefined') {
-  useGLTF.preload('/ai-in-healthcare/asset-01/splanchnology.glb')
-  useGLTF.preload('/ai-in-healthcare/asset-01/scene-v1 (1).glb')
+  // FBX preloaded via useFBX at component mount time (no preload API for useFBX)
+  useGLTF.preload('/ai-in-healthcare/source/male-anatomy-senses.glb')
+  useGLTF.preload('/ai-in-healthcare/asset-01/scene-v1.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/myology-v1.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb')
@@ -679,7 +735,7 @@ const ActiveTransformTarget = React.memo(function ActiveTransformTarget({
         </mesh>
       </group>
       <TransformControls 
-        object={ref} 
+        object={ref as any} 
         mode="translate"
         size={0.65}
         onObjectChange={() => {
@@ -694,24 +750,119 @@ const ActiveTransformTarget = React.memo(function ActiveTransformTarget({
 })
 
 // ---------------------------------------------------------
-// GLTF Model Component (Preserves Embedded Textures/Colors)
+// FBX Scene Loader — wraps useFBX and feeds into shared pipeline
+// ---------------------------------------------------------
+function FBXSceneLoader({ path, children }: { path: string; children: (scene: THREE.Group) => React.ReactNode }) {
+  const fbx = useFBX(path)
+  return <>{children(fbx)}</>
+}
+
+function GLTFSceneLoader({ path, children }: { path: string; children: (scene: THREE.Group) => React.ReactNode }) {
+  const { scene } = useGLTF(path)
+  return <>{children(scene)}</>
+}
+
+// ---------------------------------------------------------
+// Annotation Line Component (Pointing/leader line with target dot)
+// ---------------------------------------------------------
+const AnnotationLine = React.memo(function AnnotationLine({
+  start,
+  end,
+  severity
+}: {
+  start: [number, number, number]
+  end: [number, number, number]
+  severity: string
+}) {
+  const points = useMemo(() => [
+    new THREE.Vector3(...start),
+    new THREE.Vector3(...end)
+  ], [start, end])
+
+  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points])
+
+  const color = useMemo(() => {
+    const sev = severity?.toLowerCase()
+    if (sev === 'high' || sev === 'critical') return '#f43f5e'
+    if (sev === 'low') return '#10b981'
+    return '#fb923c'
+  }, [severity])
+
+  return (
+    <group>
+      {/* 3D Connecting Line */}
+      <line geometry={geometry}>
+        <lineBasicMaterial color={color} transparent opacity={0.7} linewidth={1.5} />
+      </line>
+
+      {/* Target Dot directly on the anatomical structure */}
+      <mesh position={start}>
+        <sphereGeometry args={[0.015, 16, 16]} />
+        <meshBasicMaterial color={color} depthTest={false} transparent opacity={0.9} />
+      </mesh>
+    </group>
+  )
+})
+
+// ---------------------------------------------------------
+// GLTF/FBX Model Component (Preserves Embedded Textures/Colors)
 // ---------------------------------------------------------
 const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   path, positionX, splitPositionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick, onOrganClick, labelOffsets, activeAdjustOrgan, onAdjustLabel, renderOrder
 }: {
   path: string; positionX: number; splitPositionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void; onOrganClick?: (organ: string, condition?: string, reasoning?: string, severity?: string) => void; labelOffsets?: Record<string, { x: number, y: number, z: number }>; activeAdjustOrgan?: string | null; onAdjustLabel?: (organ: string, x: number, y: number, z: number) => void; renderOrder?: number
 }) {
-  const { scene } = useGLTF(path)
-  const { scene: skeletonScene } = useGLTF('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
+  const isFBX = path.toLowerCase().endsWith('.fbx')
+  const Loader = isFBX ? FBXSceneLoader : GLTFSceneLoader
+
+  return (
+    <Loader path={path}>
+      {(scene) => (
+        <RealisticModelInner
+          scene={scene}
+          path={path}
+          positionX={positionX}
+          splitPositionX={splitPositionX}
+          activeSystems={activeSystems}
+          highlightedMeshNames={highlightedMeshNames}
+          viewMode={viewMode}
+          visible={visible}
+          isSplittedRef={isSplittedRef}
+          affectedOrganIds={affectedOrganIds}
+          conditionsByOrgan={conditionsByOrgan}
+          onModelClick={onModelClick}
+          onOrganClick={onOrganClick}
+          labelOffsets={labelOffsets}
+          activeAdjustOrgan={activeAdjustOrgan}
+          onAdjustLabel={onAdjustLabel}
+          renderOrder={renderOrder}
+        />
+      )}
+    </Loader>
+  )
+})
+
+const RealisticModelInner = React.memo(function RealisticModelInner({
+  scene, path, positionX, splitPositionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick, onOrganClick, labelOffsets, activeAdjustOrgan, onAdjustLabel, renderOrder
+}: {
+  scene: THREE.Group; path: string; positionX: number; splitPositionX: number; activeSystems: SystemToggles; highlightedMeshNames: string[]; viewMode: 'split' | 'single'; visible: boolean; isSplittedRef: React.MutableRefObject<boolean>; affectedOrganIds: string[]; conditionsByOrgan: any; onModelClick: () => void; onOrganClick?: (organ: string, condition?: string, reasoning?: string, severity?: string) => void; labelOffsets?: Record<string, { x: number, y: number, z: number }>; activeAdjustOrgan?: string | null; onAdjustLabel?: (organ: string, x: number, y: number, z: number) => void; renderOrder?: number
+}) {
   const groupRef = useRef<THREE.Group>(null)
 
-  const masterParams = useMemo(() => {
-    const clone = SkeletonUtils.clone(skeletonScene)
-    const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-    if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-    else clone.rotation.x = -Math.PI / 2
-    
-    clone.updateWorldMatrix(true, true)
+  const cloned = useMemo(() => {
+    const clone = SkeletonUtils.clone(scene)
+
+    // Apply model-specific root rotations BEFORE bounding box computation
+    if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
+      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+      if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
+      else if (path.includes('joe') || (!path.includes('-v1') && !path.includes('scene-v1'))) {
+        clone.rotation.x = -Math.PI / 2
+      }
+    }
+
+    // 2. Compute the model's OWN bounding box (before removing any meshes)
+    clone.updateMatrixWorld(true)
     const box = new THREE.Box3()
     let hasMesh = false
     clone.traverse((child) => {
@@ -726,37 +877,86 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       }
     })
     if (!hasMesh) box.setFromObject(clone)
+
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
-    const scaleFactor = 2.0 / (size.y || 1)
-    return {
-      scaleFactor,
-      centerX: center.x,
-      centerY: center.y,
-      centerZ: center.z,
-      minY: box.min.y
-    }
-  }, [skeletonScene])
+    const sizeY = size.y || 1
+    const scaleFactor = 2.0 / sizeY
 
-  const cloned = useMemo(() => {
-    const clone = SkeletonUtils.clone(scene)
-
-    // Apply model-specific root rotations BEFORE bounding box computation
-    if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
-      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-      if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-      else if (path.includes('joe') || (!path.includes('-v1') && !path.includes('scene-v1'))) {
-        clone.rotation.x = -Math.PI / 2
-      }
-    }
-
-    // Align all models to the skeleton (master reference) parameters
-    clone.scale.setScalar(masterParams.scaleFactor)
+    clone.scale.setScalar(scaleFactor)
     clone.position.set(
-      -masterParams.centerX * masterParams.scaleFactor,
-      -masterParams.minY * masterParams.scaleFactor - 1.0,
-      -masterParams.centerZ * masterParams.scaleFactor
+      -center.x * scaleFactor,
+      -box.min.y * scaleFactor - 1.0,
+      -center.z * scaleFactor
     )
+    clone.updateMatrixWorld(true)
+
+    if (path.includes('joe')) {
+      const rootMatrix = clone.matrixWorld
+      const inverseRootMatrix = rootMatrix.clone().invert()
+      const pivotLeft = new THREE.Vector2(-0.17, 1.25)
+      const pivotRight = new THREE.Vector2(0.17, 1.25)
+      const angleLeft = 19.5 * Math.PI / 180
+      const angleRight = -19.5 * Math.PI / 180
+
+      clone.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const name = child.name.toLowerCase()
+          const isArm = name.includes('arms_torso') || name.includes('arms_hand')
+          const isTshirt = name.includes('tshirt') || name.includes('t-shirt')
+          
+          if (isArm || isTshirt) {
+            if (child.geometry && child.geometry.attributes.position) {
+              // Clone the shared geometry to avoid mutating cached asset templates
+              child.geometry = child.geometry.clone()
+              const posAttr = child.geometry.attributes.position
+              const v = new THREE.Vector3()
+              const inverseMeshMatrix = child.matrixWorld.clone().invert()
+              for (let i = 0; i < posAttr.count; i++) {
+                v.fromBufferAttribute(posAttr, i)
+                // Convert to clone-local space:
+                v.applyMatrix4(child.matrixWorld)
+                v.applyMatrix4(inverseRootMatrix)
+
+                if (v.x < 0) {
+                  let w = 1.0
+                  if (isTshirt) {
+                    w = Math.min(1.0, (v.x - -0.15) / (-0.28 - -0.15))
+                    if (w < 0) w = 0
+                  }
+                  const angle = angleLeft * w
+                  const dx = v.x - pivotLeft.x
+                  const dy = v.y - pivotLeft.y
+                  v.x = pivotLeft.x + dx * Math.cos(angle) - dy * Math.sin(angle)
+                  v.y = pivotLeft.y + dx * Math.sin(angle) + dy * Math.cos(angle)
+                } else {
+                  let w = 1.0
+                  if (isTshirt) {
+                    w = Math.min(1.0, (v.x - 0.15) / (0.28 - 0.15))
+                    if (w < 0) w = 0
+                  }
+                  const angle = angleRight * w
+                  const dx = v.x - pivotRight.x
+                  const dy = v.y - pivotRight.y
+                  v.x = pivotRight.x + dx * Math.cos(angle) - dy * Math.sin(angle)
+                  v.y = pivotRight.y + dx * Math.sin(angle) + dy * Math.cos(angle)
+                }
+
+                // Convert back to mesh-local space:
+                v.applyMatrix4(rootMatrix)
+                v.applyMatrix4(inverseMeshMatrix)
+                posAttr.setXYZ(i, v.x, v.y, v.z)
+              }
+              posAttr.needsUpdate = true
+              child.geometry.computeVertexNormals()
+              child.geometry.computeBoundingBox()
+              child.geometry.computeBoundingSphere()
+            }
+          }
+        }
+      })
+      clone.updateMatrixWorld(true)
+    }
 
     // ────────────────────────────────────────────────────────────
     // STEP 2: NOW remove unwanted meshes per column (after bbox)
@@ -820,7 +1020,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           const offset = getOrganVerticalOffset(name, matNames)
           if (offset !== 0) {
             mesh.userData.originalY = mesh.userData.originalY ?? mesh.position.y
-            mesh.userData.offsetY = offset / masterParams.scaleFactor
+            mesh.userData.offsetY = offset / scaleFactor
           }
         }
       }
@@ -858,25 +1058,45 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           if (isSkinMat) { m.transparent = true; m.opacity = 0.18; m.depthWrite = false }
           else { m.transparent = false; m.opacity = 1.0 }
 
-          // Enhance vessels visibility (scene.gltf)
-          if (path.includes('scene') && m.name) {
-            const matName = m.name.toLowerCase()
-            if (matName.includes('artery')) {
-              m.color.set('#ff2b36') // Vibrant crimson red
-              m.roughness = 0.2
-              m.metalness = 0.2
+          // Enhance vessels visibility (scene-v1.glb) — clinical-grade realism
+          if (path.includes('scene') && !path.includes('reworked_visceral')) {
+            const matName = m.name ? m.name.toLowerCase() : ''
+            if (matName.includes('artery') || name.includes('artery') || name.includes('aorta')) {
+              m.color.set('#e01020')       // Deep oxygenated-blood crimson
+              m.roughness = 0.15
+              m.metalness = 0.08
               if (m.emissive) {
-                m.emissive.set('#5e0004') // Subtle glow base
-                m.emissiveIntensity = 0.6
+                m.emissive.set('#8b0000')
+                m.emissiveIntensity = 0.8
               }
-            } else if (matName.includes('vein')) {
-              m.color.set('#2b7fff') // Vibrant cobalt blue
-              m.roughness = 0.2
-              m.metalness = 0.2
+              m.transparent = false
+              m.opacity = 1.0
+              m.depthWrite = true
+              m.side = THREE.DoubleSide
+            } else if (matName.includes('vein') || name.includes('vein') || name.includes('vena')) {
+              m.color.set('#1a5ccc')       // Deep deoxygenated-blood blue
+              m.roughness = 0.15
+              m.metalness = 0.08
               if (m.emissive) {
-                m.emissive.set('#00185e') // Subtle glow base
-                m.emissiveIntensity = 0.6
+                m.emissive.set('#001a66')
+                m.emissiveIntensity = 0.8
               }
+              m.transparent = false
+              m.opacity = 1.0
+              m.depthWrite = true
+              m.side = THREE.DoubleSide
+            } else {
+              // Capillaries, smaller vessels, generic meshes — warm tint
+              m.roughness = 0.25
+              m.metalness = 0.05
+              if (m.emissive) {
+                m.emissive.set('#1a0505')
+                m.emissiveIntensity = 0.3
+              }
+              m.transparent = false
+              m.opacity = 1.0
+              m.depthWrite = true
+              m.side = THREE.DoubleSide
             }
           }
         })
@@ -898,7 +1118,8 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           name.includes('stomach') || name.includes('liver') || name.includes('intestine') ||
           name.includes('kidney') || name.includes('spleen') || name.includes('pancrea') ||
           name.includes('gallbladder') || name.includes('bladder') || name.includes('appendix'),
-        isVessel: matNames.some(n => n.includes('artery') || n.includes('vein')),
+        isVessel: matNames.some(n => n.includes('artery') || n.includes('vein') || n.includes('aorta') || n.includes('vena') || n.includes('capillar') || n.includes('vessel')) ||
+          name.includes('artery') || name.includes('vein') || name.includes('aorta') || name.includes('vena') || name.includes('vessel'),
         mats,
       })
     })
@@ -925,27 +1146,91 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   }, [cloned, splitPositionX, path])
 
 
-  // ── Compute Annotation Labels ────────────────────────────────────────────────
-  const annotations = useMemo(() => {
+  // ── Determine which organs THIS column should label ──────────────────────────
+  const colKey = String(splitPositionX)
+
+  const columnAffectedIds = useMemo(() => {
     if (!conditionsByOrgan || Object.keys(conditionsByOrgan).length === 0) return []
     
-    const out: { organ: string, condition: string, severity: string, x: number, y: number, z: number, mesh: THREE.Object3D }[] = []
+    // Helper to dynamically classify the anatomical system of any organ/bone/muscle ID
+    const getOrganSystem = (orgId: string): string => {
+      const cleanId = orgId.toLowerCase()
+      
+      // 1. Explicit map
+      if (ORGAN_SYSTEM_MAP[cleanId]) return ORGAN_SYSTEM_MAP[cleanId]
+      
+      // 2. Bone keywords
+      const boneKeywords = [
+        'skeleton', 'bone', 'joint', 'femur', 'tibia', 'fibula', 'humerus', 'radius', 'ulna',
+        'skull', 'ribs', 'pelvis', 'vertebrae', 'patella', 'clavicle', 'scapula', 'sacrum',
+        'sternum', 'mandible', 'cervical', 'thoracic', 'lumbar', 'spine', 'hip', 'vertebra',
+        'cartilage', 'clavicle', 'scapulae', 'carpal', 'tarsal', 'phalanges', 'metacarpal', 'metatarsal'
+      ]
+      if (boneKeywords.some(kw => cleanId.includes(kw))) return 'skeletal'
+      
+      // 3. Muscle keywords
+      const muscleKeywords = [
+        'muscle', 'muscular', 'tendon', 'ligament', 'bicep', 'tricep', 'quad', 'hamstring',
+        'deltoid', 'pectoral', 'glute', 'calf', 'gastrocnemius', 'soleus', 'trapezius',
+        'latissimus', 'abdominal', 'myalgia', 'fascia'
+      ]
+      if (muscleKeywords.some(kw => cleanId.includes(kw))) return 'muscular'
+      
+      // 4. Default
+      return 'visceral'
+    }
+
+    return affectedOrganIds.filter(id => {
+      const system = getOrganSystem(id)
+      
+      if (colKey === '-2.4') {
+        // Skin column
+        return system === 'integumentary' || system === 'lymphatic'
+      }
+      if (colKey === '-1.2') {
+        // Organs column (digestive, cardiovascular, respiratory, nervous)
+        return system === 'cardiovascular' || system === 'respiratory' || system === 'digestive' || system === 'nervous'
+      }
+      if (colKey === '0' || colKey === '0.0') {
+        // Skeleton column
+        return system === 'skeletal'
+      }
+      if (colKey === '1.2') {
+        // Visceral column shows everything internal except skin, muscles, skeleton
+        return system !== 'integumentary' && system !== 'muscular' && system !== 'skeletal'
+      }
+      if (colKey === '2.4') {
+        // Muscles column
+        return system === 'muscular'
+      }
+      return false
+    })
+  }, [affectedOrganIds, conditionsByOrgan, colKey])
+
+  // ── Compute Annotation Labels ────────────────────────────────────────────────
+  // Step 1: Try mesh-based matching (more accurate position from actual geometry)
+  // Step 2: For any remaining organs, use ORGANS array positions as fallback
+  const annotations = useMemo(() => {
+    if (columnAffectedIds.length === 0) return []
+    
+    const out: { organ: string, condition: string, severity: string, baseX: number, baseY: number, baseZ: number, x: number, y: number, z: number, mesh: THREE.Object3D | null, reasoning: string }[] = []
     const seenOrgans = new Set<string>()
 
+    // Step 1: Mesh-based matching — traverse this model's meshes
     cloned.traverse((c: any) => {
       if (!(c instanceof THREE.Mesh)) return
       
       const name = c.name.toLowerCase()
       const matNames = Array.isArray(c.material) ? c.material.map((m: any) => m?.name?.toLowerCase() || '') : [c.material?.name?.toLowerCase() || '']
-      let organId = null
+      let organId: string | null = null
       
-      for (const org of affectedOrganIds) {
-        const query = org.replace('_', '')
+      for (const org of columnAffectedIds) {
+        const query = org.replace(/_/g, '')
         const querySplit = org.split('_')[0]
         
         if (
            name.includes(query) || name.includes(querySplit) ||
-           matNames.some(n => n.includes(query) || n.includes(querySplit))
+           matNames.some((n: string) => n.includes(query) || n.includes(querySplit))
         ) {
            organId = org
            break
@@ -958,13 +1243,19 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
          if (!c.geometry.boundingBox) c.geometry.computeBoundingBox()
          const center = new THREE.Vector3()
          c.geometry.boundingBox.getCenter(center)
-         
-         // Compute center relative to the cloned group, not world, to prevent double-shifting
-         // Since c might be nested, we use matrixWorld but inverse-transform by the root clone
          const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
          const localCenter = cloned.worldToLocal(worldCenter)
+         localCenter.multiply(cloned.scale).add(cloned.position)
          
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
+         let ox = offset.x
+         let oy = offset.y
+         let oz = offset.z
+         if (ox === 0 && oy === 0 && oz === 0) {
+           ox = localCenter.x < 0 ? -0.45 : 0.45
+           oy = 0.15
+           oz = 0.15
+         }
          out.push({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
@@ -972,16 +1263,51 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
            baseX: localCenter.x,
            baseY: localCenter.y,
            baseZ: localCenter.z,
-           x: localCenter.x + offset.x,
-           y: localCenter.y + offset.y,
-           z: localCenter.z + offset.z,
+           x: localCenter.x + ox,
+           y: localCenter.y + oy,
+           z: localCenter.z + oz,
            mesh: c,
            reasoning: conditionsByOrgan[organId].reasoning || ''
          })
       }
     })
+
+    // Step 2: Position-based fallback — for organs that didn't match any mesh,
+    // use the pre-defined ORGANS positions so labels still appear
+    for (const orgId of columnAffectedIds) {
+      if (seenOrgans.has(orgId)) continue
+      if (!conditionsByOrgan[orgId]) continue
+      
+      const organDef = ORGANS.find(o => o.id === orgId)
+      if (!organDef) continue
+      
+      seenOrgans.add(orgId)
+      const offset = labelOffsets?.[orgId] || { x: 0, y: 0, z: 0 }
+      let ox = offset.x
+      let oy = offset.y
+      let oz = offset.z
+      if (ox === 0 && oy === 0 && oz === 0) {
+        ox = organDef.position[0] < 0 ? -0.45 : 0.45
+        oy = 0.15
+        oz = 0.15
+      }
+      out.push({
+        organ: orgId,
+        condition: conditionsByOrgan[orgId].condition,
+        severity: conditionsByOrgan[orgId].severity || 'Medium',
+        baseX: organDef.position[0],
+        baseY: organDef.position[1],
+        baseZ: organDef.position[2],
+        x: organDef.position[0] + ox,
+        y: organDef.position[1] + oy,
+        z: organDef.position[2] + oz,
+        mesh: null,
+        reasoning: conditionsByOrgan[orgId].reasoning || ''
+      })
+    }
+
     return out
-  }, [cloned, affectedOrganIds, conditionsByOrgan, labelOffsets])
+  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets])
 
   const { invalidate } = useThree()
 
@@ -1008,7 +1334,8 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   // ── Visibility + highlight — iterate cached array, no traverse() ─────────
   useEffect(() => {
     const isSplanchnology = path.includes('splanchnology')
-    const isScene = path.includes('scene')
+    const isAbdomenModel = path.includes('VisceralSystem100') && splitPositionX === -1.2
+    const isScene = path.includes('scene') && !isAbdomenModel
     const isMyology = path.includes('myology')
     const isSkeletonGLB = path.includes('skeleton')
     const isJoe = path.includes('joe')
@@ -1022,7 +1349,10 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       if (!visible) { m.visible = false; continue }
 
       let show = true
-      if (isSplanchnology) {
+      if (isAbdomenModel) {
+        // abdomen_anatomy.glb in the organs column — show all meshes when relevant organ systems are active
+        show = activeSystems.cardiovascular || activeSystems.digestive || activeSystems.respiratory || activeSystems.nervous
+      } else if (isSplanchnology) {
         if (isSkinCol)       show = e.isSkin && activeSystems.integumentary
         else if (isOrganCol) {
           if (e.isSkin)                                                    show = false
@@ -1031,7 +1361,7 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
           else if (e.isRespiratory && !activeSystems.respiratory && !activeSystems.digestive) show = false
           else if (e.isDigestive  && !activeSystems.digestive)             show = false
         }
-      } else if (isScene)       show = e.isVessel && activeSystems.cardiovascular
+      } else if (isScene)       show = activeSystems.cardiovascular
       else if (isMyology)     show = activeSystems.muscular
       else if (isSkeletonGLB) show = activeSystems.skeletal
       else if (isJoe) {
@@ -1074,25 +1404,8 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
     invalidate()
   }, [meshList, activeSystems, highlightedMeshNames, splitPositionX, path, visible, invalidate])
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Per-column callout layout computation
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Determine which organs this column is responsible for displaying labels on.
-  // COLUMN_SCOPE[key]: null = all, string[] = only those IDs, missing key = none
-  const colKey = String(splitPositionX)
-  const colScope = Object.prototype.hasOwnProperty.call(COLUMN_SCOPE, colKey)
-    ? COLUMN_SCOPE[colKey]
-    : []  // default: no callouts (e.g. skeleton FBX column at 0)
+  // Per-column callout layout (uses the columnAffectedIds computed earlier)
   const [colLX, colRX] = COLUMN_LX[colKey] ?? [-0.58, 0.58]
-  const isOrgansModel  = splitPositionX === -1.2 && path.includes('splanchnology')
-
-  // Filter affectedOrganIds to only the organs visible in this column
-  const columnAffectedIds = useMemo(() => {
-    if (colScope === null) return affectedOrganIds        // organs column: show all
-    if (!colScope || colScope.length === 0) return []    // no callouts for this column
-    return affectedOrganIds.filter(id => (colScope as string[]).includes(id))
-  }, [affectedOrganIds, colKey])  // eslint-disable-line react-hooks/exhaustive-deps
-
   const calloutLayout = useMemo(
     () => computeCalloutLayout(columnAffectedIds, colLX, colRX),
     [columnAffectedIds, colLX, colRX]
@@ -1109,13 +1422,22 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
       {/* ── Render 3D HTML Labels ── */}
       {annotations.map((ann, i) => {
          const isSplitted = viewMode === 'split' && isSplittedRef.current
-         const offsetY = (isSplitted && ann.mesh.userData.offsetY) ? ann.mesh.userData.offsetY : 0
+         const offsetY = (isSplitted && ann.mesh?.userData?.offsetY) ? ann.mesh.userData.offsetY : 0
          
          const isAdjusting = activeAdjustOrgan === ann.organ
          const offset = labelOffsets?.[ann.organ] || { x: 0, y: 0, z: 0 }
 
          return (
            <group key={`ann-group-${i}`}>
+             {/* Pointing/leader line from label position to actual body part */}
+             {!isAdjusting && (
+               <AnnotationLine 
+                 start={[ann.baseX, ann.baseY + offsetY, ann.baseZ]}
+                 end={[ann.x, ann.y + offsetY, ann.z]}
+                 severity={ann.severity}
+               />
+             )}
+
              {isAdjusting && onAdjustLabel && (
                <ActiveTransformTarget 
                  organId={ann.organ}
@@ -1238,7 +1560,7 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
   const annotations = useMemo(() => {
     if (!conditionsByOrgan || Object.keys(conditionsByOrgan).length === 0) return []
     
-    const out: { organ: string, condition: string, severity: string, x: number, y: number, z: number, mesh: THREE.Object3D }[] = []
+    const out: { organ: string, condition: string, severity: string, baseX: number, baseY: number, baseZ: number, x: number, y: number, z: number, mesh: THREE.Object3D, reasoning: string }[] = []
     const seenOrgans = new Set<string>()
 
     cloned.traverse((c: any) => {
@@ -1273,6 +1595,14 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
          const localCenter = cloned.worldToLocal(worldCenter)
          
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
+         let ox = offset.x
+         let oy = offset.y
+         let oz = offset.z
+         if (ox === 0 && oy === 0 && oz === 0) {
+           ox = localCenter.x < 0 ? -0.45 : 0.45
+           oy = 0.15
+           oz = 0.15
+         }
          
          out.push({
            organ: organId,
@@ -1281,9 +1611,9 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
            baseX: localCenter.x,
            baseY: localCenter.y,
            baseZ: localCenter.z,
-           x: localCenter.x + offset.x,
-           y: localCenter.y + offset.y,
-           z: localCenter.z + offset.z,
+           x: localCenter.x + ox,
+           y: localCenter.y + oy,
+           z: localCenter.z + oz,
            mesh: c,
            reasoning: conditionsByOrgan[organId].reasoning || ''
          })
@@ -1322,6 +1652,13 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
 
          return (
            <group key={`ann-group-${i}`}>
+             {!isAdjusting && (
+               <AnnotationLine 
+                 start={[ann.baseX, ann.baseY + offsetY, ann.baseZ]}
+                 end={[ann.x, ann.y + offsetY, ann.z]}
+                 severity={ann.severity}
+               />
+             )}
              {isAdjusting && onAdjustLabel && (
                <ActiveTransformTarget 
                  organId={ann.organ}
@@ -1340,10 +1677,6 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
                className="pointer-events-auto cursor-pointer"
              >
                <div className="relative group">
-                 {/* Connecting Dot */}
-                 {!isAdjusting && (
-                   <div className="absolute top-1/2 left-0 w-2 h-2 -translate-y-1/2 -translate-x-1 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"></div>
-                 )}
                  
                  {/* Label Box */}
                  <div 
@@ -1351,7 +1684,7 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
                      e.stopPropagation()
                      if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
                    }}
-                   className={`ml-4 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
+                   className={`px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
                    ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
                    ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
                    'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
@@ -1415,17 +1748,15 @@ export function InteractiveAnatomyViewer({
     }
   }, [adjustableOrgans, activeAdjustOrgan])
 
-  const adjustOffset = (organ: string, axis: 'x' | 'y' | 'z', delta: number) => {
-    setLabelOffsets(prev => {
-      const current = prev[organ] || { x: 0, y: 0, z: 0 }
-      return {
-        ...prev,
-        [organ]: {
-          ...current,
-          [axis]: parseFloat((current[axis] + delta).toFixed(3))
-        }
+  const adjustOffset = (organ: string, x: number, y: number, z: number) => {
+    setLabelOffsets(prev => ({
+      ...prev,
+      [organ]: {
+        x: parseFloat(x.toFixed(3)),
+        y: parseFloat(y.toFixed(3)),
+        z: parseFloat(z.toFixed(3))
       }
-    })
+    }))
   }
 
   const resetOffset = (organ: string) => {
@@ -1450,18 +1781,36 @@ export function InteractiveAnatomyViewer({
     digestive: true,
     lymphatic: true,
     integumentary: true,
+    visceral: true,
   })
 
   const toggleSystem = (sys: keyof SystemToggles) => {
     setSystems(prev => ({ ...prev, [sys]: !prev[sys] }))
   }
 
+  // Automatically check all system checkboxes when symptom analysis updates
+  useEffect(() => {
+    if (affectedOrganIds.length > 0) {
+      setSystems({
+        skeletal: true,
+        muscular: true,
+        nervous: true,
+        cardiovascular: true,
+        respiratory: true,
+        digestive: true,
+        lymphatic: true,
+        integumentary: true,
+        visceral: true,
+      })
+    }
+  }, [affectedOrganIds])
+
   // Mirror viewMode to the high-performance ref for useFrame access without dependency triggers
   useEffect(() => {
     isSplittedRef.current = viewMode === 'split'
   }, [viewMode])
 
-  const handleModelClick = (meshName: string) => {
+  const handleModelClick = (meshName?: string) => {
     console.log("Model clicked:", meshName)
     setViewMode(prev => prev === 'split' ? 'single' : 'split')
   }
@@ -1486,79 +1835,18 @@ export function InteractiveAnatomyViewer({
               </span>
             </div>
 
-            {/* 🔧 LABEL ADJUSTMENT CONSOLE: Floating card on Canvas (Right side) */}
-            {adjustableOrgans.length > 0 && (
-              <div className="absolute right-4 top-16 z-20 bg-slate-950/90 backdrop-blur-xl border border-white/10 rounded-xl p-4 shadow-2xl flex flex-col gap-3 font-mono text-[9px] w-64 max-h-[85vh] overflow-y-auto">
-                <span className="text-cyan-400 font-bold block text-[10px] border-b border-cyan-500/20 pb-1.5 uppercase tracking-widest flex items-center gap-1.5">
-                  <span>🔧</span> Label Adjuster Console
-                </span>
-                
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-400 font-bold block text-[8px] uppercase tracking-wider">Select Label to Reposition</label>
-                  <select 
-                    value={activeAdjustOrgan || ''} 
-                    onChange={(e) => setActiveAdjustOrgan(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded px-2.5 py-1.5 text-white text-[9px] outline-none focus:border-cyan-500/40"
-                  >
-                    {adjustableOrgans.map(org => (
-                      <option key={org} value={org}>
-                        {org.replace(/_/g, ' ').toUpperCase()} ({conditionsByOrgan[org]?.condition.substring(0, 15)}...)
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
-                {activeAdjustOrgan && (
-                  <div className="flex flex-col gap-2.5 mt-1 pt-2.5 border-t border-white/5 text-gray-300">
-                    <p className="text-[10px] leading-relaxed text-cyan-300 font-bold">
-                      💡 Click & Drag the 🔴 red target dot with 3D arrows directly on the model to move the label.
-                    </p>
-                    <p className="text-[8px] text-gray-400 leading-normal">
-                      The camera rotation is automatically disabled while dragging the target point.
-                    </p>
-                    
-                    {/* Active Values */}
-                    <div className="flex justify-between items-center bg-black/40 px-2 py-1.5 rounded text-[8px] text-cyan-300 font-bold border border-cyan-500/10 mt-1">
-                      <span>X: {(labelOffsets[activeAdjustOrgan]?.x || 0).toFixed(3)}</span>
-                      <span>Y: {(labelOffsets[activeAdjustOrgan]?.y || 0).toFixed(3)}</span>
-                      <span>Z: {(labelOffsets[activeAdjustOrgan]?.z || 0).toFixed(3)}</span>
-                    </div>
-
-                    {/* Reset button */}
-                    <button 
-                      onClick={() => resetOffset(activeAdjustOrgan)}
-                      className="w-full mt-1.5 py-1 rounded bg-red-950/20 border border-red-500/30 hover:bg-red-900/30 text-red-400 text-[8px] font-bold uppercase tracking-wider transition cursor-pointer"
-                    >
-                      Reset This Position
-                    </button>
-                  </div>
-                )}
-
-                {/* Exporter */}
-                <div className="flex flex-col gap-1.5 mt-2 pt-2.5 border-t border-white/10">
-                  <span className="text-gray-400 font-bold block text-[8px] uppercase tracking-wider">Reposition Config Output</span>
-                  <pre className="w-full bg-black/80 border border-white/10 rounded p-2 text-[7.5px] text-cyan-300 overflow-x-auto max-h-24 select-all font-mono leading-relaxed">
-                    {JSON.stringify(labelOffsets, null, 2)}
-                  </pre>
-                  <button 
-                    onClick={copyCoordinatesToClipboard}
-                    className="w-full py-1.5 bg-cyan-950/80 border border-cyan-500/40 hover:bg-cyan-900/60 rounded text-cyan-300 font-bold uppercase tracking-widest text-[8px] transition cursor-pointer"
-                  >
-                    Copy Offset Coordinates
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* CLINICIAN CHECKBOX SELECTOR: Floating card on Canvas */}
             <div className="absolute left-4 top-16 z-20 glass-panel border-white/5 rounded-xl p-3 shadow-md flex flex-col gap-2 font-mono text-[9px] w-40">
               <span className="text-on-surface-variant font-bold block mb-1 text-[8.5px] border-b border-white/10 pb-1 uppercase tracking-wider">Select Layers</span>
               {[
-                { label: 'Outer Body', key: 'integumentary', icon: '👤', color: 'text-emerald-400' },
-                { label: 'Skeleton',  key: 'skeletal',       icon: '🦴', color: 'text-amber-400' },
-                { label: 'Muscles',   key: 'muscular',       icon: '💪', color: 'text-rose-400'  },
-                { label: 'Organs',    key: 'digestive',      icon: '🫀', color: 'text-red-400'   },
-                { label: 'Vessels',   key: 'cardiovascular', icon: '🩸', color: 'text-blue-400'  }
+                { label: 'Outer Body',      key: 'integumentary', icon: '👤', color: 'text-emerald-400' },
+                { label: 'Visceral System', key: 'visceral',      icon: '🫁', color: 'text-purple-400' },
+                { label: 'Skeleton',        key: 'skeletal',      icon: '🦴', color: 'text-amber-400'  },
+                { label: 'Muscles',         key: 'muscular',      icon: '💪', color: 'text-rose-400'   },
+                { label: 'Organs',          key: 'digestive',     icon: '🫀', color: 'text-red-400'    },
+                { label: 'Vessels',         key: 'cardiovascular',icon: '🩸', color: 'text-blue-400'   }
               ].map(sys => {
                 const isActive = (systems as any)[sys.key]
                 return (
@@ -1651,17 +1939,16 @@ export function InteractiveAnatomyViewer({
                 <directionalLight position={[8, 14, 6]} intensity={2.2} color="#ffffff" />
                 <directionalLight position={[-8, 8, -4]} intensity={1.0} color="#ddd8f0" />
 
-                <Suspense fallback={null}>
-                  {/* Column 2: Visceral Organs — visible when ANY organ system is active */}
+                  {/* Column 2: Organs — scene-v1.glb (cardiovascular vessels) */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+                      path="/ai-in-healthcare/asset-01/scene-v1.glb" 
                       positionX={viewMode === 'single' ? 0.0 : -1.2} 
                       splitPositionX={-1.2}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
-                      visible={systems.digestive || systems.respiratory || systems.cardiovascular || systems.nervous}
+                      visible={viewMode === 'split' && (systems.digestive || systems.cardiovascular)}
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
@@ -1672,7 +1959,7 @@ export function InteractiveAnatomyViewer({
                       onAdjustLabel={adjustOffset}
                     />
                   </Suspense>
-                  
+
                   {/* Column 3: Skeletal System (from free_pack_-_human_skeleton.glb) */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
@@ -1682,7 +1969,7 @@ export function InteractiveAnatomyViewer({
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
-                      visible={systems.skeletal}
+                      visible={viewMode === 'split' && systems.skeletal}
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
@@ -1693,16 +1980,16 @@ export function InteractiveAnatomyViewer({
                     />
                   </Suspense>
 
-                  {/* Column 4: Cardiovascular vessels */}
+                  {/* Column 4: Visceral System (Male anatomy with senses) */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/scene-v1 (1).glb" 
+                      path="/ai-in-healthcare/source/male-anatomy-senses.glb" 
                       positionX={viewMode === 'single' ? 0.0 : 1.2} 
                       splitPositionX={1.2}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
-                      visible={systems.cardiovascular}
+                      visible={viewMode === 'split' && systems.visceral}
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
@@ -1722,7 +2009,7 @@ export function InteractiveAnatomyViewer({
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
-                      visible={systems.muscular}
+                      visible={viewMode === 'split' && systems.muscular}
                       isSplittedRef={isSplittedRef}
                       affectedOrganIds={affectedOrganIds}
                       conditionsByOrgan={conditionsByOrgan}
@@ -1754,7 +2041,7 @@ export function InteractiveAnatomyViewer({
                       renderOrder={10}
                     />
                   </Suspense>
-                </Suspense>
+
 
 
                 {/* Lightweight floor line grid — zero render cost */}
@@ -1851,6 +2138,15 @@ export function InteractiveAnatomyViewer({
                   <span className="text-[7px] font-mono font-bold">OUT</span>
                 </button>
               </div>
+
+              {/* Whole Split View Preset */}
+              <button
+                onClick={() => cameraRef.current?.wholeSplitView()}
+                title="Fit Whole Split View"
+                className="h-6 rounded-md bg-cyan-950/40 border border-cyan-500/30 text-primary hover:text-cyan-200 hover:border-cyan-400/60 hover:bg-cyan-900/40 flex items-center justify-center transition-all duration-150 cursor-pointer backdrop-blur-md text-[7px] font-mono font-bold gap-1 shadow-md w-full"
+              >
+                <Maximize2 className="w-2.5 h-2.5" /> FIT WHOLE SPLIT
+              </button>
 
               {/* View presets row */}
               <div className="flex gap-1">

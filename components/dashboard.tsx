@@ -61,7 +61,7 @@ const STATS = [
   {
     label: 'AI Diagnoses Run',
     value: '18',
-    sub: 'DeepSeek V3 engine',
+    sub: 'Gemini 2.5 engine',
     icon: Brain,
     trend: 'up',
     accent: {
@@ -395,7 +395,7 @@ export function Dashboard() {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-violet-400" />
                   <h2 className="text-[13px] font-bold text-white">Recent AI Diagnoses</h2>
-                  <span className="text-[9px] font-bold font-mono text-slate-600 uppercase tracking-widest ml-1">DeepSeek V3</span>
+                  <span className="text-[9px] font-bold font-mono text-slate-600 uppercase tracking-widest ml-1">Gemini 2.5</span>
                 </div>
                 <Link
                   href="/symptoms"
@@ -500,7 +500,7 @@ export function Dashboard() {
                   href: '/symptoms',
                   icon: Sparkles,
                   title: 'AI Diagnostic Assistant',
-                  desc: 'Submit symptoms — DeepSeek differential diagnosis',
+                  desc: 'Submit symptoms — Gemini differential diagnosis',
                   accent: 'border-cyan-500/20 hover:border-cyan-500/35 hover:shadow-[0_0_24px_rgba(6,182,212,0.07)]',
                   iconBg: 'bg-cyan-950/50 border border-cyan-500/20',
                   iconColor: 'text-cyan-400',
@@ -562,7 +562,7 @@ export function Dashboard() {
             <Minus className="w-3 h-3" />
             <span>FHIR Compatible</span>
           </div>
-          <span>DeepSeek V3 Clinical Engine &nbsp;·&nbsp; Ver 2.6.1 &nbsp;·&nbsp; SSL Encrypted</span>
+          <span>Gemini 2.5 Clinical Engine &nbsp;·&nbsp; Ver 2.6.1 &nbsp;·&nbsp; SSL Encrypted</span>
         </div>
 
       </div>

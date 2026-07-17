@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { InteractiveAnatomyViewer } from '@/components/interactive-anatomy-viewer'
 import {
   Sparkles,
@@ -14,6 +15,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAppContext, DiagnosisResult, Condition } from '@/components/AppContext'
+
+const HeartDetailViewer = dynamic(() => import('@/components/heart-detail-viewer'), { ssr: false })
 
 const PRESET_SCENARIOS = [
   {
@@ -132,8 +135,31 @@ export default function SymptomsPage() {
   const [organConditions, setOrganConditions] = useState<Record<string, any>>({})
   const [viewMode, setViewMode] = useState<'split' | 'single'>('single')
   const [highlightedMeshNames, setHighlightedMeshNames] = useState<string[]>([])
+  const [showHeartDetail, setShowHeartDetail] = useState<{
+    condition?: string; reasoning?: string; severity?: string
+  } | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Check if a region name is heart-related
+  const isHeartRegion = (region: string) => {
+    const r = region.toLowerCase()
+    return r.includes('heart') || r.includes('cardiac') || r.includes('coronary') ||
+           r.includes('myocard') || r.includes('ventricle') || r.includes('atrium') ||
+           r.includes('pericardi') || r.includes('aorta') || r.includes('aortic')
+  }
+
+  const handleRegionClick = (region: string) => {
+    if (isHeartRegion(region) && result) {
+      const primary = result.possibleConditions?.[0]
+      setShowHeartDetail({
+        condition: result.primaryCondition,
+        reasoning: result.primaryReasoning,
+        severity: result.primaryConfidence >= 85 ? 'Critical' :
+                  result.primaryConfidence >= 65 ? 'High' : 'Medium'
+      })
+    }
+  }
 
   useEffect(() => {
     if (!symptomsInput.trim()) {
@@ -239,12 +265,12 @@ export default function SymptomsPage() {
       <div className="flex justify-between items-center border-b border-white/10 pb-4 mb-6">
         <div>
           <h1 className="text-sm font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-            🧬 AI Diagnostic Assistant — DeepSeek Clinical Engine
+            🧬 AI Diagnostic Assistant — Gemini Clinical Engine
           </h1>
           <p className="text-[10px] text-slate-500 mt-0.5">Enter patient symptoms to get AI-powered differential diagnoses mapped to the 3D anatomy model.</p>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded glass-panel border border-white/10 text-emerald-400 font-bold uppercase text-[9px]">
-          ● DeepSeek V3 Online
+          ● Gemini 2.5 Online
         </div>
       </div>
 
@@ -361,7 +387,7 @@ export default function SymptomsPage() {
               {isAnalyzing ? (
                 <>
                   <span className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                  DeepSeek Analyzing...
+                  Gemini Analyzing...
                 </>
               ) : (
                 <>
@@ -416,7 +442,7 @@ export default function SymptomsPage() {
       {(isAnalyzing || result || errorMsg) && (
         <div className="mt-6 glass-panel border border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-bottom duration-250">
           <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
-            🔬 DeepSeek AI Clinical Prognosis Dossier
+            🔬 Gemini AI Clinical Prognosis Dossier
           </span>
 
           {/* Error */}
@@ -435,7 +461,7 @@ export default function SymptomsPage() {
               </div>
               <div className="text-center space-y-1">
                 <span className="font-bold text-slate-300 text-[10px]">
-                  {progressStep === 0 ? 'CONNECTING TO DEEPSEEK V3 ENGINE...' :
+                  {progressStep === 0 ? 'CONNECTING TO GEMINI 2.5 ENGINE...' :
                    progressStep === 1 ? 'PROCESSING CLINICAL SYMPTOM VECTORS...' :
                    progressStep === 2 ? 'MAPPING AFFECTED ANATOMICAL REGIONS...' :
                    'GENERATING DIFFERENTIAL DIAGNOSES...'}
@@ -482,12 +508,20 @@ export default function SymptomsPage() {
 
                 {/* Affected regions */}
                 <div className="p-2.5 bg-black/30 border border-white/10 rounded-lg">
-                  <span className="text-[9px] text-slate-500 uppercase block mb-2 font-bold">Mapped Anatomical Regions</span>
+                  <span className="text-[9px] text-slate-500 uppercase block mb-2 font-bold">Mapped Anatomical Regions <span className="text-slate-600 normal-case">(click to view 3D)</span></span>
                   <div className="flex flex-wrap gap-1.5">
                     {result.affectedRegions.map((r, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-red-950/50 border border-red-500/30 text-red-300 text-[9px] font-bold uppercase rounded">
-                        {r.replace(/_/g, ' ')}
-                      </span>
+                      <button
+                        key={i}
+                        onClick={() => handleRegionClick(r)}
+                        className={`px-2 py-0.5 text-[9px] font-bold uppercase rounded cursor-pointer transition-all duration-200 border ${
+                          isHeartRegion(r)
+                            ? 'bg-red-950/50 border-red-500/50 text-red-300 hover:bg-red-900/60 hover:border-red-400 hover:shadow-[0_0_12px_rgba(239,68,68,0.3)] hover:scale-105 active:scale-95'
+                            : 'bg-red-950/50 border-red-500/30 text-red-300 hover:bg-red-900/40'
+                        }`}
+                      >
+                        {isHeartRegion(r) && '❤️ '}{r.replace(/_/g, ' ')}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -550,6 +584,16 @@ export default function SymptomsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Heart Detail 3D Viewer Overlay */}
+      {showHeartDetail && (
+        <HeartDetailViewer
+          condition={showHeartDetail.condition}
+          reasoning={showHeartDetail.reasoning}
+          severity={showHeartDetail.severity}
+          onClose={() => setShowHeartDetail(null)}
+        />
       )}
     </div>
   )

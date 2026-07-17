@@ -395,7 +395,7 @@ export default function Home() {
                <div className="flex items-center gap-2">
                  <Brain className="w-4 h-4 text-cyan-400" />
                  <h3 className="font-bold text-[12px] uppercase text-white tracking-wider flex items-center gap-2">
-                   Recent AI Diagnoses <span className="text-[8px] bg-cyan-950/50 text-cyan-400 px-1.5 py-0.5 rounded font-mono border border-cyan-500/20">DEEPSEEK V3</span>
+                   Recent AI Diagnoses <span className="text-[8px] bg-cyan-950/50 text-cyan-400 px-1.5 py-0.5 rounded font-mono border border-cyan-500/20">GEMINI 2.5</span>
                  </h3>
                </div>
                <button className="text-[9px] font-bold text-cyan-500 uppercase tracking-widest hover:text-cyan-300 transition-colors flex items-center gap-1">

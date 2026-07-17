@@ -1,26 +1,30 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { 
   ArrowLeft, Activity, Sparkles, AlertTriangle, Info, AlertCircle, RefreshCw, Layers,
-  Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap, Search
+  Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap, Search, Heart
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { InteractiveAnatomyViewer, invalidateFnRef, ORGAN_MAP } from '@/components/interactive-anatomy-viewer'
 import { useAppContext } from '@/components/AppContext'
 
+const HeartDetailViewer = dynamic(() => import('@/components/heart-detail-viewer'), { ssr: false })
+
 export default function ViewAnatomyPage() {
   const { activePatient } = useAppContext()
-  const [viewMode, setViewMode] = useState<'split' | 'single'>('split')
+  const [viewMode, setViewMode] = useState<'split' | 'single'>('single')
   const isSplittedRef = useRef<boolean>(false) // High performance split toggle Ref
+  const [isFormCollapsed, setIsFormCollapsed] = useState<boolean>(true)
   
   // Patient symptom input fields
   const [age, setAge] = useState<number>(activePatient?.age || 38)
   const [sex, setSex] = useState<'Male' | 'Female'>((activePatient?.gender as 'Male' | 'Female') || 'Male')
   const [duration, setDuration] = useState<string>('3 days')
   const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('High')
-  const [symptomsInput, setSymptomsInput] = useState<string>(activePatient?.symptoms || '')
+  const [symptomsInput, setSymptomsInput] = useState<string>('')
 
   // Analysis result states
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -39,6 +43,11 @@ export default function ViewAnatomyPage() {
     organ: string; condition?: string; reasoning?: string; severity?: string
   } | null>(null)
 
+  // Heart detail drill-down state
+  const [showHeartDetail, setShowHeartDetail] = useState<{
+    condition?: string; reasoning?: string; severity?: string
+  } | null>(null)
+
   useEffect(() => {
     if (!symptomsInput.trim()) {
       setHighlightedMeshNames([])
@@ -51,7 +60,12 @@ export default function ViewAnatomyPage() {
   }, [symptomsInput])
 
   const handleOrganClick = (organ: string, condition?: string, reasoning?: string, sev?: string) => {
-    setSelectedOrgan({ organ, condition, reasoning, severity: sev })
+    // If the clicked organ is heart, open the 3D heart detail viewer
+    if (organ.toLowerCase().includes('heart')) {
+      setShowHeartDetail({ condition, reasoning, severity: sev })
+    } else {
+      setSelectedOrgan({ organ, condition, reasoning, severity: sev })
+    }
   }
 
   // ── Voice Recording (Web Speech API) ─────────────────────────────────────
@@ -130,12 +144,10 @@ export default function ViewAnatomyPage() {
     recognition.start()
   }, [isRecording])
 
-  // Auto-fill and auto-analyze when coming from Patient Workspace via URL params or global Context
+  // Auto-fill is disabled by default — clinician must enter symptoms manually.
+  // If navigating from Patient Workspace via URL params, still auto-fill.
   const searchParams = useSearchParams()
   useEffect(() => {
-    let shouldAnalyze = false;
-    
-    // Check URL params first (for external links)
     const urlSymptoms = searchParams.get('symptoms')
     const urlAge = searchParams.get('age')
     const urlSex = searchParams.get('sex')
@@ -144,22 +156,12 @@ export default function ViewAnatomyPage() {
       setSymptomsInput(urlSymptoms)
       if (urlAge) setAge(parseInt(urlAge) || 38)
       if (urlSex === 'Female' || urlSex === 'Male') setSex(urlSex)
-      shouldAnalyze = true
-    } else if (activePatient && activePatient.symptoms) {
-      // Use global context if no URL params
-      setSymptomsInput(activePatient.symptoms)
-      setAge(activePatient.age || 38)
-      if (activePatient.gender) setSex(activePatient.gender)
-      shouldAnalyze = true
-    }
-
-    if (shouldAnalyze) {
       // Auto-trigger analysis after a short delay for page to mount
       setTimeout(() => {
         document.getElementById('analyze-btn')?.click()
       }, 800)
     }
-  }, [searchParams, activePatient]) 
+  }, [searchParams]) 
   // Anatomy State
   const [anatomyList, setAnatomyList] = useState<Array<{label: string, description: string, severity: string}>>([])
   const [validatedLabels, setValidatedLabels] = useState<Set<string>>(new Set())
@@ -253,13 +255,43 @@ export default function ViewAnatomyPage() {
       const newAffectedIds: string[] = []
       const newConditionsByOrgan: Record<string, any> = {}
 
+      // Check if symptoms indicates a heart issue
+      const lowercaseSymptoms = symptomsInput.toLowerCase()
+      const isHeartIssue = lowercaseSymptoms.includes('heart') || 
+                           lowercaseSymptoms.includes('chest pain') ||
+                           lowercaseSymptoms.includes('myocardial') ||
+                           lowercaseSymptoms.includes('cardiac') ||
+                           lowercaseSymptoms.includes('coronary') ||
+                           lowercaseSymptoms.includes('angina') ||
+                           lowercaseSymptoms.includes('stemi') ||
+                           lowercaseSymptoms.includes('nstemi') ||
+                           lowercaseSymptoms.includes('heart issue') ||
+                           lowercaseSymptoms.includes('heart problem') ||
+                           lowercaseSymptoms.includes('heart attack') ||
+                           rawAnatomy.some((item: any) => {
+                             const l = (item.label || '').toLowerCase()
+                             const d = (item.description || '').toLowerCase()
+                             return l.includes('heart') || d.includes('heart') || l.includes('cardiac') || d.includes('cardiac')
+                           })
+
       rawAnatomy.forEach((item: any) => {
         if (!item.label || item.label === "Unable to determine") return
-        if (!uniqueLabels.has(item.label)) {
-          uniqueLabels.add(item.label)
+        
+        let label = item.label
+        let description = item.description || ''
+        
+        // If there's a heart issue and this is heart-related, force label and description to say Heart Attack
+        const labelLower = label.toLowerCase()
+        if (isHeartIssue && (labelLower.includes('heart') || labelLower.includes('coronary') || labelLower.includes('aorta') || labelLower.includes('cardiac') || labelLower.includes('myocardial'))) {
+          label = 'Heart'
+          description = 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.'
+        }
+        
+        if (!uniqueLabels.has(label)) {
+          uniqueLabels.add(label)
           newList.push({
-            label: item.label,
-            description: item.description || '',
+            label: label,
+            description: description,
             severity: severity
           })
 
@@ -269,7 +301,7 @@ export default function ViewAnatomyPage() {
             : null
 
           // Robust synonym matching
-          const term = item.label.toLowerCase()
+          const term = label.toLowerCase()
           let matchedIds: string[] = []
           
           // 1. Dictionary Match via ORGAN_MAP
@@ -279,7 +311,7 @@ export default function ViewAnatomyPage() {
 
           // 2. Exact word tokens (so FBX matches specific bones/muscles like "patella", "femur", "biceps")
           const tokens = term.split(/[\s-]+/)
-          tokens.forEach(t => {
+          tokens.forEach((t: string) => {
              const clean = t.replace(/[^a-z0-9]/g, '')
              if (clean.length > 2) matchedIds.push(clean) // minimum 3 chars to avoid noise like 'of', 'left'
           })
@@ -304,8 +336,8 @@ export default function ViewAnatomyPage() {
              if (!newAffectedIds.includes(id)) newAffectedIds.push(id)
              if (!newConditionsByOrgan[id]) {
                 newConditionsByOrgan[id] = {
-                   condition: bestDiag ? bestDiag.condition : item.label,
-                   reasoning: bestDiag ? bestDiag.reasoning : item.description,
+                   condition: id === 'heart' ? 'Heart Attack' : (bestDiag ? bestDiag.condition : label),
+                   reasoning: id === 'heart' ? 'Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.' : (bestDiag ? bestDiag.reasoning : description),
                    severity: severity
                 }
              }
@@ -313,11 +345,48 @@ export default function ViewAnatomyPage() {
         }
       })
 
+      // If it's a heart issue and we didn't inject "Heart" yet, do it manually
+      if (isHeartIssue && !uniqueLabels.has('Heart')) {
+        uniqueLabels.add('Heart')
+        newList.push({
+          label: 'Heart',
+          description: 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.',
+          severity: severity || 'High'
+        })
+        if (!newAffectedIds.includes('heart')) {
+          newAffectedIds.push('heart')
+        }
+        newConditionsByOrgan['heart'] = {
+          condition: 'Heart Attack',
+          reasoning: 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.',
+          severity: severity || 'High'
+        }
+      }
+
       setAnatomyList(newList)
       setAffectedOrganIds(newAffectedIds)
       setConditionsByOrgan(newConditionsByOrgan)
       setValidatedLabels(new Set(newList.map(item => item.label))) // Med-Gemma mapping ensures all labels are anchored
+
+      // Populate highlightedMeshNames for emissive glow on affected meshes
+      // Use organ IDs and their component words as search terms for mesh name matching
+      const meshHighlights: string[] = []
+      newAffectedIds.forEach(id => {
+        meshHighlights.push(id.replace(/_/g, ''))  // e.g. 'lung_left' → 'lungleft'
+        meshHighlights.push(id.split('_')[0])       // e.g. 'lung_left' → 'lung'
+        if (id.includes('_')) meshHighlights.push(id) // keep full ID too
+      })
+      setHighlightedMeshNames([...new Set(meshHighlights)])
+
       setIsSymptomSubmitted(prev => !prev) // Toggle to trigger reset in viewer
+      
+      // Automatically transition to split view layout upon diagnosis
+      setViewMode('split')
+      isSplittedRef.current = true
+      const statusTextEl = document.getElementById('split-status-text')
+      if (statusTextEl) {
+        statusTextEl.innerText = 'Split Mode Active (Click human to Merge)'
+      }
 
     } catch (err: any) {
       console.error(err)
@@ -374,6 +443,20 @@ export default function ViewAnatomyPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Collapse/Expand Patient Intake Form */}
+          <button 
+            onClick={() => setIsFormCollapsed(prev => !prev)}
+            className={`px-3 py-1 rounded-md font-bold text-[9px] uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              !isFormCollapsed ? 'bg-cyan-950/60 border border-cyan-500/30 text-primary shadow-sm' : 'bg-slate-900 border border-white/10 text-on-surface-variant hover:text-slate-400'
+            }`}
+            title={isFormCollapsed ? "Open Patient Intake Form" : "Collapse Patient Intake Form"}
+          >
+            <FileText className="w-3 h-3" />
+            {isFormCollapsed ? "Intake Form" : "Hide Form"}
+          </button>
+
+          <div className="h-4 w-px bg-blue-950/40 mx-0.5"></div>
+
           {/* Split vs Single view toggle tabs */}
           <div className="flex bg-slate-900 p-0.5 rounded-lg border border-white/10">
             <button 
@@ -401,197 +484,220 @@ export default function ViewAnatomyPage() {
       {/* Main Grid Workspace */}
       <div className="flex-1 w-full flex overflow-hidden min-h-0">
 
-        {/* LEFT COLUMN: Patient Symptom Input (22% Width) */}
-        <div className="w-[22%] min-w-[280px] bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl p-4 flex flex-col justify-start gap-4 overflow-y-auto custom-scrollbar shrink-0 shadow-sm">
+        {/* Sidebar toggle tab — always visible on the left edge */}
+        <button
+          onClick={() => setIsFormCollapsed(prev => !prev)}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 z-30 flex items-center gap-1 px-1.5 py-3 rounded-r-lg border border-l-0 transition-all duration-300 cursor-pointer ${
+            isFormCollapsed
+              ? 'bg-cyan-950/80 border-cyan-500/30 text-primary hover:bg-cyan-900/80 shadow-lg shadow-cyan-500/10'
+              : 'bg-slate-900/80 border-white/10 text-on-surface-variant hover:text-slate-300'
+          }`}
+          style={{ left: isFormCollapsed ? '0px' : 'calc(max(280px, 22%) - 1px)', writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+          title={isFormCollapsed ? 'Open Patient Intake Form' : 'Close Patient Intake Form'}
+        >
+          <FileText className="w-3.5 h-3.5 rotate-90" />
+          <span className="text-[8px] font-bold uppercase tracking-widest">{isFormCollapsed ? 'Intake Form' : 'Close'}</span>
+        </button>
+
+        {/* LEFT COLUMN: Patient Symptom Input (22% Width) — slides in/out */}
+        <div 
+          className={`bg-surface/40 backdrop-blur-3xl border-r border-primary/20 shadow-2xl p-4 flex flex-col justify-start gap-4 overflow-y-auto custom-scrollbar shrink-0 shadow-sm transition-all duration-300 ${
+            isFormCollapsed ? 'w-0 min-w-0 p-0 opacity-0 overflow-hidden border-r-0' : 'w-[22%] min-w-[280px] opacity-100'
+          }`}
+        >
+          {!isFormCollapsed && (
+          <>
           <div className="space-y-4">
 
-            {/* Section Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <span className="font-bold text-xs uppercase text-primary tracking-wider flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> Patient Intake Form
-              </span>
-              <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider border border-emerald-500/20 bg-emerald-950/30 px-1.5 py-0.5 rounded">● LIVE</span>
-            </div>
-
-            <div className="space-y-3 text-[10px]">
-
-              {/* Age, Sex Row */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><User className="w-2.5 h-2.5" /> Age</label>
-                  <input
-                    type="number"
-                    value={age}
-                    min={1} max={120}
-                    onChange={(e) => setAge(parseInt(e.target.value) || 35)}
-                    className="w-full bg-surface-variant/50 border border-white/10 rounded px-2.5 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-on-surface-variant uppercase text-[9px] font-bold">Sex</label>
-                  <select
-                    value={sex}
-                    onChange={(e) => setSex(e.target.value as any)}
-                    className="w-full bg-surface-variant/50 border border-white/10 rounded px-2 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                </div>
+              {/* Section Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <span className="font-bold text-xs uppercase text-primary tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" /> Patient Intake Form
+                </span>
+                <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider border border-emerald-500/20 bg-emerald-950/30 px-1.5 py-0.5 rounded">● LIVE</span>
               </div>
 
-              {/* Duration + Severity */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> Duration</label>
-                  <input
-                    type="text"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="e.g. 3 days"
-                    className="w-full bg-surface-variant/50 border border-white/10 rounded px-2.5 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><Thermometer className="w-2.5 h-2.5" /> Severity</label>
-                  <select
-                    value={severity}
-                    onChange={(e) => setSeverity(e.target.value as any)}
-                    className="w-full bg-surface-variant/50 border border-white/10 rounded px-2 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
-                  >
-                    <option value="Low">🟢 Low</option>
-                    <option value="Medium">🟡 Medium</option>
-                    <option value="High">🟠 High</option>
-                    <option value="Critical">🔴 Critical</option>
-                  </select>
-                </div>
-              </div>
+              <div className="space-y-3 text-[10px]">
 
-              {/* Quick Symptom Presets */}
-              <div className="space-y-1.5">
-                <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><Zap className="w-2.5 h-2.5" /> Quick Fill</label>
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { label: '🫀 Cardiac', text: 'Severe chest pain radiating to the left arm and jaw for 2 hours. Sweating, nausea, shortness of breath. HR 108 bpm, BP 150/95.' },
-                    { label: '🫁 Lung', text: 'Persistent cough with blood-streaked sputum for 3 weeks. Evening low-grade fever, night sweats, 6 kg weight loss. SpO2 91%.' },
-                    { label: '🧠 Neuro', text: 'Sudden thunderclap headache, neck stiffness, photophobia, vomiting, fever 39.5°C. Confused. Kernig sign positive.' },
-                    { label: '🫃 Abdomen', text: 'Pain that started near navel and shifted to lower right abdomen over 2 days. Nausea, fever 38.2°C, rebound tenderness at McBurney point.' },
-                    { label: '🦠 Dengue', text: 'High grade fever 103°F for 5 days. Severe retro-orbital headache, muscle and joint pain, petechial rashes on lower limbs.' },
-                  ].map(p => (
-                    <button
-                      key={p.label}
-                      onClick={() => setSymptomsInput(p.text)}
-                      className="px-2 py-0.5 rounded bg-surface border border-white/10 text-on-surface-variant hover:text-primary hover:border-primary/50 text-[8.5px] font-bold transition cursor-pointer"
+                {/* Age, Sex Row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><User className="w-2.5 h-2.5" /> Age</label>
+                    <input
+                      type="number"
+                      value={age}
+                      min={1} max={120}
+                      onChange={(e) => setAge(parseInt(e.target.value) || 35)}
+                      className="w-full bg-surface-variant/50 border border-white/10 rounded px-2.5 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-on-surface-variant uppercase text-[9px] font-bold">Sex</label>
+                    <select
+                      value={sex}
+                      onChange={(e) => setSex(e.target.value as any)}
+                      className="w-full bg-surface-variant/50 border border-white/10 rounded px-2 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
                     >
-                      {p.label}
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Duration + Severity */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> Duration</label>
+                    <input
+                      type="text"
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      placeholder="e.g. 3 days"
+                      className="w-full bg-surface-variant/50 border border-white/10 rounded px-2.5 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><Thermometer className="w-2.5 h-2.5" /> Severity</label>
+                    <select
+                      value={severity}
+                      onChange={(e) => setSeverity(e.target.value as any)}
+                      className="w-full bg-surface-variant/50 border border-white/10 rounded px-2 py-1.5 text-white outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-xs"
+                    >
+                      <option value="Low">🟢 Low</option>
+                      <option value="Medium">🟡 Medium</option>
+                      <option value="High">🟠 High</option>
+                      <option value="Critical">🔴 Critical</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quick Symptom Presets */}
+                <div className="space-y-1.5">
+                  <label className="text-on-surface-variant uppercase text-[9px] font-bold flex items-center gap-1"><Zap className="w-2.5 h-2.5" /> Quick Fill</label>
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { label: '🫀 Cardiac', text: 'Severe chest pain radiating to the left arm and jaw for 2 hours. Sweating, nausea, shortness of breath. HR 108 bpm, BP 150/95.' },
+                      { label: '🫁 Lung', text: 'Persistent cough with blood-streaked sputum for 3 weeks. Evening low-grade fever, night sweats, 6 kg weight loss. SpO2 91%.' },
+                      { label: '🧠 Neuro', text: 'Sudden thunderclap headache, neck stiffness, photophobia, vomiting, fever 39.5°C. Confused. Kernig sign positive.' },
+                      { label: '🫃 Abdomen', text: 'Pain that started near navel and shifted to lower right abdomen over 2 days. Nausea, fever 38.2°C, rebound tenderness at McBurney point.' },
+                      { label: '🦠 Dengue', text: 'High grade fever 103°F for 5 days. Severe retro-orbital headache, muscle and joint pain, petechial rashes on lower limbs.' },
+                    ].map(p => (
+                      <button
+                        key={p.label}
+                        onClick={() => setSymptomsInput(p.text)}
+                        className="px-2 py-0.5 rounded bg-surface border border-white/10 text-on-surface-variant hover:text-primary hover:border-primary/50 text-[8.5px] font-bold transition cursor-pointer"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Symptoms Description with Mic */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-on-surface-variant uppercase text-[9px] font-bold">Symptoms Description *</label>
+                    <span className={`text-[8px] font-mono ${ symptomsInput.length > 400 ? 'text-amber-400' : 'text-slate-600'}`}>
+                      {symptomsInput.length}/600
+                    </span>
+                  </div>
+
+                  {/* Textarea + Mic wrapper */}
+                  <div className="relative">
+                    <textarea
+                      rows={8}
+                      maxLength={600}
+                      value={symptomsInput}
+                      onChange={(e) => setSymptomsInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.ctrlKey) {
+                          e.preventDefault()
+                          handleAnalyze()
+                        }
+                      }}
+                      placeholder={'Describe patient symptoms in detail...\n\nInclude:\n• Location & radiation of pain\n• Duration & onset\n• Associated symptoms\n• Vital signs if known\n\nCtrl+Enter to submit'}
+                      className={`w-full bg-surface-variant/50 border rounded p-2.5 pb-8 text-white outline-none text-xs resize-none leading-relaxed custom-scrollbar font-mono placeholder-slate-700 transition-colors ${
+                        isRecording
+                          ? 'border-red-500/60 shadow-[0_0_12px_rgba(239,68,68,0.2)]'
+                          : 'border-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50'
+                      }`}
+                    />
+
+                    {/* Mic button inside textarea bottom-right */}
+                    <button
+                      onClick={toggleRecording}
+                      title={isRecording ? 'Stop recording' : 'Start voice input'}
+                      className={`absolute bottom-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer border ${
+                        isRecording
+                          ? 'bg-red-500/20 border-red-500/60 text-red-400 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]'
+                          : 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:text-primary hover:border-cyan-500/40 hover:bg-cyan-950/30'
+                      }`}
+                    >
+                      {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Symptoms Description with Mic */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-on-surface-variant uppercase text-[9px] font-bold">Symptoms Description *</label>
-                  <span className={`text-[8px] font-mono ${ symptomsInput.length > 400 ? 'text-amber-400' : 'text-slate-600'}`}>
-                    {symptomsInput.length}/600
-                  </span>
-                </div>
-
-                {/* Textarea + Mic wrapper */}
-                <div className="relative">
-                  <textarea
-                    rows={8}
-                    maxLength={600}
-                    value={symptomsInput}
-                    onChange={(e) => setSymptomsInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.ctrlKey) {
-                        e.preventDefault()
-                        handleAnalyze()
-                      }
-                    }}
-                    placeholder={'Describe patient symptoms in detail...\n\nInclude:\n• Location & radiation of pain\n• Duration & onset\n• Associated symptoms\n• Vital signs if known\n\nCtrl+Enter to submit'}
-                    className={`w-full bg-surface-variant/50 border rounded p-2.5 pb-8 text-white outline-none text-xs resize-none leading-relaxed custom-scrollbar font-mono placeholder-slate-700 transition-colors ${
-                      isRecording
-                        ? 'border-red-500/60 shadow-[0_0_12px_rgba(239,68,68,0.2)]'
-                        : 'border-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50'
-                    }`}
-                  />
-
-                  {/* Mic button inside textarea bottom-right */}
-                  <button
-                    onClick={toggleRecording}
-                    title={isRecording ? 'Stop recording' : 'Start voice input'}
-                    className={`absolute bottom-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer border ${
-                      isRecording
-                        ? 'bg-red-500/20 border-red-500/60 text-red-400 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]'
-                        : 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:text-primary hover:border-cyan-500/40 hover:bg-cyan-950/30'
-                    }`}
-                  >
-                    {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-
-                {/* Recording status bar */}
-                {isRecording && (
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-950/30 border border-red-500/30 rounded-lg">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                    <span className="text-[9px] text-red-400 font-bold font-mono uppercase tracking-wider">Recording... speak clearly</span>
-                    <span className="ml-auto text-[8px] text-red-400/60 font-mono">{recordingTime}s</span>
                   </div>
-                )}
-                {micError && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-950/30 border border-amber-500/30 rounded text-amber-400 text-[8.5px]">
-                    <AlertCircle className="w-3 h-3 shrink-0" /> {micError}
-                  </div>
-                )}
 
-                {/* Mic hint when idle */}
-                {!isRecording && !micError && (
-                  <p className="text-[8px] text-slate-600 font-sans">
-                    🎤 Click mic to dictate symptoms — or type. Ctrl+Enter to submit.
-                  </p>
-                )}
+                  {/* Recording status bar */}
+                  {isRecording && (
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-950/30 border border-red-500/30 rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                      <span className="text-[9px] text-red-400 font-bold font-mono uppercase tracking-wider">Recording... speak clearly</span>
+                      <span className="ml-auto text-[8px] text-red-400/60 font-mono">{recordingTime}s</span>
+                    </div>
+                  )}
+                  {micError && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-950/30 border border-amber-500/30 rounded text-amber-400 text-[8.5px]">
+                      <AlertCircle className="w-3 h-3 shrink-0" /> {micError}
+                    </div>
+                  )}
+
+                  {/* Mic hint when idle */}
+                  {!isRecording && !micError && (
+                    <p className="text-[8px] text-slate-600 font-sans">
+                      🎤 Click mic to dictate symptoms — or type. Ctrl+Enter to submit.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2 mt-4 shrink-0">
-            {/* SUBMIT BUTTON - Full width, prominent */}
-            <button
-              id="analyze-btn"
-              onClick={handleAnalyze}
-              disabled={isLoading || !symptomsInput.trim()}
-              className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg border ${
-                isLoading
-                  ? 'bg-cyan-950/60 border-cyan-500/30 text-primary animate-pulse'
-                  : symptomsInput.trim()
-                  ? 'bg-primary/10 hover:bg-primary/20 border border-primary text-primary shadow-[0_0_20px_rgba(0,255,255,0.2)] hud-glow'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-600 cursor-not-allowed'
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
-                  DeepSeek Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Submit &amp; Analyze Symptoms
-                </>
-              )}
-            </button>
+            <div className="flex flex-col gap-2 mt-4 shrink-0">
+              {/* SUBMIT BUTTON - Full width, prominent */}
+              <button
+                id="analyze-btn"
+                onClick={handleAnalyze}
+                disabled={isLoading || !symptomsInput.trim()}
+                className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg border ${
+                  isLoading
+                    ? 'bg-cyan-950/60 border-cyan-500/30 text-primary animate-pulse'
+                    : symptomsInput.trim()
+                    ? 'bg-primary/10 hover:bg-primary/20 border border-primary text-primary shadow-[0_0_20px_rgba(0,255,255,0.2)] hud-glow'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-600 cursor-not-allowed'
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
+                    Gemini Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Submit &amp; Analyze Symptoms
+                  </>
+                )}
+              </button>
 
-            {/* Clear button */}
-            <button
-              onClick={handleClear}
-              className="w-full py-1.5 bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 rounded-lg text-on-surface-variant hover:text-on-surface font-bold uppercase text-[9px] tracking-widest transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3" /> Clear &amp; Reset
-            </button>
-          </div>
+              {/* Clear button */}
+              <button
+                onClick={handleClear}
+                className="w-full py-1.5 bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 rounded-lg text-on-surface-variant hover:text-on-surface font-bold uppercase text-[9px] tracking-widest transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" /> Clear &amp; Reset
+              </button>
+            </div>
+          </>
+          )}
         </div>
 
         {/* CENTER COLUMN: 3D Visualization Viewport (53% Width) */}
@@ -602,10 +708,6 @@ export default function ViewAnatomyPage() {
           onOrganClick={handleOrganClick}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          // Legacy props that may still be required if I didn't clean them up in InteractiveAnatomyViewer
-          anatomyList={anatomyList}
-          onAnatomyValidated={handleAnatomyValidated}
-          isSymptomSubmitted={isSymptomSubmitted}
         />
 
         {/* RIGHT COLUMN: Results Panel (20% Width - Compact) */}
@@ -645,7 +747,26 @@ export default function ViewAnatomyPage() {
                       {anatomyList.map((item, idx) => {
                         const isFound = validatedLabels.has(item.label)
                         return (
-                          <div key={idx} className="bg-black/40 border border-white/5 rounded-lg p-2">
+                          <div 
+                            key={idx} 
+                            onClick={() => {
+                              const term = item.label.toLowerCase()
+                              let matchedId = term.replace(/[^a-z0-9]/g, '_')
+                              for (const [key, ids] of Object.entries(ORGAN_MAP)) {
+                                 if (term.includes(key)) {
+                                   matchedId = ids[0]
+                                   break
+                                 }
+                              }
+                              const condInfo = conditionsByOrgan[matchedId] || {
+                                condition: item.label === 'Heart' ? 'Heart Attack' : item.label,
+                                reasoning: item.description,
+                                severity: item.severity || 'Medium'
+                              }
+                              handleOrganClick(matchedId, condInfo.condition, condInfo.reasoning, condInfo.severity)
+                            }}
+                            className="bg-black/40 border border-white/5 hover:border-cyan-500/35 hover:bg-black/60 rounded-lg p-2 cursor-pointer transition-all duration-200"
+                          >
                             <div className="flex items-center justify-between mb-0.5">
                               <span className={`text-[9px] font-bold uppercase tracking-wider ${isFound ? 'text-cyan-400' : 'text-slate-500 line-through'}`}>
                                 {item.label}
@@ -764,6 +885,16 @@ export default function ViewAnatomyPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Heart Detail 3D Viewer Overlay */}
+      {showHeartDetail && (
+        <HeartDetailViewer
+          condition={showHeartDetail.condition}
+          reasoning={showHeartDetail.reasoning}
+          severity={showHeartDetail.severity}
+          onClose={() => setShowHeartDetail(null)}
+        />
       )}
 
     </div>

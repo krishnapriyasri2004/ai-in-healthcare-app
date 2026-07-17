@@ -511,15 +511,22 @@ function GLTFModelWrapper({
   renderOrder?: number
 }) {
   const { scene } = useGLTF(path)
-  const { scene: skeletonScene } = useGLTF('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
   
-  const masterParams = useMemo(() => {
-    const clone = SkeletonUtils.clone(skeletonScene)
-    const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-    if (sketchfabModel) sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-    else clone.rotation.x = -Math.PI / 2
-    
-    clone.updateWorldMatrix(true, true)
+  const cloned = useMemo(() => {
+    const clone = SkeletonUtils.clone(scene)
+
+    // 1. Apply model-specific root rotations BEFORE bounding box computation
+    if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
+      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
+      if (sketchfabModel) {
+        sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
+      } else if (path.includes('joe') || (!path.includes('-v1') && !path.includes('scene-v1'))) {
+        clone.rotation.x = -Math.PI / 2
+      }
+    }
+
+    // 2. Compute the model's OWN bounding box (before removing any meshes)
+    clone.updateMatrixWorld(true)
     const box = new THREE.Box3()
     let hasMesh = false
     clone.traverse((child) => {
@@ -534,38 +541,86 @@ function GLTFModelWrapper({
       }
     })
     if (!hasMesh) box.setFromObject(clone)
+
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
-    const scaleFactor = 2.0 / (size.y || 1)
-    return {
-      scaleFactor,
-      centerX: center.x,
-      centerY: center.y,
-      centerZ: center.z,
-      minY: box.min.y
-    }
-  }, [skeletonScene])
+    const sizeY = size.y || 1
+    const scaleFactor = 2.0 / sizeY
 
-  const cloned = useMemo(() => {
-    const clone = SkeletonUtils.clone(scene)
-
-    // 1. Apply model-specific root rotations BEFORE bounding box computation
-    if (path.includes('myology') || path.includes('scene') || path.includes('joe')) {
-      const sketchfabModel = clone.getObjectByName('Sketchfab_model')
-      if (sketchfabModel) {
-        sketchfabModel.rotation.set(-Math.PI / 2, 0, 0)
-      } else if (path.includes('joe') || (!path.includes('-v1') && !path.includes('scene-v1'))) {
-        clone.rotation.x = -Math.PI / 2
-      }
-    }
-
-    // Align all models to the skeleton (master reference) parameters
-    clone.scale.setScalar(masterParams.scaleFactor)
+    clone.scale.setScalar(scaleFactor)
     clone.position.set(
-      positionX - masterParams.centerX * masterParams.scaleFactor,
-      -masterParams.minY * masterParams.scaleFactor - 1.0,
-      -masterParams.centerZ * masterParams.scaleFactor
+      positionX - center.x * scaleFactor,
+      -box.min.y * scaleFactor - 1.0,
+      -center.z * scaleFactor
     )
+    clone.updateMatrixWorld(true)
+
+    if (path.includes('joe')) {
+      const rootMatrix = clone.matrixWorld
+      const inverseRootMatrix = rootMatrix.clone().invert()
+      const pivotLeft = new THREE.Vector2(-0.17, 1.25)
+      const pivotRight = new THREE.Vector2(0.17, 1.25)
+      const angleLeft = 19.5 * Math.PI / 180
+      const angleRight = -19.5 * Math.PI / 180
+
+      clone.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const name = child.name.toLowerCase()
+          const isArm = name.includes('arms_torso') || name.includes('arms_hand')
+          const isTshirt = name.includes('tshirt') || name.includes('t-shirt')
+          
+          if (isArm || isTshirt) {
+            if (child.geometry && child.geometry.attributes.position) {
+              // Clone the shared geometry to avoid mutating cached asset templates
+              child.geometry = child.geometry.clone()
+              const posAttr = child.geometry.attributes.position
+              const v = new THREE.Vector3()
+              const inverseMeshMatrix = child.matrixWorld.clone().invert()
+              for (let i = 0; i < posAttr.count; i++) {
+                v.fromBufferAttribute(posAttr, i)
+                // Convert to clone-local space:
+                v.applyMatrix4(child.matrixWorld)
+                v.applyMatrix4(inverseRootMatrix)
+
+                if (v.x < 0) {
+                  let w = 1.0
+                  if (isTshirt) {
+                    w = Math.min(1.0, (v.x - -0.15) / (-0.28 - -0.15))
+                    if (w < 0) w = 0
+                  }
+                  const angle = angleLeft * w
+                  const dx = v.x - pivotLeft.x
+                  const dy = v.y - pivotLeft.y
+                  v.x = pivotLeft.x + dx * Math.cos(angle) - dy * Math.sin(angle)
+                  v.y = pivotLeft.y + dx * Math.sin(angle) + dy * Math.cos(angle)
+                } else {
+                  let w = 1.0
+                  if (isTshirt) {
+                    w = Math.min(1.0, (v.x - 0.15) / (0.28 - 0.15))
+                    if (w < 0) w = 0
+                  }
+                  const angle = angleRight * w
+                  const dx = v.x - pivotRight.x
+                  const dy = v.y - pivotRight.y
+                  v.x = pivotRight.x + dx * Math.cos(angle) - dy * Math.sin(angle)
+                  v.y = pivotRight.y + dx * Math.sin(angle) + dy * Math.cos(angle)
+                }
+
+                // Convert back to mesh-local space:
+                v.applyMatrix4(rootMatrix)
+                v.applyMatrix4(inverseMeshMatrix)
+                posAttr.setXYZ(i, v.x, v.y, v.z)
+              }
+              posAttr.needsUpdate = true
+              child.geometry.computeVertexNormals()
+              child.geometry.computeBoundingBox()
+              child.geometry.computeBoundingSphere()
+            }
+          }
+        }
+      })
+      clone.updateMatrixWorld(true)
+    }
 
     // ────────────────────────────────────────────────────────────
     // STEP 2: NOW remove unwanted meshes per column (after bbox)
@@ -634,7 +689,7 @@ function GLTFModelWrapper({
           if (!isBrain) {
             const offset = getOrganVerticalOffset(name, matNames)
             if (offset !== 0) {
-              child.position.y += offset / masterParams.scaleFactor
+              child.position.y += offset / scaleFactor
             }
           }
         }
@@ -1028,10 +1083,10 @@ export function BodyModel({
         <spotLight position={[0, -5, 5]} intensity={1.0} angle={0.8} penumbra={1} color="#f5f0eb" />
 
         <Suspense fallback={null}>
-          {/* Column 2: Visceral Organs (from splanchnology.glb, exploded) */}
+          {/* Column 2: Visceral Organs (from VisceralSystem100.fbx) */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/splanchnology.glb" 
+              path="/ai-in-healthcare/fbx/VisceralSystem100.fbx" 
               positionX={-1.2} 
               opacity={opacity} 
               wireframe={wireframe} 
@@ -1052,10 +1107,10 @@ export function BodyModel({
             />
           </Suspense>
 
-          {/* Column 4: Cardiovascular vessels (from scene-v1 (1).glb) */}
+          {/* Column 4: Visceral System (Male anatomy with senses) */}
           <Suspense fallback={null}>
             <SideBySideModel 
-              path="/ai-in-healthcare/asset-01/scene-v1 (1).glb" 
+              path="/ai-in-healthcare/source/male-anatomy-senses.glb" 
               positionX={1.2} 
               opacity={opacity} 
               wireframe={wireframe} 

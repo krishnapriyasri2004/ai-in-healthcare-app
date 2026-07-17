@@ -5,7 +5,7 @@ import { Users, Plus, Heart, Calendar, Search, ClipboardList, ShieldAlert, Award
 import { useAppContext, Patient, DiagnosisResult } from '@/components/AppContext'
 
 export default function PatientsPage() {
-  const { patients, selectedPatientId, setSelectedPatientId, activePatient, setActiveDiagnosisResult } = useAppContext()
+  const { patients, setPatients, selectedPatientId, setSelectedPatientId, activePatient, setActiveDiagnosisResult } = useAppContext()
   const [searchQuery, setSearchQuery] = useState('')
 
   // Symptom input & AI analysis state
@@ -51,7 +51,7 @@ export default function PatientsPage() {
     setSymptomInput('')
   }
 
-  // Submit symptoms to DeepSeek via the API route
+  // Submit symptoms to Gemini via the API route
   const handleAnalyze = async () => {
     const symptoms = symptomInput.trim() || activePatient.symptoms
     if (!symptoms) return
@@ -224,10 +224,10 @@ export default function PatientsPage() {
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4 text-cyan-400" />
                 <span className="font-bold text-xs uppercase text-cyan-400 font-mono tracking-widest">
-                  DeepSeek AI — Clinical Symptom Analysis & 3D Body Mapping
+                  Gemini AI — Clinical Symptom Analysis & 3D Body Mapping
                 </span>
               </div>
-              <span className="text-[9px] font-mono text-slate-500 uppercase">Powered by DeepSeek R1</span>
+              <span className="text-[9px] font-mono text-slate-500 uppercase">Powered by Gemini 2.5</span>
             </div>
 
             <div className="p-5 flex flex-col gap-4">
@@ -260,7 +260,7 @@ export default function PatientsPage() {
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Analyzing with DeepSeek AI...
+                    Analyzing with Gemini AI...
                   </>
                 ) : (
                   <>
