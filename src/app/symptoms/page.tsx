@@ -260,6 +260,13 @@ export default function SymptomsPage() {
   const codes = result ? getConditionCodes(result.primaryCondition) : null
   const anatomyViewerUrl = `/view-anatomy?symptoms=${encodeURIComponent(symptomsInput)}&age=${patientAge}&sex=${patientGender}`
 
+  const handleViewerClick = () => {
+    localStorage.setItem('symptoms_transfer_text', symptomsInput)
+    localStorage.setItem('symptoms_transfer_age', String(patientAge))
+    localStorage.setItem('symptoms_transfer_gender', patientGender)
+    router.push('/view-anatomy')
+  }
+
   return (
     <div className="w-full h-full bg-surface flex flex-col p-6 overflow-y-auto font-mono text-xs text-slate-300">
 
@@ -428,7 +435,7 @@ export default function SymptomsPage() {
 
             {/* Click-to-Workspace Hover Overlay */}
             <div 
-              onClick={() => router.push(anatomyViewerUrl)}
+              onClick={handleViewerClick}
               className="absolute inset-0 bg-transparent hover:bg-cyan-950/20 transition-all flex items-center justify-center group pointer-events-auto cursor-pointer z-20"
               title="Click to open full 5-column 3D viewer"
             >
@@ -443,7 +450,11 @@ export default function SymptomsPage() {
           {/* Link to full 3D viewer */}
           {result && (
             <Link
-              href={anatomyViewerUrl}
+              href="/view-anatomy"
+              onClick={(e) => {
+                e.preventDefault()
+                handleViewerClick()
+              }}
               className="flex items-center justify-center gap-2 py-2.5 bg-violet-950/40 hover:bg-violet-900/40 border border-violet-500/30 rounded-xl text-violet-300 font-bold uppercase text-[10px] tracking-widest transition"
             >
               <Activity className="w-4 h-4" />

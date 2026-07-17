@@ -152,10 +152,32 @@ function ViewAnatomyPageContent() {
     const urlAge = searchParams.get('age')
     const urlSex = searchParams.get('sex')
     
-    if (urlSymptoms) {
-      setSymptomsInput(urlSymptoms)
-      if (urlAge) setAge(parseInt(urlAge) || 38)
-      if (urlSex === 'Female' || urlSex === 'Male') setSex(urlSex)
+    // Check localStorage fallback
+    let localSymptoms = null
+    let localAge = null
+    let localSex = null
+    
+    if (typeof window !== 'undefined') {
+      localSymptoms = localStorage.getItem('symptoms_transfer_text')
+      localAge = localStorage.getItem('symptoms_transfer_age')
+      localSex = localStorage.getItem('symptoms_transfer_gender')
+    }
+    
+    if (urlSymptoms || localSymptoms) {
+      const finalSymptoms = urlSymptoms || localSymptoms || ''
+      const finalAge = urlAge || localAge
+      const finalSex = urlSex || localSex
+      
+      setSymptomsInput(finalSymptoms)
+      if (finalAge) setAge(parseInt(finalAge) || 38)
+      if (finalSex === 'Female' || finalSex === 'Male') setSex(finalSex)
+      
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('symptoms_transfer_text')
+        localStorage.removeItem('symptoms_transfer_age')
+        localStorage.removeItem('symptoms_transfer_gender')
+      }
+      
       // Auto-trigger analysis after a short delay for page to mount
       setTimeout(() => {
         document.getElementById('analyze-btn')?.click()
