@@ -1220,6 +1220,9 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
   const annotations = useMemo(() => {
     if (columnAffectedIds.length === 0) return []
     
+    const [colLX, colRX] = COLUMN_LX[colKey] ?? [-0.58, 0.58]
+    const calloutLayout = computeCalloutLayout(columnAffectedIds, colLX, colRX)
+    
     const out: { organ: string, condition: string, severity: string, baseX: number, baseY: number, baseZ: number, x: number, y: number, z: number, mesh: THREE.Object3D | null, reasoning: string }[] = []
     const seenOrgans = new Set<string>()
 
@@ -1261,15 +1264,20 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
            worldCenter.z
          )
          
+         const layout = calloutLayout.find(l => l.organ.id === organId)
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
-         let ox = offset.x
-         let oy = offset.y
-         let oz = offset.z
-         if (ox === 0 && oy === 0 && oz === 0) {
-           ox = parentLocalCenter.x < 0 ? -0.45 : 0.45
-           oy = 0.15
-           oz = 0.15
+         let tx = 0, ty = 0, tz = 0
+         
+         if (offset.x === 0 && offset.y === 0 && offset.z === 0) {
+           tx = layout ? layout.labelX : (parentLocalCenter.x + (parentLocalCenter.x < 0 ? -0.45 : 0.45))
+           ty = layout ? layout.labelY : (parentLocalCenter.y + 0.15)
+           tz = parentLocalCenter.z + 0.15
+         } else {
+           tx = (layout ? layout.labelX : parentLocalCenter.x) + offset.x
+           ty = (layout ? layout.labelY : parentLocalCenter.y) + offset.y
+           tz = parentLocalCenter.z + offset.z
          }
+         
          out.push({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
@@ -1277,9 +1285,9 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
            baseX: parentLocalCenter.x,
            baseY: parentLocalCenter.y,
            baseZ: parentLocalCenter.z,
-           x: parentLocalCenter.x + ox,
-           y: parentLocalCenter.y + oy,
-           z: parentLocalCenter.z + oz,
+           x: tx,
+           y: ty,
+           z: tz,
            mesh: c,
            reasoning: conditionsByOrgan[organId].reasoning || ''
          })
@@ -1307,15 +1315,20 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       
       seenOrgans.add(orgId)
       
+      const layout = calloutLayout.find(l => l.organ.id === orgId)
       const offset = labelOffsets?.[orgId] || { x: 0, y: 0, z: 0 }
-      let ox = offset.x
-      let oy = offset.y
-      let oz = offset.z
-      if (ox === 0 && oy === 0 && oz === 0) {
-        ox = fallbackPos.x < 0 ? -0.45 : 0.45
-        oy = 0.15
-        oz = 0.15
+      let tx = 0, ty = 0, tz = 0
+      
+      if (offset.x === 0 && offset.y === 0 && offset.z === 0) {
+        tx = layout ? layout.labelX : (fallbackPos.x + (fallbackPos.x < 0 ? -0.45 : 0.45))
+        ty = layout ? layout.labelY : (fallbackPos.y + 0.15)
+        tz = fallbackPos.z + 0.15
+      } else {
+        tx = (layout ? layout.labelX : fallbackPos.x) + offset.x
+        ty = (layout ? layout.labelY : fallbackPos.y) + offset.y
+        tz = fallbackPos.z + offset.z
       }
+      
       out.push({
         organ: orgId,
         condition: conditionsByOrgan[orgId].condition,
@@ -1323,16 +1336,16 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
         baseX: fallbackPos.x,
         baseY: fallbackPos.y,
         baseZ: fallbackPos.z,
-        x: fallbackPos.x + ox,
-        y: fallbackPos.y + oy,
-        z: fallbackPos.z + oz,
+        x: tx,
+        y: ty,
+        z: tz,
         mesh: null,
         reasoning: conditionsByOrgan[orgId].reasoning || ''
       })
     }
 
     return out
-  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode])
+  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode, colKey, path])
 
   const { invalidate } = useThree()
 
@@ -1429,12 +1442,6 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     invalidate()
   }, [meshList, activeSystems, highlightedMeshNames, splitPositionX, path, visible, invalidate])
 
-  // Per-column callout layout (uses the columnAffectedIds computed earlier)
-  const [colLX, colRX] = COLUMN_LX[colKey] ?? [-0.58, 0.58]
-  const calloutLayout = useMemo(
-    () => computeCalloutLayout(columnAffectedIds, colLX, colRX),
-    [columnAffectedIds, colLX, colRX]
-  )
 
   return (
     <group
