@@ -103,7 +103,7 @@ export default function PatientsPage() {
   }
 
   return (
-    <div className="w-full h-full p-8 flex gap-6 overflow-hidden bg-surface font-sans">
+    <div className="w-full h-full p-8 flex gap-6 overflow-y-auto custom-scrollbar bg-surface font-sans">
       {/* Left panel: Directory registry */}
       <div className="w-96 flex flex-col gap-4 glass-panel backdrop-blur-xl border border-white/10 rounded-xl p-5 shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center border-b border-white/10 pb-3">

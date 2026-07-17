@@ -67,7 +67,7 @@ export default function RootLayout({
         <AppProvider>
           <div className="flex-1 flex pt-16 h-screen overflow-hidden">
             <Sidebar />
-            <div className="flex-1 relative overflow-hidden">
+            <div className="flex-1 relative overflow-y-auto custom-scrollbar">
               {children}
             </div>
           </div>

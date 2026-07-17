@@ -524,14 +524,11 @@ const COLUMN_SCOPE: Record<string, string[] | null> = {
   '-2.4': ['skin', 'lymph_nodes'],
   // Column 2 (-1.2): Superficial Muscular System — muscles
   '-1.2': ['muscles'],
-  // Column 3 (0.0): Deep Muscular / Internal System — all internal organs
-  '0':    null,
-  '0.0':  null,
-  // Column 4 (1.2): Cardiovascular / Circulatory System — cardiovascular + digestive + respiratory + nervous organs
-  '1.2':  ['heart', 'aorta', 'lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity',
-           'liver', 'stomach', 'gallbladder', 'pancreas', 'spleen',
-           'kidney_left', 'kidney_right', 'intestines', 'appendix', 'bladder',
-           'brain', 'spinal_cord'],
+  // Column 3 (0.0): Deep Muscular / Internal System — visceral organs, lungs, brain, digestive
+  '0':    ['liver', 'stomach', 'gallbladder', 'pancreas', 'spleen', 'kidney_left', 'kidney_right', 'intestines', 'appendix', 'bladder', 'brain', 'spinal_cord', 'lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity'],
+  '0.0':  ['liver', 'stomach', 'gallbladder', 'pancreas', 'spleen', 'kidney_left', 'kidney_right', 'intestines', 'appendix', 'bladder', 'brain', 'spinal_cord', 'lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity'],
+  // Column 4 (1.2): Cardiovascular / Circulatory System — heart, aorta, lungs
+  '1.2':  ['heart', 'aorta', 'lung_left', 'lung_right'],
   // Column 5 (2.4): Skeletal System — skeletal system organs
   '2.4':  ['skeleton'],
 }
@@ -1249,7 +1246,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
          
          // Translate back to parent group space by subtracting splitPositionX (to avoid double horizontal shifting)
          const parentLocalCenter = new THREE.Vector3(
-           worldCenter.x - splitPositionX,
+            worldCenter.x - ((viewMode === 'split') ? splitPositionX : 0.0),
            worldCenter.y,
            worldCenter.z
          )
@@ -1319,7 +1316,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     }
 
     return out
-  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX])
+  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode])
 
   const { invalidate } = useThree()
 

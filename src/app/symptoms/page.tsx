@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { InteractiveAnatomyViewer } from '@/components/interactive-anatomy-viewer'
+import { InteractiveAnatomyViewer, ORGAN_MAP } from '@/components/interactive-anatomy-viewer'
 import {
   Sparkles,
   Activity,
@@ -135,6 +135,7 @@ export default function SymptomsPage() {
   const [result, setResult] = useState<DiagnosisResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [organConditions, setOrganConditions] = useState<Record<string, any>>({})
+  const [affectedOrganIds, setAffectedOrganIds] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<'split' | 'single'>('single')
   const [highlightedMeshNames, setHighlightedMeshNames] = useState<string[]>([])
   const [showHeartDetail, setShowHeartDetail] = useState<{
@@ -225,13 +226,119 @@ export default function SymptomsPage() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      const primary = data.possibleConditions?.[0]
-      setOrganConditions(data.organConditions || {})
+      const rawAnatomy = data.affected_anatomy || []
+      const uniqueLabels = new Set<string>()
+      const newAffectedIds: string[] = []
+      const newConditionsByOrgan: Record<string, any> = {}
+
+      const activeSeverity = severity || 'Medium'
+
+      const lowercaseSymptoms = symptomsInput.toLowerCase()
+      const isHeartIssue = lowercaseSymptoms.includes('heart') || 
+                           lowercaseSymptoms.includes('chest pain') ||
+                           lowercaseSymptoms.includes('myocardial') ||
+                           lowercaseSymptoms.includes('cardiac') ||
+                           lowercaseSymptoms.includes('coronary') ||
+                           lowercaseSymptoms.includes('angina') ||
+                           lowercaseSymptoms.includes('stemi') ||
+                           lowercaseSymptoms.includes('nstemi') ||
+                           lowercaseSymptoms.includes('heart issue') ||
+                           lowercaseSymptoms.includes('heart problem') ||
+                           lowercaseSymptoms.includes('heart attack') ||
+                           rawAnatomy.some((item: any) => {
+                             const l = (item.label || '').toLowerCase()
+                             const d = (item.description || '').toLowerCase()
+                             return l.includes('heart') || d.includes('heart') || l.includes('cardiac') || d.includes('cardiac')
+                           })
+
+      rawAnatomy.forEach((item: any) => {
+        if (!item.label || item.label === "Unable to determine") return
+        
+        let label = item.label
+        let description = item.description || ''
+        
+        const labelLower = label.toLowerCase()
+        if (isHeartIssue && (labelLower.includes('heart') || labelLower.includes('coronary') || labelLower.includes('aorta') || labelLower.includes('cardiac') || labelLower.includes('myocardial'))) {
+          label = 'Heart'
+          description = 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion.'
+        }
+        
+        if (!uniqueLabels.has(label)) {
+          uniqueLabels.add(label)
+          
+          const bestDiag = data.differential_diagnoses && data.differential_diagnoses.length > 0 
+            ? data.differential_diagnoses[0] 
+            : null
+
+          const term = label.toLowerCase()
+          let matchedIds: string[] = []
+          
+          for (const [key, ids] of Object.entries(ORGAN_MAP)) {
+             if (term.includes(key)) matchedIds.push(...ids)
+          }
+
+          const tokens = term.split(/[\s-]+/)
+          tokens.forEach((t: string) => {
+             const clean = t.replace(/[^a-z0-9]/g, '')
+             if (clean.length > 2) matchedIds.push(clean)
+          })
+
+          matchedIds.push(term.replace(/[^a-z0-9]/g, '_'))
+          
+          if (term.includes('bone') || term.includes('spine') || term.includes('joint')) {
+             matchedIds.push('skeleton')
+          }
+          if (term.includes('muscle') || term.includes('tendon') || term.includes('ligament')) {
+             matchedIds.push('muscles')
+          }
+          if (term.includes('vein') || term.includes('artery') || term.includes('blood')) {
+             matchedIds.push('cardiovascular')
+          }
+
+          const uniqueMatched = Array.from(new Set(matchedIds))
+          uniqueMatched.forEach(id => {
+             if (!newAffectedIds.includes(id)) newAffectedIds.push(id)
+             if (!newConditionsByOrgan[id]) {
+                newConditionsByOrgan[id] = {
+                   condition: id === 'heart' ? 'Heart Attack' : (bestDiag ? bestDiag.condition : label),
+                   reasoning: id === 'heart' ? 'Suspected acute myocardial infarction.' : (bestDiag ? bestDiag.reasoning : description),
+                   severity: activeSeverity
+                }
+             }
+          })
+        }
+      })
+
+      if (isHeartIssue && !uniqueLabels.has('Heart')) {
+        if (!newAffectedIds.includes('heart')) newAffectedIds.push('heart')
+        newConditionsByOrgan['heart'] = {
+          condition: 'Heart Attack',
+          reasoning: 'Suspected acute myocardial infarction.',
+          severity: activeSeverity
+        }
+      }
+
+      setAffectedOrganIds(newAffectedIds)
+      setOrganConditions(newConditionsByOrgan)
+
+      const meshHighlights: string[] = []
+      newAffectedIds.forEach(id => {
+        meshHighlights.push(id.replace(/_/g, ''))
+        meshHighlights.push(id.split('_')[0])
+        if (id.includes('_')) meshHighlights.push(id)
+      })
+      setHighlightedMeshNames([...new Set(meshHighlights)])
+
+      const primary = data.differential_diagnoses?.[0]
       const finalResult = {
-        affectedRegions: data.affectedRegions || [],
-        possibleConditions: data.possibleConditions || [],
-        redFlag: !!data.redFlag,
-        primaryCondition: primary?.name || 'Unknown',
+        affectedRegions: newAffectedIds,
+        possibleConditions: (data.differential_diagnoses || []).map((d: any) => ({
+          name: d.condition || 'Unknown',
+          confidence: d.confidence || 0,
+          reasoning: d.reasoning || ''
+        })),
+        redFlag: isHeartIssue,
+        primaryCondition: primary?.condition || 'Unknown',
         primaryConfidence: primary?.confidence || 0,
         primaryReasoning: primary?.reasoning || ''
       }
@@ -425,7 +532,7 @@ export default function SymptomsPage() {
               🤖 {result ? `Mapped: ${result.affectedRegions.map(r => r.replace('_', ' ')).join(', ')}` : 'Awaiting Symptom Analysis'}
             </div>
             <InteractiveAnatomyViewer
-              affectedOrganIds={result ? result.affectedRegions : []}
+              affectedOrganIds={affectedOrganIds}
               conditionsByOrgan={organConditions}
               highlightedMeshNames={highlightedMeshNames}
               onOrganClick={(organ) => console.log('Clicked organ:', organ)}
