@@ -416,6 +416,8 @@ export default function SymptomsPage() {
               🤖 {result ? `Mapped: ${result.affectedRegions.map(r => r.replace('_', ' ')).join(', ')}` : 'Awaiting Symptom Analysis'}
             </div>
             <InteractiveAnatomyViewer
+              affectedOrganIds={result ? result.affectedRegions : []}
+              conditionsByOrgan={organConditions}
               highlightedMeshNames={highlightedMeshNames}
               onOrganClick={(organ) => console.log('Clicked organ:', organ)}
               viewMode={viewMode}
