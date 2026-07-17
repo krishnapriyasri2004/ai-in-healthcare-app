@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Activity, ShieldCheck, Heart, Users, AlertTriangle, Clock, Brain, CheckCircle2, Circle, Wind, Thermometer, Stethoscope } from 'lucide-react'
+import { Activity, ShieldCheck, Heart, Users, AlertTriangle, Clock, Brain, CheckCircle2, Circle, Wind, Thermometer, Stethoscope, Download, Table } from 'lucide-react'
 import { useAppContext } from '@/components/AppContext'
 
 export default function Home() {
@@ -273,7 +273,90 @@ export default function Home() {
       </section>
 
 
-      {/* ── BOTTOM GRID ── */}
+      </section>
+
+      {/* ── PATIENT REGISTRY TABLE (REAL VIEW & SCROLLABLE) ── */}
+      <section className="mb-10 relative z-10">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <Table className="w-4 h-4 text-cyan-400" />
+            <h2 className="text-[13px] font-black uppercase tracking-[0.2em] text-white">Patient Registry & Clinical Records</h2>
+          </div>
+          <button
+            onClick={() => {
+              const headers = ['Patient ID', 'Name', 'Age', 'Gender', 'Symptoms', 'Clinical Notes', 'Heart Rate (BPM)', 'SpO2 (%)', 'Temperature (°C)', 'Blood Pressure', 'ABHA ID', 'PM-JAY Eligibility', 'Blood Sugar (mg/dL)'];
+              const rows = patients.map(p => [
+                p.id,
+                p.name,
+                p.age,
+                p.gender,
+                `"${p.symptoms.replace(/"/g, '""')}"`,
+                `"${p.notes.replace(/"/g, '""')}"`,
+                p.vitals.hr,
+                p.vitals.spo2,
+                p.vitals.temp,
+                p.vitals.bp,
+                p.abhaId || 'N/A',
+                p.pmjayEligible || 'N/A',
+                p.bloodSugar || 'N/A'
+              ]);
+              const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.setAttribute('href', url);
+              link.setAttribute('download', `patient_registry_${new Date().toISOString().split('T')[0]}.csv`);
+              link.style.visibility = 'hidden';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 hover:bg-emerald-900/40 transition text-emerald-400 text-xs font-bold font-mono tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.1)] cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" /> DOWNLOAD RECORDS (EXCEL)
+          </button>
+        </div>
+
+        {/* Scrollable Table Container */}
+        <div className="glass-panel border border-white/10 rounded-xl overflow-hidden shadow-lg">
+          <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-black/60 border-b border-white/10 text-gray-400 font-mono uppercase tracking-wider text-[10px]">
+                  <th className="p-4 font-semibold">Patient ID</th>
+                  <th className="p-4 font-semibold">Full Name</th>
+                  <th className="p-4 font-semibold">Age / Sex</th>
+                  <th className="p-4 font-semibold text-center">Temp</th>
+                  <th className="p-4 font-semibold text-center">HR</th>
+                  <th className="p-4 font-semibold text-center">SpO₂</th>
+                  <th className="p-4 font-semibold text-center">BP</th>
+                  <th className="p-4 font-semibold">Primary Symptoms Preview</th>
+                  <th className="p-4 font-semibold text-right">Verification</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {patients.map((p) => (
+                  <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="p-4 font-mono text-cyan-400 font-semibold">{p.id}</td>
+                    <td className="p-4 font-bold text-white text-sm">{p.name}</td>
+                    <td className="p-4 text-gray-300">{p.age}y / {p.gender}</td>
+                    <td className="p-4 text-center font-mono text-amber-300 font-bold">{p.vitals.temp}°C</td>
+                    <td className="p-4 text-center font-mono text-rose-300 font-bold">{p.vitals.hr} bpm</td>
+                    <td className="p-4 text-center font-mono text-sky-300 font-bold">{p.vitals.spo2}%</td>
+                    <td className="p-4 text-center font-mono text-violet-300 font-bold">{p.vitals.bp}</td>
+                    <td className="p-4 text-gray-400 max-w-xs truncate" title={p.symptoms}>{p.symptoms}</td>
+                    <td className="p-4 text-right">
+                      <span className="inline-block px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold font-mono uppercase tracking-wider">
+                        ABHA Sync
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10 pb-10">
         
         {/* Left Col: Schedule */}

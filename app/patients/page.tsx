@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Plus, Heart, Calendar, Search, ClipboardList, ShieldAlert, Award, Sparkles, AlertTriangle, CheckCircle2, Loader2, ExternalLink, Brain, Activity } from 'lucide-react'
+import { Users, Plus, Heart, Calendar, Search, ClipboardList, ShieldAlert, Award, Sparkles, AlertTriangle, CheckCircle2, Loader2, ExternalLink, Brain, Activity, Download } from 'lucide-react'
 import { useAppContext, Patient, DiagnosisResult } from '@/components/AppContext'
 
 export default function PatientsPage() {
@@ -110,12 +110,48 @@ export default function PatientsPage() {
           <span className="font-bold text-sm tracking-wider uppercase text-cyan-400 flex items-center gap-2 font-mono">
             <Users className="w-4.5 h-4.5" /> Patient Directory
           </span>
-          <button
-            onClick={handleAddPatient}
-            className="flex items-center gap-1 text-[10px] uppercase font-mono font-bold px-2 py-1 rounded bg-cyan-950 border border-cyan-500/40 hover:bg-cyan-900/40 transition text-cyan-400"
-          >
-            <Plus className="w-3.5 h-3.5" /> ADD
-          </button>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => {
+                const headers = ['Patient ID', 'Name', 'Age', 'Gender', 'Symptoms', 'Clinical Notes', 'Heart Rate (BPM)', 'SpO2 (%)', 'Temperature (°C)', 'Blood Pressure', 'ABHA ID', 'PM-JAY Eligibility', 'Blood Sugar (mg/dL)'];
+                const rows = patients.map(p => [
+                  p.id,
+                  p.name,
+                  p.age,
+                  p.gender,
+                  `"${p.symptoms.replace(/"/g, '""')}"`,
+                  `"${p.notes.replace(/"/g, '""')}"`,
+                  p.vitals.hr,
+                  p.vitals.spo2,
+                  p.vitals.temp,
+                  p.vitals.bp,
+                  p.abhaId || 'N/A',
+                  p.pmjayEligible || 'N/A',
+                  p.bloodSugar || 'N/A'
+                ]);
+                const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `patient_registry_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              title="Download Registry as Excel CSV"
+              className="flex items-center gap-1 text-[10px] uppercase font-mono font-bold px-2 py-1 rounded bg-emerald-950 border border-emerald-500/40 hover:bg-emerald-900/40 transition text-emerald-400"
+            >
+              <Download className="w-3.5 h-3.5" /> EXCEL
+            </button>
+            <button
+              onClick={handleAddPatient}
+              className="flex items-center gap-1 text-[10px] uppercase font-mono font-bold px-2 py-1 rounded bg-cyan-950 border border-cyan-500/40 hover:bg-cyan-900/40 transition text-cyan-400"
+            >
+              <Plus className="w-3.5 h-3.5" /> ADD
+            </button>
+          </div>
         </div>
 
         {/* Search */}
