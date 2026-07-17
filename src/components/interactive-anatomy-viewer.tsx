@@ -218,6 +218,60 @@ export const ORGAN_MAP: Record<string, string[]> = {
   'skeletal': ['skeleton'], 'arthritis': ['muscles', 'skeleton'],
 }
 
+// Exact label → organ ID map for Gemini-constrained labels.
+// This is checked FIRST (exact match) before the fuzzy ORGAN_MAP above.
+export const LABEL_TO_ORGAN_IDS: Record<string, string[]> = {
+  'brain': ['brain'],
+  'nasal cavity': ['nasal_cavity'],
+  'throat': ['throat'],
+  'trachea': ['trachea'],
+  'lung left': ['lung_left'],
+  'lung right': ['lung_right'],
+  'heart': ['heart'],
+  'aorta': ['aorta'],
+  'liver': ['liver'],
+  'stomach': ['stomach'],
+  'gallbladder': ['gallbladder'],
+  'spleen': ['spleen'],
+  'pancreas': ['pancreas'],
+  'kidney left': ['kidney_left'],
+  'kidney right': ['kidney_right'],
+  'intestines': ['intestines'],
+  'appendix': ['appendix'],
+  'bladder': ['bladder'],
+  'spinal cord': ['spinal_cord'],
+  'skin': ['skin'],
+  'lymph nodes': ['lymph_nodes'],
+  'skeleton': ['skeleton'],
+  'muscles': ['muscles'],
+  'skull': ['skull'],
+  'spine': ['spine'],
+  'ribs': ['ribs'],
+  'pelvis': ['pelvis'],
+  'femur': ['femur'],
+  'tibia': ['tibia'],
+  'fibula': ['fibula'],
+  'patella': ['patella'],
+  'humerus': ['humerus'],
+  'radius': ['radius'],
+  'ulna': ['ulna'],
+  'clavicle': ['clavicle'],
+  'scapula': ['scapula'],
+  'biceps': ['biceps'],
+  'triceps': ['triceps'],
+  'quadriceps': ['quadriceps'],
+  'hamstrings': ['hamstrings'],
+  'deltoid': ['deltoid'],
+  'pectoral': ['pectoral'],
+  'gluteus': ['gluteus'],
+  'calf': ['calf'],
+  // Common Gemini variations
+  'left lung': ['lung_left'],
+  'right lung': ['lung_right'],
+  'left kidney': ['kidney_left'],
+  'right kidney': ['kidney_right'],
+}
+
 // Vertical offset for exploded organ view in Split View mode
 const getOrganVerticalOffset = (nodeName: string, materialNames: string[]): number => {
   const name = nodeName.toLowerCase()

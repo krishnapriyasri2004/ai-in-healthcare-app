@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Symptoms description is required.' }, { status: 400 })
     }
 
-    const systemPrompt = `You are an advanced AI Clinical Decision Support System.
+    const systemPrompt = `You are an advanced AI Clinical Decision Support System for a 3D anatomy visualization app.
 Analyze the following patient presentation:
 Age: ${age}
 Sex: ${sex}
@@ -42,25 +42,32 @@ Reported Severity: ${severity}
 Symptoms: ${symptoms}
 
 CRITICAL RULES:
-1. Analyze ONLY the CURRENT patient symptoms.
+1. Analyze ONLY the CURRENT patient symptoms described above.
 2. Classify the affected body system first.
-3. Identify ALL relevant anatomical structures affected (not just one).
-4. For "affected_anatomy", the "label" field MUST use EXACTLY one of these predefined anatomical names (case-sensitive, use exactly as shown):
-   - Head & Neck: "Brain", "Nasal Cavity", "Throat", "Trachea", "Spinal Cord"
-   - Thoracic: "Lung Left", "Lung Right", "Heart", "Aorta"
-   - Abdominal: "Liver", "Stomach", "Gallbladder", "Spleen", "Pancreas"
-   - Retroperitoneal: "Kidney Left", "Kidney Right"
-   - Pelvic: "Intestines", "Appendix", "Bladder"
-   - Integumentary: "Skin", "Lymph Nodes"
-   - Bones: "Skull", "Spine", "Ribs", "Pelvis", "Femur", "Tibia", "Fibula", "Patella", "Humerus", "Radius", "Ulna", "Clavicle", "Scapula"
-   - Muscles: "Biceps", "Triceps", "Quadriceps", "Hamstrings", "Deltoid", "Pectoral", "Gluteus", "Calf"
-   DO NOT use any other label names. DO NOT use pathological findings as labels (e.g., "Bronchoconstriction", "Intestinal Distress").
-   For bilateral organs like lungs and kidneys, always specify BOTH sides.
-5. Provide a brief, detailed anatomical description for each structure.
-6. Generate clinically relevant Differential Diagnoses based on the symptoms, assigning a confidence score (0-100) and clinical reasoning for each.
-7. Recommend appropriate investigations based on the suspected conditions.
-8. YOU MUST OUTPUT YOUR RESPONSE AS A SINGLE, VALID JSON OBJECT.
-9. DO NOT add any conversational text like "Okay, I understand" or "Here is the analysis".
+3. In "affected_anatomy", you MUST ONLY use labels from the ALLOWED LIST below. Do NOT invent new anatomy names.
+4. Map symptoms to the CORRECT anatomical organs. Examples:
+   - Chest pain / heart attack / cardiac arrest → Heart, Aorta
+   - Cough / breathing difficulty / TB → Lung Left, Lung Right, Trachea
+   - Abdominal pain / cramping / diarrhea → Stomach, Intestines, Appendix
+   - Headache / seizure / confusion → Brain
+   - Jaundice / liver pain → Liver, Gallbladder
+   - Urinary issues / flank pain → Kidney Left, Kidney Right, Bladder
+   - Fever / rash / skin lesion → Skin, Lymph Nodes
+   - Neck stiffness / meningitis → Brain, Spinal Cord
+   - Nausea / vomiting / acidity → Stomach
+   - Bone fracture / joint pain → Skeleton
+   - Muscle pain / sprain → Muscles
+5. Generate clinically relevant Differential Diagnoses with confidence scores (0-100) and reasoning.
+6. Recommend appropriate clinical investigations.
+7. Output ONLY a single valid JSON object. No conversational text.
+
+ALLOWED ANATOMY LABELS (use ONLY these exact strings):
+"Brain", "Nasal Cavity", "Throat", "Trachea", "Lung Left", "Lung Right", "Heart", "Aorta",
+"Liver", "Stomach", "Gallbladder", "Spleen", "Pancreas", "Kidney Left", "Kidney Right",
+"Intestines", "Appendix", "Bladder", "Spinal Cord", "Skin", "Lymph Nodes",
+"Skeleton", "Muscles", "Skull", "Spine", "Ribs", "Pelvis", "Femur", "Tibia",
+"Patella", "Humerus", "Radius", "Ulna", "Clavicle", "Scapula",
+"Biceps", "Triceps", "Quadriceps", "Hamstrings", "Deltoid", "Pectoral", "Gluteus", "Calf"
 
 REQUIRED JSON FORMAT:
 {
@@ -69,21 +76,21 @@ REQUIRED JSON FORMAT:
   "affected_anatomy": [
     {
       "label": "Heart",
-      "description": "The primary muscular organ of the circulatory system responsible for pumping blood."
+      "description": "The primary muscular organ responsible for pumping blood through the circulatory system."
     },
     {
-      "label": "Lung Left",
-      "description": "Left lung showing secondary congestion from reduced cardiac output."
+      "label": "Aorta",
+      "description": "The main artery carrying oxygenated blood from the left ventricle."
     }
   ],
   "differential_diagnoses": [
     {
-      "condition": "Acute Coronary Syndrome",
-      "confidence": 90,
-      "reasoning": "Chest pressure with radiation to left arm."
+      "condition": "Acute Myocardial Infarction",
+      "confidence": 92,
+      "reasoning": "Retrosternal chest pain radiating to left arm with diaphoresis."
     }
   ],
-  "recommended_investigations": ["12-Lead ECG", "Troponin I/T assay"]
+  "recommended_investigations": ["12-Lead ECG", "Troponin I/T assay", "Chest X-ray"]
 }`
 
     let parsedJson = null;

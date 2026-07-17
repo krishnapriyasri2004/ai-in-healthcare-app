@@ -8,7 +8,7 @@ import {
   Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap, Search, Heart
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { InteractiveAnatomyViewer, invalidateFnRef, ORGAN_MAP, ORGANS } from '@/components/interactive-anatomy-viewer'
+import { InteractiveAnatomyViewer, invalidateFnRef, ORGAN_MAP, ORGANS, LABEL_TO_ORGAN_IDS } from '@/components/interactive-anatomy-viewer'
 import { useAppContext } from '@/components/AppContext'
 
 const HeartDetailViewer = dynamic(() => import('@/components/heart-detail-viewer'), { ssr: false })
@@ -297,33 +297,35 @@ function ViewAnatomyPageContent() {
             : null
 
           // Robust synonym matching
-          const term = label.toLowerCase()
+          const term = label.toLowerCase().trim()
           let matchedIds: string[] = []
           
-          // 1. Dictionary Match via ORGAN_MAP
-          for (const [key, ids] of Object.entries(ORGAN_MAP)) {
-             if (term.includes(key)) matchedIds.push(...ids)
-          }
+          // 1. EXACT label match via LABEL_TO_ORGAN_IDS (highest priority, no ambiguity)
+          if (LABEL_TO_ORGAN_IDS[term]) {
+             matchedIds.push(...LABEL_TO_ORGAN_IDS[term])
+          } else {
+            // 2. Fuzzy dictionary match via ORGAN_MAP (fallback for non-standard labels)
+            for (const [key, ids] of Object.entries(ORGAN_MAP)) {
+               if (term.includes(key)) matchedIds.push(...ids)
+            }
 
-          // 2. Exact word tokens (so FBX matches specific bones/muscles like "patella", "femur", "biceps")
-          const tokens = term.split(/[\s-]+/)
-          tokens.forEach((t: string) => {
-             const clean = t.replace(/[^a-z0-9]/g, '')
-             if (clean.length > 2) matchedIds.push(clean) // minimum 3 chars to avoid noise like 'of', 'left'
-          })
+            // 3. Exact word tokens (so matches specific bones/muscles like "patella", "femur")
+            const tokens = term.split(/[\s-]+/)
+            tokens.forEach((t: string) => {
+               const clean = t.replace(/[^a-z0-9]/g, '')
+               if (clean.length > 2) matchedIds.push(clean)
+            })
 
-          // 3. Full sanitized term
-          matchedIds.push(term.replace(/[^a-z0-9]/g, '_'))
-          
-          // 4. Force skeleton/muscle systems for broad queries so they show up at all
-          if (term.includes('bone') || term.includes('spine') || term.includes('joint')) {
-             matchedIds.push('skeleton')
-          }
-          if (term.includes('muscle') || term.includes('tendon') || term.includes('ligament')) {
-             matchedIds.push('muscles')
-          }
-          if (term.includes('vein') || term.includes('artery') || term.includes('blood')) {
-             matchedIds.push('cardiovascular')
+            // 4. Full sanitized term
+            matchedIds.push(term.replace(/[^a-z0-9]/g, '_'))
+            
+            // 5. Force skeleton/muscle systems for broad queries
+            if (term.includes('bone') || term.includes('spine') || term.includes('joint')) {
+               matchedIds.push('skeleton')
+            }
+            if (term.includes('muscle') || term.includes('tendon') || term.includes('ligament')) {
+               matchedIds.push('muscles')
+            }
           }
 
           // Filter out IDs that don't correspond to real organs with known positions
