@@ -1483,7 +1483,10 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
                <div className="relative group">
                  {/* Connecting Dot */}
                  {!isAdjusting && (
-                   <div className="absolute top-1/2 left-0 w-2 h-2 -translate-y-1/2 -translate-x-1 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"></div>
+                   <div className={ann.x < ann.baseX 
+                     ? "absolute top-1/2 right-0 -translate-y-1/2 translate-x-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]" 
+                     : "absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"
+                   }></div>
                  )}
                  
                  {/* Label Box */}
@@ -1492,7 +1495,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
                      e.stopPropagation()
                      if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
                    }}
-                   className={`ml-4 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
+                   className={`${ann.x < ann.baseX ? 'mr-4' : 'ml-4'} px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
                    ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
                    ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
                    'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
