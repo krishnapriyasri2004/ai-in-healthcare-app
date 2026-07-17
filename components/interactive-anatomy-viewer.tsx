@@ -1845,7 +1845,6 @@ export function InteractiveAnatomyViewer({
                 { label: 'Visceral System', key: 'visceral',      icon: '🫁', color: 'text-purple-400' },
                 { label: 'Skeleton',        key: 'skeletal',      icon: '🦴', color: 'text-amber-400'  },
                 { label: 'Muscles',         key: 'muscular',      icon: '💪', color: 'text-rose-400'   },
-                { label: 'Organs',          key: 'digestive',     icon: '🫀', color: 'text-red-400'    },
                 { label: 'Vessels',         key: 'cardiovascular',icon: '🩸', color: 'text-blue-400'   }
               ].map(sys => {
                 const isActive = (systems as any)[sys.key]
@@ -1899,7 +1898,6 @@ export function InteractiveAnatomyViewer({
                       {[
                         { label: 'Skeleton', key: 'skeletal' as keyof SystemToggles, icon: '🦴' },
                         { label: 'Muscles',  key: 'muscular' as keyof SystemToggles, icon: '💪' },
-                        { label: 'Organs',   key: 'digestive' as keyof SystemToggles, icon: '🫀' },
                       ].map(s => (
                         <button
                           key={s.key}
