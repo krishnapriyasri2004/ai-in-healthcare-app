@@ -8,7 +8,7 @@ import {
   Mic, MicOff, Clock, User, Thermometer, FileText, ChevronDown, Zap, Search, Heart
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { InteractiveAnatomyViewer, invalidateFnRef, ORGAN_MAP } from '@/components/interactive-anatomy-viewer'
+import { InteractiveAnatomyViewer, invalidateFnRef, ORGAN_MAP, ORGANS } from '@/components/interactive-anatomy-viewer'
 import { useAppContext } from '@/components/AppContext'
 
 const HeartDetailViewer = dynamic(() => import('@/components/heart-detail-viewer'), { ssr: false })
@@ -277,37 +277,11 @@ function ViewAnatomyPageContent() {
       const newAffectedIds: string[] = []
       const newConditionsByOrgan: Record<string, any> = {}
 
-      // Check if symptoms indicates a heart issue
-      const lowercaseSymptoms = symptomsInput.toLowerCase()
-      const isHeartIssue = lowercaseSymptoms.includes('heart') || 
-                           lowercaseSymptoms.includes('chest pain') ||
-                           lowercaseSymptoms.includes('myocardial') ||
-                           lowercaseSymptoms.includes('cardiac') ||
-                           lowercaseSymptoms.includes('coronary') ||
-                           lowercaseSymptoms.includes('angina') ||
-                           lowercaseSymptoms.includes('stemi') ||
-                           lowercaseSymptoms.includes('nstemi') ||
-                           lowercaseSymptoms.includes('heart issue') ||
-                           lowercaseSymptoms.includes('heart problem') ||
-                           lowercaseSymptoms.includes('heart attack') ||
-                           rawAnatomy.some((item: any) => {
-                             const l = (item.label || '').toLowerCase()
-                             const d = (item.description || '').toLowerCase()
-                             return l.includes('heart') || d.includes('heart') || l.includes('cardiac') || d.includes('cardiac')
-                           })
-
       rawAnatomy.forEach((item: any) => {
         if (!item.label || item.label === "Unable to determine") return
         
         let label = item.label
         let description = item.description || ''
-        
-        // If there's a heart issue and this is heart-related, force label and description to say Heart Attack
-        const labelLower = label.toLowerCase()
-        if (isHeartIssue && (labelLower.includes('heart') || labelLower.includes('coronary') || labelLower.includes('aorta') || labelLower.includes('cardiac') || labelLower.includes('myocardial'))) {
-          label = 'Heart'
-          description = 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.'
-        }
         
         if (!uniqueLabels.has(label)) {
           uniqueLabels.add(label)
@@ -352,14 +326,18 @@ function ViewAnatomyPageContent() {
              matchedIds.push('cardiovascular')
           }
 
-          // Deduplicate and update state maps
-          const uniqueMatched = Array.from(new Set(matchedIds))
+          // Filter out IDs that don't correspond to real organs with known positions
+          const validOrganIds = new Set(ORGANS.map((o: any) => o.id))
+          const uniqueMatched = Array.from(new Set(matchedIds)).filter(id => validOrganIds.has(id))
+          
           uniqueMatched.forEach(id => {
              if (!newAffectedIds.includes(id)) newAffectedIds.push(id)
              if (!newConditionsByOrgan[id]) {
+                // Use the ORGAN label as the condition for this specific organ
+                // e.g. "Heart" → "Myocardial Infarction", "Stomach" → "Acute Gastritis"
                 newConditionsByOrgan[id] = {
-                   condition: id === 'heart' ? 'Heart Attack' : (bestDiag ? bestDiag.condition : label),
-                   reasoning: id === 'heart' ? 'Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.' : (bestDiag ? bestDiag.reasoning : description),
+                   condition: bestDiag ? bestDiag.condition : label,
+                   reasoning: bestDiag ? bestDiag.reasoning : description,
                    severity: severity
                 }
              }
@@ -367,31 +345,12 @@ function ViewAnatomyPageContent() {
         }
       })
 
-      // If it's a heart issue and we didn't inject "Heart" yet, do it manually
-      if (isHeartIssue && !uniqueLabels.has('Heart')) {
-        uniqueLabels.add('Heart')
-        newList.push({
-          label: 'Heart',
-          description: 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.',
-          severity: severity || 'High'
-        })
-        if (!newAffectedIds.includes('heart')) {
-          newAffectedIds.push('heart')
-        }
-        newConditionsByOrgan['heart'] = {
-          condition: 'Heart Attack',
-          reasoning: 'Heart Attack - Suspected acute myocardial infarction due to coronary artery occlusion. Click here to view detailed 3D human_heart.glb model of the affected area.',
-          severity: severity || 'High'
-        }
-      }
-
       setAnatomyList(newList)
       setAffectedOrganIds(newAffectedIds)
       setConditionsByOrgan(newConditionsByOrgan)
-      setValidatedLabels(new Set(newList.map(item => item.label))) // Med-Gemma mapping ensures all labels are anchored
+      setValidatedLabels(new Set(newList.map(item => item.label)))
 
       // Populate highlightedMeshNames for emissive glow on affected meshes
-      // Use organ IDs and their component words as search terms for mesh name matching
       const meshHighlights: string[] = []
       newAffectedIds.forEach(id => {
         meshHighlights.push(id.replace(/_/g, ''))  // e.g. 'lung_left' → 'lungleft'

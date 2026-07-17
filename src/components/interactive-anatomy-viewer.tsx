@@ -29,7 +29,7 @@ export interface SystemToggles {
   visceral: boolean
 }
 
-interface BodyOrgan {
+export interface BodyOrgan {
   id: string
   name: string
   position: [number, number, number] // base local position centered at 0
@@ -163,43 +163,45 @@ export const ORGAN_MAP: Record<string, string[]> = {
   'spinal': ['spinal_cord'], 'spine': ['spinal_cord'], 'spinal_cord': ['spinal_cord'],
 
   // Liver
-  'liver': ['liver', 'hepatic', 'organ'], 'hepatitis': ['liver', 'organ'],
-  'biliary': ['liver', 'gallbladder', 'organ'], 'bile': ['liver', 'gallbladder', 'organ'],
+  'liver': ['liver'], 'hepatic': ['liver'], 'hepatitis': ['liver'],
+  'biliary': ['liver', 'gallbladder'], 'bile': ['liver', 'gallbladder'],
 
   // Gallbladder
-  'gallbladder': ['gallbladder', 'organ'], 'cholecyst': ['gallbladder', 'organ'], 'gall_bladder': ['gallbladder', 'organ'],
+  'gallbladder': ['gallbladder'], 'cholecyst': ['gallbladder'], 'gall_bladder': ['gallbladder'],
 
   // Kidneys — ALWAYS bilateral
-  'kidneys': ['kidney_left', 'kidney_right', 'gland'], 'kidney': ['kidney_left', 'kidney_right', 'gland'],
-  'kidney_left': ['kidney_left', 'gland'], 'kidney_right': ['kidney_right', 'gland'],
-  'renal': ['kidney_left', 'kidney_right', 'gland'], 'nephro': ['kidney_left', 'kidney_right', 'gland'],
-  'ureter': ['kidney_left', 'kidney_right', 'gland'],
+  'kidneys': ['kidney_left', 'kidney_right'], 'kidney': ['kidney_left', 'kidney_right'],
+  'kidney_left': ['kidney_left'], 'kidney_right': ['kidney_right'],
+  'renal': ['kidney_left', 'kidney_right'], 'nephro': ['kidney_left', 'kidney_right'],
+  'ureter': ['kidney_left', 'kidney_right'],
 
   // Bladder & Urinary
-  'bladder': ['bladder', 'gland'], 'urinary': ['kidney_left', 'kidney_right', 'bladder', 'gland'],
-  'urethra': ['bladder', 'gland'], 'urological': ['kidney_left', 'kidney_right', 'bladder', 'gland'],
+  'bladder': ['bladder'], 'urinary': ['kidney_left', 'kidney_right', 'bladder'],
+  'urethra': ['bladder'], 'urological': ['kidney_left', 'kidney_right', 'bladder'],
 
   // Stomach & GI
-  'stomach': ['stomach', 'organ'], 'gastric': ['stomach', 'organ'], 'gastro': ['stomach', 'organ'],
-  'esophagus': ['throat', 'stomach', 'organ'], 'oesophagus': ['throat', 'stomach', 'organ'],
+  'stomach': ['stomach'], 'gastric': ['stomach'], 'gastro': ['stomach'],
+  'esophagus': ['throat', 'stomach'], 'oesophagus': ['throat', 'stomach'],
+  'epigastric': ['stomach'], 'abdomen': ['stomach', 'intestines'],
+  'abdominal': ['stomach', 'intestines'],
 
   // Intestines
-  'intestines': ['intestines', 'intestine'], 'intestinal': ['intestines', 'intestine'],
-  'intestine': ['intestines', 'intestine'], 'bowel': ['intestines', 'intestine'], 'colon': ['intestines', 'intestine'],
-  'colonic': ['intestines', 'intestine'], 'rectum': ['intestines', 'intestine'],
-  'duodenum': ['stomach', 'intestines', 'organ', 'intestine'],
-  'small_intestine': ['intestines', 'intestine'], 'large_intestine': ['intestines', 'intestine'],
-  'ileum': ['intestines', 'intestine'], 'jejunum': ['intestines', 'intestine'], 'sigmoid': ['intestines', 'intestine'],
+  'intestines': ['intestines'], 'intestinal': ['intestines'],
+  'intestine': ['intestines'], 'bowel': ['intestines'], 'colon': ['intestines'],
+  'colonic': ['intestines'], 'rectum': ['intestines'],
+  'duodenum': ['stomach', 'intestines'],
+  'small_intestine': ['intestines'], 'large_intestine': ['intestines'],
+  'ileum': ['intestines'], 'jejunum': ['intestines'], 'sigmoid': ['intestines'],
 
   // Appendix
-  'appendix': ['appendix', 'intestine'], 'appendicitis': ['appendix', 'intestine'],
+  'appendix': ['appendix'], 'appendicitis': ['appendix', 'intestines'],
 
   // Pancreas
-  'pancreas': ['pancreas', 'organ'], 'pancreatic': ['pancreas', 'organ'],
-  'insulin': ['pancreas', 'organ'], 'diabetes': ['pancreas', 'organ'], 'diabetic': ['pancreas', 'organ'],
+  'pancreas': ['pancreas'], 'pancreatic': ['pancreas'],
+  'insulin': ['pancreas'], 'diabetes': ['pancreas'], 'diabetic': ['pancreas'],
 
   // Spleen
-  'spleen': ['spleen', 'organ'], 'splenic': ['spleen', 'organ'],
+  'spleen': ['spleen'], 'splenic': ['spleen'],
 
   // Skin
   'skin': ['skin'], 'integumentary': ['skin'], 'dermal': ['skin'],
@@ -1251,17 +1253,22 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
          const center = new THREE.Vector3()
          c.geometry.boundingBox.getCenter(center)
          
-         // Convert mesh-local center → world → clone-local space
-         // This correctly handles all nested transforms without manual offset hacks
+         // Get the world center position which includes cloned's local scale/position
          const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
-         const localCenter = cloned.worldToLocal(worldCenter.clone())
+         
+         // Translate back to parent group space by subtracting splitPositionX (to avoid double horizontal shifting)
+         const parentLocalCenter = new THREE.Vector3(
+            worldCenter.x - ((viewMode === 'split') ? splitPositionX : 0.0),
+           worldCenter.y,
+           worldCenter.z
+         )
          
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
          let ox = offset.x
          let oy = offset.y
          let oz = offset.z
          if (ox === 0 && oy === 0 && oz === 0) {
-           ox = localCenter.x < 0 ? -0.45 : 0.45
+           ox = parentLocalCenter.x < 0 ? -0.45 : 0.45
            oy = 0.15
            oz = 0.15
          }
@@ -1269,12 +1276,12 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
            severity: conditionsByOrgan[organId].severity || 'Medium',
-           baseX: localCenter.x,
-           baseY: localCenter.y,
-           baseZ: localCenter.z,
-           x: localCenter.x + ox,
-           y: localCenter.y + oy,
-           z: localCenter.z + oz,
+           baseX: parentLocalCenter.x,
+           baseY: parentLocalCenter.y,
+           baseZ: parentLocalCenter.z,
+           x: parentLocalCenter.x + ox,
+           y: parentLocalCenter.y + oy,
+           z: parentLocalCenter.z + oz,
            mesh: c,
            reasoning: conditionsByOrgan[organId].reasoning || ''
          })
@@ -1282,26 +1289,22 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     })
 
     // Step 2: Position-based fallback — for organs that didn't match any mesh,
-    // use pre-defined ORGANS positions. These are in normalized coordinates
-    // (Y range roughly -1.0 to 1.0 for a 2.0-height body) which matches the
-    // clone's coordinate system after scaling, so NO additional transform needed.
+    // use the pre-defined ORGANS positions (scaled and positioned relative to the clone)
     for (const orgId of columnAffectedIds) {
       if (seenOrgans.has(orgId)) continue
       if (!conditionsByOrgan[orgId]) continue
       
       const isSceneV1 = path.includes('scene-v1')
-      let bx: number, by: number, bz: number
+      const fallbackPos = new THREE.Vector3()
       
       if (isSceneV1 && SCENE_V1_ORGANS[orgId]) {
         const coords = SCENE_V1_ORGANS[orgId]
-        bx = coords[0]; by = coords[1]; bz = coords[2]
+        fallbackPos.set(coords[0], coords[1], coords[2])
       } else {
         const organDef = ORGANS.find(o => o.id === orgId)
         if (!organDef) continue
-        // ORGANS positions are already in normalized clone-local space
-        bx = organDef.position[0]
-        by = organDef.position[1]
-        bz = organDef.position[2]
+        fallbackPos.set(organDef.position[0], organDef.position[1], organDef.position[2])
+        fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
       }
       
       seenOrgans.add(orgId)
@@ -1311,7 +1314,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       let oy = offset.y
       let oz = offset.z
       if (ox === 0 && oy === 0 && oz === 0) {
-        ox = bx < 0 ? -0.45 : 0.45
+        ox = fallbackPos.x < 0 ? -0.45 : 0.45
         oy = 0.15
         oz = 0.15
       }
@@ -1319,19 +1322,19 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
         organ: orgId,
         condition: conditionsByOrgan[orgId].condition,
         severity: conditionsByOrgan[orgId].severity || 'Medium',
-        baseX: bx,
-        baseY: by,
-        baseZ: bz,
-        x: bx + ox,
-        y: by + oy,
-        z: bz + oz,
+        baseX: fallbackPos.x,
+        baseY: fallbackPos.y,
+        baseZ: fallbackPos.z,
+        x: fallbackPos.x + ox,
+        y: fallbackPos.y + oy,
+        z: fallbackPos.z + oz,
         mesh: null,
         reasoning: conditionsByOrgan[orgId].reasoning || ''
       })
     }
 
     return out
-  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode, path])
+  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode])
 
   const { invalidate } = useThree()
 
