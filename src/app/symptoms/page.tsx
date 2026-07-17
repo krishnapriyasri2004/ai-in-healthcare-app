@@ -14,6 +14,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAppContext, DiagnosisResult, Condition } from '@/components/AppContext'
 
 const HeartDetailViewer = dynamic(() => import('@/components/heart-detail-viewer'), { ssr: false })
@@ -121,6 +122,7 @@ const toBodyModelRegions = (regions: string[], organConditions?: Record<string, 
 }
 
 export default function SymptomsPage() {
+  const router = useRouter()
   const { activePatient, setActiveDiagnosisResult } = useAppContext()
   const [symptomsInput, setSymptomsInput] = useState(activePatient?.symptoms || '')
   const [patientAge, setPatientAge] = useState(activePatient?.age || 35)
@@ -423,6 +425,19 @@ export default function SymptomsPage() {
               viewMode={viewMode}
               setViewMode={setViewMode}
             />
+
+            {/* Click-to-Workspace Hover Overlay */}
+            <div 
+              onClick={() => router.push(anatomyViewerUrl)}
+              className="absolute inset-0 bg-transparent hover:bg-cyan-950/20 transition-all flex items-center justify-center group pointer-events-auto cursor-pointer z-20"
+              title="Click to open full 5-column 3D viewer"
+            >
+              <div className="px-4 py-2 bg-slate-950/95 border border-cyan-500/30 rounded-xl text-cyan-400 font-bold uppercase text-[9px] tracking-widest shadow-2xl opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 duration-200 flex items-center gap-1.5 backdrop-blur-sm">
+                <Activity className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                Open 5-Column 3D Command Viewer
+                <ChevronRight className="w-3 h-3" />
+              </div>
+            </div>
           </div>
 
           {/* Link to full 3D viewer */}
