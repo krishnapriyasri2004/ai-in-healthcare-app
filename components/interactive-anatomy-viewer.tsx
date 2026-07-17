@@ -520,31 +520,31 @@ function SmartCallout({
 // Column  1.2 → scene.gltf cardiovascular: heart, aorta, lungs (vessel-bearing organs)
 // Column  2.4 → myology.glb muscular: skin/lymph if affected, else nothing
 const COLUMN_SCOPE: Record<string, string[] | null> = {
-  // Joe/Skin column — only skin & lymph
+  // Column 1 (-2.4): Integumentary System (Skin) — only skin & lymph
   '-2.4': ['skin', 'lymph_nodes'],
-  // Organs column (scene-v1.glb) — cardiovascular + digestive + respiratory + nervous organs
-  '-1.2': ['heart', 'aorta', 'lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity',
+  // Column 2 (-1.2): Superficial Muscular System — muscles
+  '-1.2': ['muscles'],
+  // Column 3 (0.0): Deep Muscular / Internal System — all internal organs
+  '0':    null,
+  '0.0':  null,
+  // Column 4 (1.2): Cardiovascular / Circulatory System — cardiovascular + digestive + respiratory + nervous organs
+  '1.2':  ['heart', 'aorta', 'lung_left', 'lung_right', 'trachea', 'throat', 'nasal_cavity',
            'liver', 'stomach', 'gallbladder', 'pancreas', 'spleen',
            'kidney_left', 'kidney_right', 'intestines', 'appendix', 'bladder',
            'brain', 'spinal_cord'],
-  // Skeleton column — skeletal system organs
-  '0':    ['skeleton'],
-  '0.0':  ['skeleton'],
-  // Visceral column (Male anatomy) — all internal organs
-  '1.2':  null,  // null = all affected organs
-  // Muscles column — muscular system
-  '2.4':  ['muscles'],
+  // Column 5 (2.4): Skeletal System — skeletal system organs
+  '2.4':  ['skeleton'],
 }
 
 // Label horizontal offsets per column:
-// Organs column gets the full ±0.92 spread; flanking columns use ±0.58
+// Organs/Cardiovascular column gets the full ±0.92 spread; flanking columns use ±0.58
 // to avoid labels running off-screen in split-view.
 const COLUMN_LX: Record<string, [number, number]> = {
   '-2.4': [-0.58,  0.58],
-  '-1.2': [-0.92,  0.92],
+  '-1.2': [-0.58,  0.58],
   '0':    [-0.58,  0.58],
   '0.0':  [-0.58,  0.58],
-  '1.2':  [-0.58,  0.58],
+  '1.2':  [-0.92,  0.92],
   '2.4':  [-0.58,  0.58],
 }
 
@@ -962,7 +962,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     // STEP 2: NOW remove unwanted meshes per column (after bbox)
     // ────────────────────────────────────────────────────────────
     if (path.includes('splanchnology')) {
-      if (splitPositionX === -1.2) {
+      if (splitPositionX === 1.2) {
         // Organs column: remove skin, bones, skull – keep all organs including brain
         const toRemove: THREE.Object3D[] = []
         clone.traverse((child) => {
@@ -1013,7 +1013,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       const mats: THREE.Material[] = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       const matNames = mats.map((m: any) => m ? m.name.toLowerCase() : '')
 
-      const isColumn2Organ = splitPositionX === -1.2 && path.includes('splanchnology')
+      const isColumn2Organ = splitPositionX === 1.2 && path.includes('splanchnology')
       if (isColumn2Organ) {
         const isBrain = name.includes('brain') || name.includes('cerebr') || parentName.includes('brain') || parentName.includes('cerebr')
         if (!isBrain) {
@@ -1136,7 +1136,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
   )
 
   const animatedMeshes = useMemo(() => {
-    if (splitPositionX !== -1.2 || !path.includes('splanchnology')) return []
+    if (splitPositionX !== 1.2 || !path.includes('splanchnology')) return []
     const out: { mesh: THREE.Object3D; originalY: number; offsetY: number }[] = []
     cloned.traverse((c) => {
       if (c.userData.offsetY !== undefined)
@@ -1184,24 +1184,24 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       const system = getOrganSystem(id)
       
       if (colKey === '-2.4') {
-        // Skin column
+        // Column 1: Integumentary System (Skin)
         return system === 'integumentary' || system === 'lymphatic'
       }
       if (colKey === '-1.2') {
-        // Organs column (digestive, cardiovascular, respiratory, nervous)
-        return system === 'cardiovascular' || system === 'respiratory' || system === 'digestive' || system === 'nervous'
+        // Column 2: Superficial Muscular System
+        return system === 'muscular'
       }
       if (colKey === '0' || colKey === '0.0') {
-        // Skeleton column
-        return system === 'skeletal'
-      }
-      if (colKey === '1.2') {
-        // Visceral column shows everything internal except skin, muscles, skeleton
+        // Column 3: Deep Muscular / Internal System
         return system !== 'integumentary' && system !== 'muscular' && system !== 'skeletal'
       }
+      if (colKey === '1.2') {
+        // Column 4: Cardiovascular / Circulatory System
+        return system === 'cardiovascular' || system === 'respiratory' || system === 'digestive' || system === 'nervous'
+      }
       if (colKey === '2.4') {
-        // Muscles column
-        return system === 'muscular'
+        // Column 5: Skeletal System
+        return system === 'skeletal'
       }
       return false
     })
@@ -1334,13 +1334,13 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
   // ── Visibility + highlight — iterate cached array, no traverse() ─────────
   useEffect(() => {
     const isSplanchnology = path.includes('splanchnology')
-    const isAbdomenModel = path.includes('VisceralSystem100') && splitPositionX === -1.2
+    const isAbdomenModel = path.includes('VisceralSystem100') && splitPositionX === 1.2
     const isScene = path.includes('scene') && !isAbdomenModel
     const isMyology = path.includes('myology')
     const isSkeletonGLB = path.includes('skeleton')
     const isJoe = path.includes('joe')
     const isSkinCol = splitPositionX === -2.4
-    const isOrganCol = splitPositionX === -1.2
+    const isOrganCol = splitPositionX === 1.2
 
     for (let i = 0; i < meshList.length; i++) {
       const e = meshList[i]
@@ -1937,12 +1937,52 @@ export function InteractiveAnatomyViewer({
                 <directionalLight position={[8, 14, 6]} intensity={2.2} color="#ffffff" />
                 <directionalLight position={[-8, 8, -4]} intensity={1.0} color="#ddd8f0" />
 
-                  {/* Column 2: Organs — scene-v1.glb (cardiovascular vessels) */}
+                  {/* Column 2: Superficial Muscular System — myology-v1.glb */}
+                  <Suspense fallback={null}>
+                    <RealisticGLTFModel 
+                      path="/ai-in-healthcare/asset-01/myology-v1.glb" 
+                      positionX={viewMode === 'single' ? 0.0 : -1.2} 
+                      splitPositionX={-1.2}
+                      activeSystems={systems}
+                      highlightedMeshNames={highlightedMeshNames}
+                      viewMode={viewMode}
+                      visible={viewMode === 'split' && systems.muscular}
+                      isSplittedRef={isSplittedRef}
+                      affectedOrganIds={affectedOrganIds}
+                      conditionsByOrgan={conditionsByOrgan}
+                      onModelClick={handleModelClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
+                    />
+                  </Suspense>
+
+                  {/* Column 3: Deep Muscular / Internal System — male-anatomy-senses.glb */}
+                  <Suspense fallback={null}>
+                    <RealisticGLTFModel 
+                      path="/ai-in-healthcare/source/male-anatomy-senses.glb" 
+                      positionX={viewMode === 'single' ? 0.0 : 0.0} 
+                      splitPositionX={0.0}
+                      activeSystems={systems}
+                      highlightedMeshNames={highlightedMeshNames}
+                      viewMode={viewMode}
+                      visible={viewMode === 'split' && systems.visceral}
+                      isSplittedRef={isSplittedRef}
+                      affectedOrganIds={affectedOrganIds}
+                      conditionsByOrgan={conditionsByOrgan}
+                      onModelClick={handleModelClick}
+                      labelOffsets={labelOffsets}
+                      activeAdjustOrgan={activeAdjustOrgan}
+                      onAdjustLabel={adjustOffset}
+                    />
+                  </Suspense>
+
+                  {/* Column 4: Cardiovascular / Circulatory System — scene-v1.glb */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/scene-v1.glb" 
-                      positionX={viewMode === 'single' ? 0.0 : -1.2} 
-                      splitPositionX={-1.2}
+                      positionX={viewMode === 'single' ? 0.0 : 1.2} 
+                      splitPositionX={1.2}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -1958,12 +1998,12 @@ export function InteractiveAnatomyViewer({
                     />
                   </Suspense>
 
-                  {/* Column 3: Skeletal System (from free_pack_-_human_skeleton.glb) */}
+                  {/* Column 5: Skeletal System — free_pack_-_human_skeleton.glb */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb" 
-                      positionX={viewMode === 'single' ? 0.0 : 0.0} 
-                      splitPositionX={0.0}
+                      positionX={viewMode === 'single' ? 0.0 : 2.4} 
+                      splitPositionX={2.4}
                       activeSystems={systems}
                       highlightedMeshNames={highlightedMeshNames}
                       viewMode={viewMode}
@@ -1978,47 +2018,7 @@ export function InteractiveAnatomyViewer({
                     />
                   </Suspense>
 
-                  {/* Column 4: Visceral System (Male anatomy with senses) */}
-                  <Suspense fallback={null}>
-                    <RealisticGLTFModel 
-                      path="/ai-in-healthcare/source/male-anatomy-senses.glb" 
-                      positionX={viewMode === 'single' ? 0.0 : 1.2} 
-                      splitPositionX={1.2}
-                      activeSystems={systems}
-                      highlightedMeshNames={highlightedMeshNames}
-                      viewMode={viewMode}
-                      visible={viewMode === 'split' && systems.visceral}
-                      isSplittedRef={isSplittedRef}
-                      affectedOrganIds={affectedOrganIds}
-                      conditionsByOrgan={conditionsByOrgan}
-                      onModelClick={handleModelClick}
-                      labelOffsets={labelOffsets}
-                      activeAdjustOrgan={activeAdjustOrgan}
-                      onAdjustLabel={adjustOffset}
-                    />
-                  </Suspense>
-
-                  {/* Column 5: Muscular system */}
-                  <Suspense fallback={null}>
-                    <RealisticGLTFModel 
-                      path="/ai-in-healthcare/asset-01/myology-v1.glb" 
-                      positionX={viewMode === 'single' ? 0.0 : 2.4} 
-                      splitPositionX={2.4}
-                      activeSystems={systems}
-                      highlightedMeshNames={highlightedMeshNames}
-                      viewMode={viewMode}
-                      visible={viewMode === 'split' && systems.muscular}
-                      isSplittedRef={isSplittedRef}
-                      affectedOrganIds={affectedOrganIds}
-                      conditionsByOrgan={conditionsByOrgan}
-                      onModelClick={handleModelClick}
-                      labelOffsets={labelOffsets}
-                      activeAdjustOrgan={activeAdjustOrgan}
-                      onAdjustLabel={adjustOffset}
-                    />
-                  </Suspense>
-
-                  {/* Column 1: Joe (Realistic Human Body) — Rendered last with high renderOrder to paint over other layers */}
+                  {/* Column 1: Integumentary System (Skin) — joe__realistic_human_3d_model.glb */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
                       path="/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb" 
