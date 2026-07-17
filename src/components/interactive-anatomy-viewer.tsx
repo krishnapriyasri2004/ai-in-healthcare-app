@@ -1220,9 +1220,6 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
   const annotations = useMemo(() => {
     if (columnAffectedIds.length === 0) return []
     
-    const [colLX, colRX] = COLUMN_LX[colKey] ?? [-0.58, 0.58]
-    const calloutLayout = computeCalloutLayout(columnAffectedIds, colLX, colRX)
-    
     const out: { organ: string, condition: string, severity: string, baseX: number, baseY: number, baseZ: number, x: number, y: number, z: number, mesh: THREE.Object3D | null, reasoning: string }[] = []
     const seenOrgans = new Set<string>()
 
@@ -1254,40 +1251,30 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
          const center = new THREE.Vector3()
          c.geometry.boundingBox.getCenter(center)
          
-         // Get the world center position which includes cloned's local scale/position
+         // Convert mesh-local center → world → clone-local space
+         // This correctly handles all nested transforms without manual offset hacks
          const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
+         const localCenter = cloned.worldToLocal(worldCenter.clone())
          
-         // Translate back to parent group space by subtracting splitPositionX (to avoid double horizontal shifting)
-         const parentLocalCenter = new THREE.Vector3(
-            worldCenter.x - ((viewMode === 'split') ? splitPositionX : 0.0),
-           worldCenter.y,
-           worldCenter.z
-         )
-         
-         const layout = calloutLayout.find(l => l.organ.id === organId)
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
-         let tx = 0, ty = 0, tz = 0
-         
-         if (offset.x === 0 && offset.y === 0 && offset.z === 0) {
-           tx = layout ? layout.labelX : (parentLocalCenter.x + (parentLocalCenter.x < 0 ? -0.45 : 0.45))
-           ty = layout ? layout.labelY : (parentLocalCenter.y + 0.15)
-           tz = parentLocalCenter.z + 0.15
-         } else {
-           tx = (layout ? layout.labelX : parentLocalCenter.x) + offset.x
-           ty = (layout ? layout.labelY : parentLocalCenter.y) + offset.y
-           tz = parentLocalCenter.z + offset.z
+         let ox = offset.x
+         let oy = offset.y
+         let oz = offset.z
+         if (ox === 0 && oy === 0 && oz === 0) {
+           ox = localCenter.x < 0 ? -0.45 : 0.45
+           oy = 0.15
+           oz = 0.15
          }
-         
          out.push({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
            severity: conditionsByOrgan[organId].severity || 'Medium',
-           baseX: parentLocalCenter.x,
-           baseY: parentLocalCenter.y,
-           baseZ: parentLocalCenter.z,
-           x: tx,
-           y: ty,
-           z: tz,
+           baseX: localCenter.x,
+           baseY: localCenter.y,
+           baseZ: localCenter.z,
+           x: localCenter.x + ox,
+           y: localCenter.y + oy,
+           z: localCenter.z + oz,
            mesh: c,
            reasoning: conditionsByOrgan[organId].reasoning || ''
          })
@@ -1295,57 +1282,56 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     })
 
     // Step 2: Position-based fallback — for organs that didn't match any mesh,
-    // use the pre-defined ORGANS positions (scaled and positioned relative to the clone)
+    // use pre-defined ORGANS positions. These are in normalized coordinates
+    // (Y range roughly -1.0 to 1.0 for a 2.0-height body) which matches the
+    // clone's coordinate system after scaling, so NO additional transform needed.
     for (const orgId of columnAffectedIds) {
       if (seenOrgans.has(orgId)) continue
       if (!conditionsByOrgan[orgId]) continue
       
       const isSceneV1 = path.includes('scene-v1')
-      const fallbackPos = new THREE.Vector3()
+      let bx: number, by: number, bz: number
       
       if (isSceneV1 && SCENE_V1_ORGANS[orgId]) {
         const coords = SCENE_V1_ORGANS[orgId]
-        fallbackPos.set(coords[0], coords[1], coords[2])
+        bx = coords[0]; by = coords[1]; bz = coords[2]
       } else {
         const organDef = ORGANS.find(o => o.id === orgId)
         if (!organDef) continue
-        fallbackPos.set(organDef.position[0], organDef.position[1], organDef.position[2])
-        fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
+        // ORGANS positions are already in normalized clone-local space
+        bx = organDef.position[0]
+        by = organDef.position[1]
+        bz = organDef.position[2]
       }
       
       seenOrgans.add(orgId)
       
-      const layout = calloutLayout.find(l => l.organ.id === orgId)
       const offset = labelOffsets?.[orgId] || { x: 0, y: 0, z: 0 }
-      let tx = 0, ty = 0, tz = 0
-      
-      if (offset.x === 0 && offset.y === 0 && offset.z === 0) {
-        tx = layout ? layout.labelX : (fallbackPos.x + (fallbackPos.x < 0 ? -0.45 : 0.45))
-        ty = layout ? layout.labelY : (fallbackPos.y + 0.15)
-        tz = fallbackPos.z + 0.15
-      } else {
-        tx = (layout ? layout.labelX : fallbackPos.x) + offset.x
-        ty = (layout ? layout.labelY : fallbackPos.y) + offset.y
-        tz = fallbackPos.z + offset.z
+      let ox = offset.x
+      let oy = offset.y
+      let oz = offset.z
+      if (ox === 0 && oy === 0 && oz === 0) {
+        ox = bx < 0 ? -0.45 : 0.45
+        oy = 0.15
+        oz = 0.15
       }
-      
       out.push({
         organ: orgId,
         condition: conditionsByOrgan[orgId].condition,
         severity: conditionsByOrgan[orgId].severity || 'Medium',
-        baseX: fallbackPos.x,
-        baseY: fallbackPos.y,
-        baseZ: fallbackPos.z,
-        x: tx,
-        y: ty,
-        z: tz,
+        baseX: bx,
+        baseY: by,
+        baseZ: bz,
+        x: bx + ox,
+        y: by + oy,
+        z: bz + oz,
         mesh: null,
         reasoning: conditionsByOrgan[orgId].reasoning || ''
       })
     }
 
     return out
-  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode, colKey, path])
+  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX, viewMode, path])
 
   const { invalidate } = useThree()
 
@@ -1442,6 +1428,12 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     invalidate()
   }, [meshList, activeSystems, highlightedMeshNames, splitPositionX, path, visible, invalidate])
 
+  // Per-column callout layout (uses the columnAffectedIds computed earlier)
+  const [colLX, colRX] = COLUMN_LX[colKey] ?? [-0.58, 0.58]
+  const calloutLayout = useMemo(
+    () => computeCalloutLayout(columnAffectedIds, colLX, colRX),
+    [columnAffectedIds, colLX, colRX]
+  )
 
   return (
     <group
@@ -1487,25 +1479,26 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
                zIndexRange={[100, 0]}
                className="pointer-events-auto cursor-pointer"
              >
-                <div className="relative w-0 h-0 flex items-center justify-center group">
-                 {/* Connecting Dot (centered exactly at the 3D line end) */}
+               <div className="relative group">
+                 {/* Connecting Dot */}
                  {!isAdjusting && (
-                   <div className="absolute w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#22d3ee] z-20"></div>
+                   <div className={ann.x < ann.baseX 
+                     ? "absolute top-1/2 right-0 -translate-y-1/2 translate-x-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]" 
+                     : "absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"
+                   }></div>
                  )}
                  
-                 {/* Label Box (floated to the left or right of the dot) */}
+                 {/* Label Box */}
                  <div 
                    onClick={(e) => {
                      e.stopPropagation()
                      if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
                    }}
-                   className={`absolute top-1/2 -translate-y-1/2 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[130px] transition-transform duration-300 hover:scale-105 z-10 ${
-                     ann.x < ann.baseX ? 'right-3.5' : 'left-3.5'
-                   } ${
-                     ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
-                     ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
-                     'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
-                   }`}>
+                   className={`${ann.x < ann.baseX ? 'mr-4' : 'ml-4'} px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
+                   ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
+                   ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
+                   'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
+                 }`}>
                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest font-mono mb-0.5">{ann.organ.replace('_', ' ')}</span>
                    <span className="text-[11px] font-bold text-white leading-tight drop-shadow-md">{ann.condition}</span>
                  </div>
@@ -1710,25 +1703,19 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
                zIndexRange={[100, 0]}
                className="pointer-events-auto cursor-pointer"
              >
-                <div className="relative w-0 h-0 flex items-center justify-center group">
-                 {/* Connecting Dot (centered exactly at the 3D line end) */}
-                 {!isAdjusting && (
-                   <div className="absolute w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#22d3ee] z-20"></div>
-                 )}
+               <div className="relative group">
                  
-                 {/* Label Box (floated to the left or right of the dot) */}
+                 {/* Label Box */}
                  <div 
                    onClick={(e) => {
                      e.stopPropagation()
                      if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
                    }}
-                   className={`absolute top-1/2 -translate-y-1/2 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[130px] transition-transform duration-300 hover:scale-105 z-10 ${
-                     ann.x < ann.baseX ? 'right-3.5' : 'left-3.5'
-                   } ${
-                     ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
-                     ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
-                     'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
-                   }`}>
+                   className={`px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
+                   ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
+                   ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
+                   'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
+                 }`}>
                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest font-mono mb-0.5">{ann.organ.replace('_', ' ')}</span>
                    <span className="text-[11px] font-bold text-white leading-tight drop-shadow-md">{ann.condition}</span>
                  </div>

@@ -45,37 +45,45 @@ CRITICAL RULES:
 1. Analyze ONLY the CURRENT patient symptoms.
 2. Classify the affected body system first.
 3. Identify ALL relevant anatomical structures affected (not just one).
-4. Display ONLY standard anatomical names as labels in "affected_anatomy" (e.g., Patella, ACL, Meniscus, Femur, Tibia, Coronary Artery). NEVER display pathological findings such as "Intestinal Distress" or "Bronchoconstriction".
+4. For "affected_anatomy", the "label" field MUST use EXACTLY one of these predefined anatomical names (case-sensitive, use exactly as shown):
+   - Head & Neck: "Brain", "Nasal Cavity", "Throat", "Trachea", "Spinal Cord"
+   - Thoracic: "Lung Left", "Lung Right", "Heart", "Aorta"
+   - Abdominal: "Liver", "Stomach", "Gallbladder", "Spleen", "Pancreas"
+   - Retroperitoneal: "Kidney Left", "Kidney Right"
+   - Pelvic: "Intestines", "Appendix", "Bladder"
+   - Integumentary: "Skin", "Lymph Nodes"
+   - Bones: "Skull", "Spine", "Ribs", "Pelvis", "Femur", "Tibia", "Fibula", "Patella", "Humerus", "Radius", "Ulna", "Clavicle", "Scapula"
+   - Muscles: "Biceps", "Triceps", "Quadriceps", "Hamstrings", "Deltoid", "Pectoral", "Gluteus", "Calf"
+   DO NOT use any other label names. DO NOT use pathological findings as labels (e.g., "Bronchoconstriction", "Intestinal Distress").
+   For bilateral organs like lungs and kidneys, always specify BOTH sides.
 5. Provide a brief, detailed anatomical description for each structure.
-6. DO NOT attempt to map or guess 3D mesh IDs or system layers.
-7. Generate clinically relevant Differential Diagnoses based on the symptoms, assigning a confidence score (0-100) and clinical reasoning for each.
-8. Recommend appropriate investigations based on the suspected conditions.
-9. YOU MUST OUTPUT YOUR RESPONSE AS A SINGLE, VALID JSON OBJECT.
-10. DO NOT add any conversational text like "Okay, I understand" or "Here is the analysis".
-11. IMPORTANT: Map specific individual structures (e.g., ACL, MCL, Meniscus, Patellar Tendon) rather than generic systems.
+6. Generate clinically relevant Differential Diagnoses based on the symptoms, assigning a confidence score (0-100) and clinical reasoning for each.
+7. Recommend appropriate investigations based on the suspected conditions.
+8. YOU MUST OUTPUT YOUR RESPONSE AS A SINGLE, VALID JSON OBJECT.
+9. DO NOT add any conversational text like "Okay, I understand" or "Here is the analysis".
 
 REQUIRED JSON FORMAT:
 {
-  "body_system": "Musculoskeletal",
-  "body_region": "Right Knee",
+  "body_system": "Cardiovascular",
+  "body_region": "Chest",
   "affected_anatomy": [
     {
-      "label": "Patella",
-      "description": "A thick, circular-triangular bone which articulates with the femur and covers the anterior articular surface of the knee joint."
+      "label": "Heart",
+      "description": "The primary muscular organ of the circulatory system responsible for pumping blood."
     },
     {
-      "label": "Meniscus",
-      "description": "Crescent-shaped fibrocartilaginous structure in the knee that partly divides the joint cavity."
+      "label": "Lung Left",
+      "description": "Left lung showing secondary congestion from reduced cardiac output."
     }
   ],
   "differential_diagnoses": [
     {
-      "condition": "Knee Sprain",
-      "confidence": 85,
-      "reasoning": "Swelling and pain post-trauma."
+      "condition": "Acute Coronary Syndrome",
+      "confidence": 90,
+      "reasoning": "Chest pressure with radiation to left arm."
     }
   ],
-  "recommended_investigations": ["X-ray", "MRI"]
+  "recommended_investigations": ["12-Lead ECG", "Troponin I/T assay"]
 }`
 
     let parsedJson = null;
@@ -193,7 +201,40 @@ REQUIRED JSON FORMAT:
           recommended_investigations: ["12-Lead ECG", "Troponin I/T assay", "Coronary Angiography"]
         };
       }
-      // Scenario B: Lower Right Abdomen Pain (Appendicitis / Abdominal Distress)
+      // Scenario B: High Fever / Joint Pain (Dengue)
+      else if (query.includes('dengue') || query.includes('fever') || query.includes('joint') || query.includes('rash') || query.includes('petechiae')) {
+        parsedJson = {
+          body_system: "Circulatory / Integumentary",
+          body_region: "Systemic",
+          affected_anatomy: [
+            { label: "Skin", description: "The outer integumentary covering of the body, showing petechial rashes." },
+            { label: "Lymph Nodes", description: "Nodular structures of the lymphatic system, enlarged during viral infection." }
+          ],
+          differential_diagnoses: [
+            { condition: "Dengue Fever", confidence: 88, reasoning: "High fever, joint pain, retro-orbital headache, petechial rash." },
+            { condition: "Chikungunya", confidence: 60, reasoning: "Severe debilitating polyarthralgia and fever." }
+          ],
+          recommended_investigations: ["CBC (Platelet count)", "Dengue NS1 Antigen Test", "Dengue IgM/IgG ELISA"]
+        };
+      }
+      // Scenario C: Chronic Cough / Hemoptysis (TB / Lungs)
+      else if (query.includes('cough') || query.includes('lung') || query.includes('hemoptysis') || query.includes('tb') || query.includes('tuberculosis')) {
+        parsedJson = {
+          body_system: "Respiratory",
+          body_region: "Chest / Lungs",
+          affected_anatomy: [
+            { label: "Lung Left", description: "Left lung showing signs of focal infiltration or cavitary lesions in upper lobes." },
+            { label: "Lung Right", description: "Right lung showing parenchymal consolidation." },
+            { label: "Trachea", description: "The cartilaginous tube connecting the larynx to bronchi, through which sputum is expectorated." }
+          ],
+          differential_diagnoses: [
+            { condition: "Pulmonary Tuberculosis", confidence: 90, reasoning: "Chronic productive cough, hemoptysis, night sweats, weight loss." },
+            { condition: "Bacterial Pneumonia", confidence: 50, reasoning: "Productive cough with fever and chest pain." }
+          ],
+          recommended_investigations: ["Sputum Acid-Fast Bacilli (AFB) smear", "Chest X-ray (PA view)", "GeneXpert MTB/RIF assay"]
+        };
+      }
+      // Scenario D: Lower Right Abdomen Pain (Appendicitis / Abdominal Distress)
       else if (query.includes('appendicitis') || query.includes('abdomen') || query.includes('abdominal') || query.includes('abdomin') || query.includes('appendix') || query.includes('mcburney') || query.includes('cramp') || query.includes('cramping')) {
         parsedJson = {
           body_system: "Digestive",
@@ -209,23 +250,7 @@ REQUIRED JSON FORMAT:
           recommended_investigations: ["Ultrasonography (USG) of abdomen", "Contrast-Enhanced CT (CECT) scan", "Total Leucocyte Count (TLC)"]
         };
       }
-      // Scenario C: Gastric pain / Stomach ache / Nausea / Vomiting (Stomach / Intestines)
-      else if (query.includes('stomach') || query.includes('vomit') || query.includes('nausea') || query.includes('gastric') || query.includes('acid') || query.includes('heartburn') || query.includes('digestive')) {
-        parsedJson = {
-          body_system: "Digestive",
-          body_region: "Abdomen",
-          affected_anatomy: [
-            { label: "Stomach", description: "The muscular organ that receives food and performs primary mechanical and chemical digestion." },
-            { label: "Intestines", description: "The digestive tract where water and nutrients are absorbed." }
-          ],
-          differential_diagnoses: [
-            { condition: "Acute Gastritis / GERD", confidence: 85, reasoning: "Upper abdominal discomfort, acidity, nausea, or vomiting." },
-            { condition: "Peptic Ulcer Disease", confidence: 65, reasoning: "Localized epigastric burning pain relieved or exacerbated by food." }
-          ],
-          recommended_investigations: ["Upper GI Endoscopy", "H. pylori stool antigen test", "Abdominal USG"]
-        };
-      }
-      // Scenario D: Severe Headache / Stiff Neck (Meningitis)
+      // Scenario E: Severe Headache / Stiff Neck (Meningitis)
       else if (query.includes('headache') || query.includes('stiff') || query.includes('neck') || query.includes('meningitis') || query.includes('brain')) {
         parsedJson = {
           body_system: "Nervous",
@@ -239,23 +264,6 @@ REQUIRED JSON FORMAT:
             { condition: "Viral Encephalitis", confidence: 55, reasoning: "Headache, fever, and confusion without severe stiffness." }
           ],
           recommended_investigations: ["Lumbar Puncture (CSF analysis)", "Contrast-Enhanced MRI of brain", "Blood Culture"]
-        };
-      }
-      // Scenario E: Chronic Cough / Lungs (TB / Lungs)
-      else if (query.includes('cough') || query.includes('lung') || query.includes('hemoptysis') || query.includes('tb') || query.includes('tuberculosis')) {
-        parsedJson = {
-          body_system: "Respiratory",
-          body_region: "Chest / Lungs",
-          affected_anatomy: [
-            { label: "Lung Left", description: "Left lung showing signs of focal infiltration or cavitary lesions in upper lobes." },
-            { label: "Lung Right", description: "Right lung showing parenchymal consolidation." },
-            { label: "Trachea", description: "The cartilaginous tube connecting the larynx to bronchi, through which sputum is expectorated." }
-          ],
-          differential_diagnoses: [
-            { condition: "Pulmonary Tuberculosis", confidence: 90, reasoning: "Chronic productive cough, hemoptysis, night sweats, weight loss." },
-            { condition: "Bacterial Pneumonia", confidence: 50, reasoning: "Productive cough with fever and chest pain." }
-          ],
-          recommended_investigations: ["Sputum Acid-Fast Bacilli (AFB) smear", "Chest X-ray (PA view)", "GeneXpert MTB/RIF assay"]
         };
       }
       // Scenario F: Jaundice / Liver / Abdominal Bloating (Liver / Kidneys)
@@ -275,20 +283,20 @@ REQUIRED JSON FORMAT:
           recommended_investigations: ["Liver Function Tests (LFT)", "Renal Function Tests (RFT / Serum Creatinine)", "Abdominal USG"]
         };
       }
-      // Scenario G: High Fever / Joint Pain (Dengue)
-      else if (query.includes('dengue') || (query.includes('fever') && (query.includes('joint') || query.includes('rash') || query.includes('petechiae') || query.includes('retro-orbital') || query.includes('eye') || query.includes('breakbone')))) {
+      // Scenario G: Gastric pain / Stomach ache / Nausea / Vomiting (Stomach / Intestines)
+      else if (query.includes('stomach') || query.includes('vomit') || query.includes('nausea') || query.includes('gastric') || query.includes('acid') || query.includes('heartburn') || query.includes('digestive')) {
         parsedJson = {
-          body_system: "Circulatory / Integumentary",
-          body_region: "Systemic",
+          body_system: "Digestive",
+          body_region: "Abdomen",
           affected_anatomy: [
-            { label: "Skin", description: "The outer integumentary covering of the body, showing petechial rashes." },
-            { label: "Lymph Nodes", description: "Nodular structures of the lymphatic system, enlarged during viral infection." }
+            { label: "Stomach", description: "The muscular organ that receives food and performs primary mechanical and chemical digestion." },
+            { label: "Intestines", description: "The digestive tract where water and nutrients are absorbed." }
           ],
           differential_diagnoses: [
-            { condition: "Dengue Fever", confidence: 88, reasoning: "High fever, joint pain, retro-orbital headache, petechial rash." },
-            { condition: "Chikungunya", confidence: 60, reasoning: "Severe debilitating polyarthralgia and fever." }
+            { condition: "Acute Gastritis / GERD", confidence: 85, reasoning: "Upper abdominal discomfort, acidity, nausea, or vomiting." },
+            { condition: "Peptic Ulcer Disease", confidence: 65, reasoning: "Localized epigastric burning pain relieved or exacerbated by food." }
           ],
-          recommended_investigations: ["CBC (Platelet count)", "Dengue NS1 Antigen Test", "Dengue IgM/IgG ELISA"]
+          recommended_investigations: ["Upper GI Endoscopy", "H. pylori stool antigen test", "Abdominal USG"]
         };
       }
       // Fallback Default
