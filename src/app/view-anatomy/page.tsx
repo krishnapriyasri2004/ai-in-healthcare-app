@@ -13,7 +13,7 @@ import { useAppContext } from '@/components/AppContext'
 
 const HeartDetailViewer = dynamic(() => import('@/components/heart-detail-viewer'), { ssr: false })
 
-export default function ViewAnatomyPage() {
+function ViewAnatomyPageContent() {
   const { activePatient } = useAppContext()
   const [viewMode, setViewMode] = useState<'split' | 'single'>('single')
   const isSplittedRef = useRef<boolean>(false) // High performance split toggle Ref
@@ -898,5 +898,13 @@ export default function ViewAnatomyPage() {
       )}
 
     </div>
+  )
+}
+
+export default function ViewAnatomyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#020817] flex items-center justify-center text-slate-100">Loading Anatomy Workspace...</div>}>
+      <ViewAnatomyPageContent />
+    </Suspense>
   )
 }

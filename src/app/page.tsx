@@ -272,9 +272,6 @@ export default function Home() {
         </div>
       </section>
 
-
-      </section>
-
       {/* ── PATIENT REGISTRY TABLE (REAL VIEW & SCROLLABLE) ── */}
       <section className="mb-10 relative z-10">
         <div className="flex items-center justify-between mb-5">
