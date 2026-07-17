@@ -226,8 +226,8 @@ REQUIRED JSON FORMAT:
           recommended_investigations: ["Sputum Acid-Fast Bacilli (AFB) smear", "Chest X-ray (PA view)", "GeneXpert MTB/RIF assay"]
         };
       }
-      // Scenario D: Lower Right Abdomen Pain (Appendicitis)
-      else if (query.includes('appendicitis') || query.includes('abdomen') || query.includes('appendix') || query.includes('mcburney')) {
+      // Scenario D: Lower Right Abdomen Pain (Appendicitis / Abdominal Distress)
+      else if (query.includes('appendicitis') || query.includes('abdomen') || query.includes('abdominal') || query.includes('abdomin') || query.includes('appendix') || query.includes('mcburney') || query.includes('cramp') || query.includes('cramping')) {
         parsedJson = {
           body_system: "Digestive",
           body_region: "Abdomen",
@@ -294,15 +294,16 @@ REQUIRED JSON FORMAT:
       // Fallback Default
       else {
         parsedJson = {
-          body_system: "Systemic",
-          body_region: "General",
+          body_system: "Digestive",
+          body_region: "Abdomen",
           affected_anatomy: [
-            { label: "Heart", description: "The primary muscular organ of the circulatory system." }
+            { label: "Stomach", description: "The stomach and upper digestive organs showing general signs of discomfort or mild functional distress." },
+            { label: "Intestines", description: "The intestines showing signs of mild colic or functional cramping." }
           ],
           differential_diagnoses: [
-            { condition: "General Malaise", confidence: 70, reasoning: "Nonspecific presentation of clinical symptoms." }
+            { condition: "General Abdominal Colic / Gastroenteritis", confidence: 75, reasoning: "Nonspecific presentation of digestive discomfort or cramping symptoms." }
           ],
-          recommended_investigations: ["Complete Blood Count (CBC)"]
+          recommended_investigations: ["Clinical physical evaluation"]
         };
       }
     }
