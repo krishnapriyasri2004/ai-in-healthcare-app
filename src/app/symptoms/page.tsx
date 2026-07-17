@@ -429,7 +429,6 @@ export default function SymptomsPage() {
           {result && (
             <Link
               href={anatomyViewerUrl}
-              target="_blank"
               className="flex items-center justify-center gap-2 py-2.5 bg-violet-950/40 hover:bg-violet-900/40 border border-violet-500/30 rounded-xl text-violet-300 font-bold uppercase text-[10px] tracking-widest transition"
             >
               <Activity className="w-4 h-4" />
