@@ -80,6 +80,38 @@ REQUIRED JSON FORMAT:
 
     let parsedJson = null;
 
+    // ── STEP 0: Attempt Google Gemini API (Recommended) ───────────────────────
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1
+            }
+          })
+        });
+        
+        if (geminiRes.ok) {
+          const resJson = await geminiRes.json();
+          const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            parsedJson = JSON.parse(text);
+            console.log('Gemini API successfully analyzed symptoms!');
+          }
+        } else {
+          console.log('Gemini API request failed:', await geminiRes.text());
+        }
+      } catch (e) {
+        console.log('Gemini API integration error:', e);
+      }
+    }
+
     // ── STEP 1: Attempt Local LM Studio Server (if running) ───────────────────
     try {
       let activeModelId = 'local-model'

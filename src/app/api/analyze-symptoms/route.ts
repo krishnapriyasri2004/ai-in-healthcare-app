@@ -47,6 +47,40 @@ Analyze the symptoms and return strict JSON with:
     const userPrompt = `Patient Biological Sex: ${gender || 'Unknown'}${vitalsStr}\nPatient symptoms: ${symptoms}${notes ? `\nAdditional notes: ${notes}` : ''}`
 
     let object
+
+    // ── STEP 0: Attempt Google Gemini API (Recommended) ───────────────────────
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const fullPrompt = `${systemPrompt}\n\n${userPrompt}\n\nReturn strict JSON following the schema and instructions.`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1
+            }
+          })
+        });
+        
+        if (geminiRes.ok) {
+          const resJson = await geminiRes.json();
+          const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            object = JSON.parse(text);
+            console.log('[analyze-symptoms] Gemini API successfully analyzed symptoms!');
+          }
+        } else {
+          console.log('[analyze-symptoms] Gemini API request failed:', await geminiRes.text());
+        }
+      } catch (e) {
+        console.log('[analyze-symptoms] Gemini API integration error:', e);
+      }
+    }
+
     const apiKey = process.env.HUGGINGFACE_API_TOKEN || process.env.HF_TOKEN || process.env.MEDGEMMA_API_KEY
     if (apiKey) {
       try {
