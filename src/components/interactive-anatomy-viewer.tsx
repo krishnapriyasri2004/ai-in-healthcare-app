@@ -1487,26 +1487,25 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
                zIndexRange={[100, 0]}
                className="pointer-events-auto cursor-pointer"
              >
-               <div className="relative group">
-                 {/* Connecting Dot */}
+                <div className="relative w-0 h-0 flex items-center justify-center group">
+                 {/* Connecting Dot (centered exactly at the 3D line end) */}
                  {!isAdjusting && (
-                   <div className={ann.x < ann.baseX 
-                     ? "absolute top-1/2 right-0 -translate-y-1/2 translate-x-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]" 
-                     : "absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]"
-                   }></div>
+                   <div className="absolute w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#22d3ee] z-20"></div>
                  )}
                  
-                 {/* Label Box */}
+                 {/* Label Box (floated to the left or right of the dot) */}
                  <div 
                    onClick={(e) => {
                      e.stopPropagation()
                      if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
                    }}
-                   className={`${ann.x < ann.baseX ? 'mr-4' : 'ml-4'} px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
-                   ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
-                   ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
-                   'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
-                 }`}>
+                   className={`absolute top-1/2 -translate-y-1/2 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[130px] transition-transform duration-300 hover:scale-105 z-10 ${
+                     ann.x < ann.baseX ? 'right-3.5' : 'left-3.5'
+                   } ${
+                     ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
+                     ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
+                     'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
+                   }`}>
                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest font-mono mb-0.5">{ann.organ.replace('_', ' ')}</span>
                    <span className="text-[11px] font-bold text-white leading-tight drop-shadow-md">{ann.condition}</span>
                  </div>
@@ -1711,19 +1710,25 @@ const RealisticFBXModel = React.memo(function RealisticFBXModel({
                zIndexRange={[100, 0]}
                className="pointer-events-auto cursor-pointer"
              >
-               <div className="relative group">
+                <div className="relative w-0 h-0 flex items-center justify-center group">
+                 {/* Connecting Dot (centered exactly at the 3D line end) */}
+                 {!isAdjusting && (
+                   <div className="absolute w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#22d3ee] z-20"></div>
+                 )}
                  
-                 {/* Label Box */}
+                 {/* Label Box (floated to the left or right of the dot) */}
                  <div 
                    onClick={(e) => {
                      e.stopPropagation()
                      if (onOrganClick) onOrganClick(ann.organ, ann.condition, ann.reasoning, ann.severity)
                    }}
-                   className={`px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[120px] transition-transform duration-300 hover:scale-105 ${
-                   ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
-                   ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
-                   'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
-                 }`}>
+                   className={`absolute top-1/2 -translate-y-1/2 px-3 py-1.5 backdrop-blur-xl border rounded-lg shadow-2xl flex flex-col min-w-[130px] transition-transform duration-300 hover:scale-105 z-10 ${
+                     ann.x < ann.baseX ? 'right-3.5' : 'left-3.5'
+                   } ${
+                     ann.severity?.toLowerCase() === 'high' || ann.severity?.toLowerCase() === 'critical' ? 'bg-red-950/80 border-red-500/50 hover:bg-red-900/90' : 
+                     ann.severity?.toLowerCase() === 'low' ? 'bg-green-950/80 border-green-500/50 hover:bg-green-900/90' : 
+                     'bg-amber-950/80 border-amber-500/50 hover:bg-amber-900/90'
+                   }`}>
                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest font-mono mb-0.5">{ann.organ.replace('_', ' ')}</span>
                    <span className="text-[11px] font-bold text-white leading-tight drop-shadow-md">{ann.condition}</span>
                  </div>
