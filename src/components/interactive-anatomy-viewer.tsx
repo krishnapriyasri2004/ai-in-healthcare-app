@@ -1243,16 +1243,23 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
          if (!c.geometry.boundingBox) c.geometry.computeBoundingBox()
          const center = new THREE.Vector3()
          c.geometry.boundingBox.getCenter(center)
+         
+         // Get the world center position which includes cloned's local scale/position
          const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
-         const localCenter = cloned.worldToLocal(worldCenter)
-         localCenter.multiply(cloned.scale).add(cloned.position)
+         
+         // Translate back to parent group space by subtracting splitPositionX (to avoid double horizontal shifting)
+         const parentLocalCenter = new THREE.Vector3(
+           worldCenter.x - splitPositionX,
+           worldCenter.y,
+           worldCenter.z
+         )
          
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
          let ox = offset.x
          let oy = offset.y
          let oz = offset.z
          if (ox === 0 && oy === 0 && oz === 0) {
-           ox = localCenter.x < 0 ? -0.45 : 0.45
+           ox = parentLocalCenter.x < 0 ? -0.45 : 0.45
            oy = 0.15
            oz = 0.15
          }
@@ -1260,12 +1267,12 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
            organ: organId,
            condition: conditionsByOrgan[organId].condition,
            severity: conditionsByOrgan[organId].severity || 'Medium',
-           baseX: localCenter.x,
-           baseY: localCenter.y,
-           baseZ: localCenter.z,
-           x: localCenter.x + ox,
-           y: localCenter.y + oy,
-           z: localCenter.z + oz,
+           baseX: parentLocalCenter.x,
+           baseY: parentLocalCenter.y,
+           baseZ: parentLocalCenter.z,
+           x: parentLocalCenter.x + ox,
+           y: parentLocalCenter.y + oy,
+           z: parentLocalCenter.z + oz,
            mesh: c,
            reasoning: conditionsByOrgan[organId].reasoning || ''
          })
@@ -1273,7 +1280,7 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
     })
 
     // Step 2: Position-based fallback — for organs that didn't match any mesh,
-    // use the pre-defined ORGANS positions so labels still appear
+    // use the pre-defined ORGANS positions (scaled and positioned relative to the clone)
     for (const orgId of columnAffectedIds) {
       if (seenOrgans.has(orgId)) continue
       if (!conditionsByOrgan[orgId]) continue
@@ -1282,12 +1289,17 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       if (!organDef) continue
       
       seenOrgans.add(orgId)
+      
+      // Scale and position the fallback coordinates to align with the scaled clone
+      const fallbackPos = new THREE.Vector3(organDef.position[0], organDef.position[1], organDef.position[2])
+      fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
+      
       const offset = labelOffsets?.[orgId] || { x: 0, y: 0, z: 0 }
       let ox = offset.x
       let oy = offset.y
       let oz = offset.z
       if (ox === 0 && oy === 0 && oz === 0) {
-        ox = organDef.position[0] < 0 ? -0.45 : 0.45
+        ox = fallbackPos.x < 0 ? -0.45 : 0.45
         oy = 0.15
         oz = 0.15
       }
@@ -1295,19 +1307,19 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
         organ: orgId,
         condition: conditionsByOrgan[orgId].condition,
         severity: conditionsByOrgan[orgId].severity || 'Medium',
-        baseX: organDef.position[0],
-        baseY: organDef.position[1],
-        baseZ: organDef.position[2],
-        x: organDef.position[0] + ox,
-        y: organDef.position[1] + oy,
-        z: organDef.position[2] + oz,
+        baseX: fallbackPos.x,
+        baseY: fallbackPos.y,
+        baseZ: fallbackPos.z,
+        x: fallbackPos.x + ox,
+        y: fallbackPos.y + oy,
+        z: fallbackPos.z + oz,
         mesh: null,
         reasoning: conditionsByOrgan[orgId].reasoning || ''
       })
     }
 
     return out
-  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets])
+  }, [cloned, columnAffectedIds, conditionsByOrgan, labelOffsets, splitPositionX])
 
   const { invalidate } = useThree()
 
