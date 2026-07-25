@@ -1311,8 +1311,21 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
          const worldCenter = center.clone().applyMatrix4(c.matrixWorld)
          
          // Translate back to parent group space by subtracting splitPositionX (to avoid double horizontal shifting)
+         let px = worldCenter.x - ((viewMode === 'split') ? splitPositionX : 0.0)
+         
+         const textToSearch = (
+           (conditionsByOrgan[organId]?.condition || '') + ' ' + 
+           (conditionsByOrgan[organId]?.reasoning || '')
+         ).toLowerCase()
+         
+         if (textToSearch.includes('left') || textToSearch.includes(' l ')) {
+           px = -Math.abs(px)
+         } else if (textToSearch.includes('right') || textToSearch.includes(' r ')) {
+           px = Math.abs(px)
+         }
+         
          const parentLocalCenter = new THREE.Vector3(
-            worldCenter.x - ((viewMode === 'split') ? splitPositionX : 0.0),
+           px,
            worldCenter.y,
            worldCenter.z
          )
@@ -1357,7 +1370,23 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
       } else {
         const organDef = ORGANS.find(o => o.id === orgId)
         if (!organDef) continue
-        fallbackPos.set(organDef.position[0], organDef.position[1], organDef.position[2])
+        
+        let px = organDef.position[0]
+        const py = organDef.position[1]
+        const pz = organDef.position[2]
+        
+        const textToSearch = (
+          (conditionsByOrgan[orgId]?.condition || '') + ' ' + 
+          (conditionsByOrgan[orgId]?.reasoning || '')
+        ).toLowerCase()
+        
+        if (textToSearch.includes('left') || textToSearch.includes(' l ')) {
+          px = -Math.abs(px)
+        } else if (textToSearch.includes('right') || textToSearch.includes(' r ')) {
+          px = Math.abs(px)
+        }
+        
+        fallbackPos.set(px, py, pz)
         fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
       }
       
