@@ -26,21 +26,44 @@ export default function PatientsPage() {
     setSymptomInput('')
   }
 
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newPatientName, setNewPatientName] = useState('')
+  const [newPatientAge, setNewPatientAge] = useState('35')
+  const [newPatientGender, setNewPatientGender] = useState<'Male' | 'Female'>('Male')
+  const [newPatientAbha, setNewPatientAbha] = useState('')
+  const [newPatientPmjay, setNewPatientPmjay] = useState<'Eligible' | 'Not Enrolled' | 'Under Verification'>('Not Enrolled')
+  const [newPatientHr, setNewPatientHr] = useState('72')
+  const [newPatientTemp, setNewPatientTemp] = useState('36.6')
+  const [newPatientSpo2, setNewPatientSpo2] = useState('98')
+  const [newPatientBp, setNewPatientBp] = useState('120/80')
+  const [newPatientSugar, setNewPatientSugar] = useState('')
+  const [newPatientSymptoms, setNewPatientSymptoms] = useState('')
+  const [newPatientNotes, setNewPatientNotes] = useState('')
+
   const handleAddPatient = () => {
-    const name = prompt("Enter patient full name:")
-    if (!name) return
-    const ageStr = prompt("Enter age:")
-    const age = parseInt(ageStr || '35')
-    const gender = confirm("Select biological sex: OK for Female, Cancel for Male") ? 'Female' : 'Male'
+    setShowAddModal(true)
+  }
+
+  const handleSubmitNewPatient = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newPatientName.trim()) return
 
     const newPatient: Patient = {
       id: `pat-${Date.now()}`,
-      name,
-      age,
-      gender,
-      symptoms: 'No active symptoms described.',
-      notes: 'New clinical registry created.',
-      vitals: { temp: '36.6', hr: '72', spo2: '98', bp: '120/80' },
+      name: newPatientName.trim(),
+      age: parseInt(newPatientAge) || 35,
+      gender: newPatientGender,
+      abhaId: newPatientAbha.trim() || undefined,
+      pmjayEligible: newPatientPmjay,
+      symptoms: newPatientSymptoms.trim() || 'No active symptoms described.',
+      notes: newPatientNotes.trim() || 'New clinical registry created.',
+      vitals: {
+        temp: newPatientTemp.trim() || '36.6',
+        hr: newPatientHr.trim() || '72',
+        spo2: newPatientSpo2.trim() || '98',
+        bp: newPatientBp.trim() || '120/80',
+      },
+      bloodSugar: newPatientSugar.trim() || undefined,
       history: []
     }
 
@@ -49,6 +72,21 @@ export default function PatientsPage() {
     setDiagnosisResult(null)
     setErrorMsg(null)
     setSymptomInput('')
+    
+    // Reset form states
+    setNewPatientName('')
+    setNewPatientAge('35')
+    setNewPatientGender('Male')
+    setNewPatientAbha('')
+    setNewPatientPmjay('Not Enrolled')
+    setNewPatientHr('72')
+    setNewPatientTemp('36.6')
+    setNewPatientSpo2('98')
+    setNewPatientBp('120/80')
+    setNewPatientSugar('')
+    setNewPatientSymptoms('')
+    setNewPatientNotes('')
+    setShowAddModal(false)
   }
 
   // Submit symptoms to Gemini via the API route
@@ -441,6 +479,189 @@ export default function PatientsPage() {
             )}
           </div>
 
+        </div>
+      )}
+
+
+      {/* Add Patient Modal Overlay */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-200 p-4">
+          <form 
+            onSubmit={handleSubmitNewPatient}
+            className="w-full max-w-2xl bg-[#030712]/95 border border-cyan-500/30 rounded-xl p-6 shadow-[0_0_50px_rgba(6,182,212,0.15)] flex flex-col gap-4 max-h-[90vh] overflow-y-auto custom-scrollbar"
+          >
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <span className="font-bold text-sm tracking-wider uppercase text-cyan-400 flex items-center gap-2 font-mono">
+                <Plus className="w-5 h-5" /> Add New Clinical Profile
+              </span>
+              <button 
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-white text-xs font-mono"
+              >
+                [CLOSE]
+              </button>
+            </div>
+
+            {/* Profile Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono text-gray-400 uppercase">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newPatientName}
+                  onChange={e => setNewPatientName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-mono text-gray-400 uppercase">Age</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={newPatientAge}
+                    onChange={e => setNewPatientAge(e.target.value)}
+                    className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-mono text-gray-400 uppercase">Sex</label>
+                  <select
+                    value={newPatientGender}
+                    onChange={e => setNewPatientGender(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono text-gray-400 uppercase">ABHA ID (Optional)</label>
+                <input
+                  type="text"
+                  value={newPatientAbha}
+                  onChange={e => setNewPatientAbha(e.target.value)}
+                  placeholder="91-XXXX-XXXX-XXXX"
+                  className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono text-gray-400 uppercase">PM-JAY Eligibility</label>
+                <select
+                  value={newPatientPmjay}
+                  onChange={e => setNewPatientPmjay(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                >
+                  <option value="Not Enrolled">Not Enrolled</option>
+                  <option value="Eligible">Eligible</option>
+                  <option value="Under Verification">Under Verification</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Vitals Grid */}
+            <div className="border-t border-white/10 pt-3">
+              <span className="font-bold text-[10px] tracking-wider uppercase text-cyan-500 font-mono">Patient Vitals & Telemetry</span>
+              <div className="grid grid-cols-5 gap-3 mt-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-mono text-gray-500 uppercase">HR (BPM)</label>
+                  <input
+                    type="text"
+                    value={newPatientHr}
+                    onChange={e => setNewPatientHr(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-mono text-gray-500 uppercase">Temp (°C)</label>
+                  <input
+                    type="text"
+                    value={newPatientTemp}
+                    onChange={e => setNewPatientTemp(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-mono text-gray-500 uppercase">SpO2 (%)</label>
+                  <input
+                    type="text"
+                    value={newPatientSpo2}
+                    onChange={e => setNewPatientSpo2(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-mono text-gray-500 uppercase">Blood Press.</label>
+                  <input
+                    type="text"
+                    value={newPatientBp}
+                    onChange={e => setNewPatientBp(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-mono text-gray-500 uppercase">Sugar (mg/dL)</label>
+                  <input
+                    type="text"
+                    value={newPatientSugar}
+                    onChange={e => setNewPatientSugar(e.target.value)}
+                    placeholder="e.g. 110"
+                    className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-xs outline-none focus:border-cyan-500/40 text-gray-300 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Symptoms & Notes Textareas */}
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono text-gray-400 uppercase">Symptoms Description</label>
+                <textarea
+                  value={newPatientSymptoms}
+                  onChange={e => setNewPatientSymptoms(e.target.value)}
+                  placeholder="Describe patient symptoms in detail..."
+                  rows={2}
+                  className="w-full p-2 bg-black border border-white/10 rounded-lg text-xs text-gray-300 font-mono outline-none focus:border-cyan-500/40 resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono text-gray-400 uppercase">Clinical Case Notes</label>
+                <textarea
+                  value={newPatientNotes}
+                  onChange={e => setNewPatientNotes(e.target.value)}
+                  placeholder="Enter medical history, clinical remarks, or case notes..."
+                  rows={2}
+                  className="w-full p-2 bg-black border border-white/10 rounded-lg text-xs text-gray-300 font-mono outline-none focus:border-cyan-500/40 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 justify-end border-t border-white/10 pt-4 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 border border-white/10 rounded-lg text-xs font-bold text-gray-400 font-mono hover:bg-white/5 transition"
+              >
+                CANCEL
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-gradient-to-r from-cyan-900/60 to-blue-900/60 hover:from-cyan-800/60 hover:to-blue-800/60 border border-cyan-500/40 rounded-lg text-xs font-bold text-cyan-300 font-mono transition"
+              >
+                SAVE PROFILE
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
