@@ -851,6 +851,15 @@ const AnnotationLine = React.memo(function AnnotationLine({
     return '#fb923c'
   }, [severity])
 
+  const { dir, quaternion } = useMemo(() => {
+    const s = new THREE.Vector3(...start)
+    const e = new THREE.Vector3(...end)
+    const d = s.clone().sub(e).normalize()
+    const up = new THREE.Vector3(0, 1, 0)
+    const q = new THREE.Quaternion().setFromUnitVectors(up, d)
+    return { dir: d, quaternion: q }
+  }, [start, end])
+
   return (
     <group>
       {/* 3D Connecting Line */}
@@ -860,8 +869,21 @@ const AnnotationLine = React.memo(function AnnotationLine({
 
       {/* Target Dot directly on the anatomical structure */}
       <mesh position={start}>
-        <sphereGeometry args={[0.015, 16, 16]} />
+        <sphereGeometry args={[0.012, 16, 16]} />
         <meshBasicMaterial color={color} depthTest={false} transparent opacity={0.9} />
+      </mesh>
+
+      {/* 3D Arrowhead pointing exactly to the body part */}
+      <mesh 
+        position={[
+          start[0] - dir.x * 0.025,
+          start[1] - dir.y * 0.025,
+          start[2] - dir.z * 0.025
+        ]} 
+        quaternion={quaternion}
+      >
+        <coneGeometry args={[0.015, 0.05, 12]} />
+        <meshBasicMaterial color={color} depthTest={false} transparent opacity={0.95} />
       </mesh>
     </group>
   )
