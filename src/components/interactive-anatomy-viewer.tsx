@@ -1855,11 +1855,7 @@ export function InteractiveAnatomyViewer({
   
   const adjustableOrgans = affectedOrganIds.filter(id => conditionsByOrgan[id])
 
-  useEffect(() => {
-    if (adjustableOrgans.length > 0 && !activeAdjustOrgan) {
-      setActiveAdjustOrgan(adjustableOrgans[0])
-    }
-  }, [adjustableOrgans, activeAdjustOrgan])
+  // Manual coordinate adjustment is disabled; positions are determined automatically.
 
   const adjustOffset = (organ: string, x: number, y: number, z: number) => {
     setLabelOffsets(prev => ({
