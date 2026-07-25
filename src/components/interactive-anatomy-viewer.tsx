@@ -1434,7 +1434,6 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
         const [cx, cy, cz] = constrainToAnatomicalSegment(orgId, [px, py, pz])
         
         fallbackPos.set(cx, cy, cz)
-        fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
       }
       
       seenOrgans.add(orgId)
