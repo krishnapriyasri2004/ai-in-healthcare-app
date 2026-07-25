@@ -99,7 +99,7 @@ REQUIRED JSON FORMAT:
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
       try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
         const geminiRes = await fetch(geminiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -304,6 +304,52 @@ REQUIRED JSON FORMAT:
             { condition: "Peptic Ulcer Disease", confidence: 65, reasoning: "Localized epigastric burning pain relieved or exacerbated by food." }
           ],
           recommended_investigations: ["Upper GI Endoscopy", "H. pylori stool antigen test", "Abdominal USG"]
+        };
+      }
+      // Scenario H: Skeletal / Bone (Femur, Tibia, Fracture)
+      else if (query.includes('femur') || query.includes('tibia') || query.includes('bone') || query.includes('fracture') || query.includes('skull') || query.includes('spine') || query.includes('ribs') || query.includes('skeletal')) {
+        const isFemur = query.includes('femur')
+        const isTibia = query.includes('tibia')
+        const isSkull = query.includes('skull')
+        
+        parsedJson = {
+          body_system: "Musculoskeletal (Skeletal)",
+          body_region: isFemur ? "Lower Limb (Thigh)" : isTibia ? "Lower Limb (Shin)" : isSkull ? "Head" : "Skeleton",
+          affected_anatomy: [
+            { 
+              label: isFemur ? "Femur" : isTibia ? "Tibia" : isSkull ? "Skull" : "Skeleton", 
+              description: isFemur ? "Long, weight-bearing bone in the thigh, showing structural disruption." : 
+                           isTibia ? "The shinbone, the second largest bone in the human body." : 
+                           isSkull ? "The bony structure that forms the head." : 
+                           "Systemic skeletal system showing focal bone trauma." 
+            }
+          ],
+          differential_diagnoses: [
+            { condition: isFemur ? "Acute Femoral Fracture" : isTibia ? "Tibial Shaft Fracture" : "Focal Bone Trauma", confidence: 95, reasoning: "Reported trauma with localized extreme pain, deformity, and weight-bearing inability." }
+          ],
+          recommended_investigations: ["Plain Radiography (X-ray)", "CT scan of affected limb", "Orthopedic consult"]
+        };
+      }
+      // Scenario I: Muscular / Sprain (Muscle, Biceps, Calf, etc.)
+      else if (query.includes('muscle') || query.includes('sprain') || query.includes('biceps') || query.includes('triceps') || query.includes('quadriceps') || query.includes('calf')) {
+        const isBiceps = query.includes('biceps')
+        const isCalf = query.includes('calf')
+        
+        parsedJson = {
+          body_system: "Musculoskeletal (Muscular)",
+          body_region: isBiceps ? "Upper Arm" : isCalf ? "Lower Leg" : "Skeletal Muscle",
+          affected_anatomy: [
+            { 
+              label: isBiceps ? "Biceps" : isCalf ? "Calf" : "Muscles", 
+              description: isBiceps ? "Biceps brachii muscle in the upper arm, showing localized myofibrillar strain." : 
+                           isCalf ? "Gastrocnemius or soleus muscle group showing structural strain." : 
+                           "Skeletal muscle tissue showing strain, spasm, or focal tear." 
+            }
+          ],
+          differential_diagnoses: [
+            { condition: isBiceps ? "Biceps Muscle Strain" : isCalf ? "Gastrocnemius Muscle Strain" : "Acute Muscle Sprain", confidence: 90, reasoning: "Sudden strain or tearing of muscle fibers following excessive load or twisting motion." }
+          ],
+          recommended_investigations: ["Soft tissue Ultrasonography", "MRI of the affected muscle group", "Conservative therapy assessment"]
         };
       }
       // Fallback Default

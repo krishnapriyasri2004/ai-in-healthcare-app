@@ -53,7 +53,7 @@ Analyze the symptoms and return strict JSON with:
     if (geminiKey) {
       try {
         const fullPrompt = `${systemPrompt}\n\n${userPrompt}\n\nReturn strict JSON following the schema and instructions.`;
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
         const geminiRes = await fetch(geminiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
