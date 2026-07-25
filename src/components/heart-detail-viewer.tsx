@@ -414,7 +414,9 @@ export default function HeartDetailViewer({
   onClose: () => void 
 }) {
   const treatment = matchHeartTreatment(condition)
-  const [selectedPointId, setSelectedPointId] = useState<string | null>(null)
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(
+    treatment.needsAngiogram ? 'aortic_root' : null
+  )
   const [showLabels, setShowLabels] = useState(true)
 
   const selectedPoint = selectedPointId ? ANGIOGRAM_POINTS.find(p => p.id === selectedPointId) : null

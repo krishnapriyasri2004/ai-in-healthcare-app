@@ -60,8 +60,9 @@ function ViewAnatomyPageContent() {
   }, [symptomsInput])
 
   const handleOrganClick = (organ: string, condition?: string, reasoning?: string, sev?: string) => {
-    // If the clicked organ is heart, open the 3D heart detail viewer
-    if (organ.toLowerCase().includes('heart')) {
+    const lower = organ.toLowerCase()
+    // If the clicked organ is heart, chest, or aorta, open the 3D heart detail viewer
+    if (lower.includes('heart') || lower.includes('chest') || lower.includes('aorta')) {
       setShowHeartDetail({ condition, reasoning, severity: sev })
     } else {
       setSelectedOrgan({ organ, condition, reasoning, severity: sev })
