@@ -59,7 +59,8 @@ CRITICAL RULES:
    - Muscle pain / sprain → Muscles
 5. Generate clinically relevant Differential Diagnoses with confidence scores (0-100) and reasoning.
 6. Recommend appropriate clinical investigations.
-7. Output ONLY a single valid JSON object. No conversational text.
+7. Use your deep anatomical and biological knowledge of human anatomy to map the symptoms to the precise involved structures. For example, if a fracture of the lower leg is mentioned, map it to "Tibia". If a fracture of the thigh is mentioned, map it to "Femur". If pain in the upper arm is mentioned, map it to "Biceps", "Triceps", or "Humerus". Always choose the most specific allowed label.
+8. Output ONLY a single valid JSON object. No conversational text.
 
 ALLOWED ANATOMY LABELS (use ONLY these exact strings):
 "Brain", "Nasal Cavity", "Throat", "Trachea", "Lung Left", "Lung Right", "Heart", "Aorta",
