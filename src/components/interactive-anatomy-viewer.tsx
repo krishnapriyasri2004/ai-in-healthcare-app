@@ -1255,12 +1255,12 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
         return system === 'muscular'
       }
       if (colKey === '0' || colKey === '0.0') {
-        // Column 3: Deep Muscular / Internal System
-        return system !== 'integumentary' && system !== 'muscular' && system !== 'skeletal'
+        // Column 3: Visceral System (Organs, Lungs, Brain)
+        return system === 'respiratory' || system === 'digestive' || system === 'nervous' || system === 'visceral'
       }
       if (colKey === '1.2') {
-        // Column 4: Cardiovascular / Circulatory System
-        return system === 'cardiovascular' || system === 'respiratory' || system === 'digestive' || system === 'nervous'
+        // Column 4: Cardiovascular / Circulatory System (Vessels, Heart, Aorta)
+        return system === 'cardiovascular'
       }
       if (colKey === '2.4') {
         // Column 5: Skeletal System
