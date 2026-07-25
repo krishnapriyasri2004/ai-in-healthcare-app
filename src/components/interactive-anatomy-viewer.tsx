@@ -905,6 +905,41 @@ const RealisticGLTFModel = React.memo(function RealisticGLTFModel({
   )
 })
 
+// Helper to constrain coordinates to the real physiological range of anatomical segments on the 3D model
+const constrainToAnatomicalSegment = (orgId: string, position: [number, number, number]): [number, number, number] => {
+  const cleanId = orgId.toLowerCase()
+  let [x, y, z] = position
+  
+  // Segment Reference Table with real coordinate ranges on the 3D model:
+  if (cleanId === 'femur' || cleanId === 'quadriceps' || cleanId === 'hamstrings') {
+    // Thigh: Y-range [-0.55, -0.35], Z-depth offset
+    y = Math.max(-0.55, Math.min(-0.35, y))
+    z = cleanId === 'hamstrings' ? -0.03 : 0.03
+  }
+  else if (cleanId === 'tibia' || cleanId === 'fibula' || cleanId === 'calf') {
+    // Lower Leg: Y-range [-0.90, -0.70]
+    y = Math.max(-0.90, Math.min(-0.70, y))
+    z = cleanId === 'calf' ? -0.03 : 0.01
+  }
+  else if (cleanId === 'patella') {
+    // Knee: Y-range [-0.68, -0.62]
+    y = Math.max(-0.68, Math.min(-0.62, y))
+    z = 0.04
+  }
+  else if (cleanId === 'humerus' || cleanId === 'biceps' || cleanId === 'triceps' || cleanId === 'deltoid') {
+    // Upper Arm: Y-range [0.35, 0.52]
+    y = Math.max(0.35, Math.min(0.52, y))
+    z = cleanId === 'triceps' ? -0.03 : 0.03
+  }
+  else if (cleanId === 'radius' || cleanId === 'ulna') {
+    // Forearm: Y-range [0.12, 0.28]
+    y = Math.max(0.12, Math.min(0.28, y))
+    z = cleanId === 'ulna' ? -0.01 : 0.01
+  }
+  
+  return [x, y, z]
+}
+
 const RealisticModelInner = React.memo(function RealisticModelInner({
   scene, path, positionX, splitPositionX, activeSystems, highlightedMeshNames, viewMode, visible, isSplittedRef, affectedOrganIds, conditionsByOrgan, onModelClick, onOrganClick, labelOffsets, activeAdjustOrgan, onAdjustLabel, renderOrder
 }: {
@@ -1312,23 +1347,28 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
          
          // Translate back to parent group space by subtracting splitPositionX (to avoid double horizontal shifting)
          let px = worldCenter.x - ((viewMode === 'split') ? splitPositionX : 0.0)
+         let py = worldCenter.y
+         let pz = worldCenter.z
          
          const textToSearch = (
            (conditionsByOrgan[organId]?.condition || '') + ' ' + 
            (conditionsByOrgan[organId]?.reasoning || '')
          ).toLowerCase()
          
-         if (textToSearch.includes('left') || textToSearch.includes(' l ')) {
-           px = -Math.abs(px)
-         } else if (textToSearch.includes('right') || textToSearch.includes(' r ')) {
+         // 1. Resolve Left/Right using anatomical orientation (Patient's Left = Viewer's Right)
+         const refersToLeft = textToSearch.includes('left') || textToSearch.includes(' l ') || organId.toLowerCase().includes('left')
+         const refersToRight = textToSearch.includes('right') || textToSearch.includes(' r ') || organId.toLowerCase().includes('right')
+         
+         if (refersToLeft) {
            px = Math.abs(px)
+         } else if (refersToRight) {
+           px = -Math.abs(px)
          }
          
-         const parentLocalCenter = new THREE.Vector3(
-           px,
-           worldCenter.y,
-           worldCenter.z
-         )
+         // 2. Constrain to anatomical segment range
+         const [cx, cy, cz] = constrainToAnatomicalSegment(organId, [px, py, pz])
+         
+         const parentLocalCenter = new THREE.Vector3(cx, cy, cz)
          
          const offset = labelOffsets?.[organId] || { x: 0, y: 0, z: 0 }
          let ox = offset.x
@@ -1372,21 +1412,28 @@ const RealisticModelInner = React.memo(function RealisticModelInner({
         if (!organDef) continue
         
         let px = organDef.position[0]
-        const py = organDef.position[1]
-        const pz = organDef.position[2]
+        let py = organDef.position[1]
+        let pz = organDef.position[2]
         
         const textToSearch = (
           (conditionsByOrgan[orgId]?.condition || '') + ' ' + 
           (conditionsByOrgan[orgId]?.reasoning || '')
         ).toLowerCase()
         
-        if (textToSearch.includes('left') || textToSearch.includes(' l ')) {
-          px = -Math.abs(px)
-        } else if (textToSearch.includes('right') || textToSearch.includes(' r ')) {
+        // 1. Resolve Left/Right using anatomical orientation (Patient's Left = Viewer's Right)
+        const refersToLeft = textToSearch.includes('left') || textToSearch.includes(' l ') || orgId.toLowerCase().includes('left')
+        const refersToRight = textToSearch.includes('right') || textToSearch.includes(' r ') || orgId.toLowerCase().includes('right')
+        
+        if (refersToLeft) {
           px = Math.abs(px)
+        } else if (refersToRight) {
+          px = -Math.abs(px)
         }
         
-        fallbackPos.set(px, py, pz)
+        // 2. Constrain to anatomical segment range
+        const [cx, cy, cz] = constrainToAnatomicalSegment(orgId, [px, py, pz])
+        
+        fallbackPos.set(cx, cy, cz)
         fallbackPos.multiplyScalar(cloned.scale.x).add(cloned.position)
       }
       
