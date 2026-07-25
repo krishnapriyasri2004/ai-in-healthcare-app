@@ -14,59 +14,6 @@ export default function PatientsPage() {
   const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  // Auto-analyze symptoms when active patient shifts
-  useEffect(() => {
-    if (activePatient && activePatient.symptoms && activePatient.symptoms !== 'No active symptoms described.') {
-      const autoAnalyze = async () => {
-        setIsAnalyzing(true)
-        setDiagnosisResult(null)
-        setErrorMsg(null)
-        try {
-          const res = await fetch('/ai-in-healthcare/api/analyze-symptoms-viewer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              age: activePatient.age,
-              sex: activePatient.gender,
-              duration: 'As described',
-              severity: 'Moderate',
-              symptoms: activePatient.symptoms
-            })
-          })
-          if (!res.ok) throw new Error(`API error: ${res.status}`)
-          const data = await res.json()
-          if (data.error) throw new Error(data.error)
-
-          const affectedRegions = (data.affected_anatomy || []).map((a: any) => a.label)
-          const possibleConditions = (data.differential_diagnoses || []).map((d: any) => ({
-            name: d.condition || 'Unknown',
-            confidence: d.confidence || 0,
-            reasoning: d.reasoning || ''
-          }))
-
-          const primary = possibleConditions[0]
-          const finalResult: DiagnosisResult = {
-            affectedRegions: affectedRegions,
-            possibleConditions: possibleConditions,
-            redFlag: !!data.redFlag || activePatient.symptoms.toLowerCase().includes('chest') || activePatient.symptoms.toLowerCase().includes('heart'),
-            primaryCondition: primary?.name || 'Unknown',
-            primaryConfidence: primary?.confidence || 0,
-            primaryReasoning: primary?.reasoning || ''
-          }
-          setDiagnosisResult(finalResult)
-          setActiveDiagnosisResult(finalResult)
-        } catch (e: any) {
-          setErrorMsg(e.message || 'Auto-analysis failed.')
-        } finally {
-          setIsAnalyzing(false)
-        }
-      }
-      autoAnalyze()
-    } else {
-      setDiagnosisResult(null)
-    }
-  }, [selectedPatientId])
-
   const filteredPatients = patients.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -168,41 +115,75 @@ export default function PatientsPage() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       
-      const affectedRegions = (data.affected_anatomy || []).map((a: any) => a.label)
-      const possibleConditions = (data.differential_diagnoses || []).map((d: any) => ({
-        name: d.condition || 'Unknown',
-        confidence: d.confidence || 0,
-        reasoning: d.reasoning || ''
-      }))
-      
-      const primary = possibleConditions[0]
+      const primary = data.possibleConditions?.[0]
       const finalResult: DiagnosisResult = {
-        affectedRegions: affectedRegions,
-        possibleConditions: possibleConditions,
-        redFlag: !!data.redFlag || symptoms.toLowerCase().includes('chest') || symptoms.toLowerCase().includes('heart'),
-        primaryCondition: primary?.name || 'Unknown',
+        affectedRegions: data.affectedRegions || [],
+        possibleConditions: data.possibleConditions || [],
+        redFlag: !!data.redFlag,
+        primaryCondition: primary?.name || '',
         primaryConfidence: primary?.confidence || 0,
         primaryReasoning: primary?.reasoning || ''
       }
       
       setDiagnosisResult(finalResult)
       setActiveDiagnosisResult(finalResult) // Sync to global context
-
-      // Update the active patient's symptoms in the registry list if typed in
-      if (symptomInput.trim()) {
-        setPatients(prev => prev.map(p => {
-          if (p.id === activePatient.id) {
-            return { ...p, symptoms: symptomInput.trim() }
-          }
-          return p
-        }))
-      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Analysis failed. Please try again.')
     } finally {
       setIsAnalyzing(false)
     }
   }
+
+  // Automatically trigger AI analysis when active patient changes and has active symptoms
+  useEffect(() => {
+    if (!activePatient) return
+
+    const symptoms = activePatient.symptoms
+    if (symptoms && symptoms !== 'No active symptoms described.' && symptoms.trim() !== '') {
+      const autoAnalyze = async () => {
+        setIsAnalyzing(true)
+        setDiagnosisResult(null)
+        setErrorMsg(null)
+        try {
+          const res = await fetch('/ai-in-healthcare/api/analyze-symptoms-viewer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              age: activePatient.age,
+              sex: activePatient.gender,
+              duration: 'As described',
+              severity: 'Moderate',
+              symptoms
+            })
+          })
+
+          if (!res.ok) throw new Error(`API error: ${res.status}`)
+          const data = await res.json()
+          if (data.error) throw new Error(data.error)
+          
+          const primary = data.possibleConditions?.[0]
+          const finalResult: DiagnosisResult = {
+            affectedRegions: data.affectedRegions || [],
+            possibleConditions: data.possibleConditions || [],
+            redFlag: !!data.redFlag,
+            primaryCondition: primary?.name || '',
+            primaryConfidence: primary?.confidence || 0,
+            primaryReasoning: primary?.reasoning || ''
+          }
+          
+          setDiagnosisResult(finalResult)
+          setActiveDiagnosisResult(finalResult)
+        } catch (err: any) {
+          setErrorMsg(err.message || 'Analysis failed. Please try again.')
+        } finally {
+          setIsAnalyzing(false)
+        }
+      }
+      autoAnalyze()
+    } else {
+      setDiagnosisResult(null);
+    }
+  }, [selectedPatientId, activePatient?.symptoms])
 
   // Build anatomy viewer URL with pre-filled symptoms for 3D mapping
   const getAnatomyViewerUrl = () => {
