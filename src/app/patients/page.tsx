@@ -185,6 +185,16 @@ export default function PatientsPage() {
     }
   }, [selectedPatientId, activePatient?.symptoms])
 
+  // Clear analysis result if no symptom description exists anywhere (textarea is empty and patient has no symptoms)
+  useEffect(() => {
+    const inputVal = symptomInput.trim()
+    const activeVal = activePatient?.symptoms || ''
+    const hasSymptoms = (inputVal !== '') || (activeVal !== '' && activeVal !== 'No active symptoms described.')
+    if (!hasSymptoms) {
+      setDiagnosisResult(null)
+    }
+  }, [symptomInput, activePatient?.symptoms])
+
   // Build anatomy viewer URL with pre-filled symptoms for 3D mapping
   const getAnatomyViewerUrl = () => {
     const symptoms = symptomInput.trim() || activePatient.symptoms
