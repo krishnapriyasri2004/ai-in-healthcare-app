@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { InteractiveAnatomyViewer, ORGAN_MAP } from '@/components/interactive-anatomy-viewer'
+import { InteractiveAnatomyViewer, ORGAN_MAP, LABEL_TO_ORGAN_IDS } from '@/components/interactive-anatomy-viewer'
 import {
   Sparkles,
   Activity,
@@ -270,29 +270,33 @@ export default function SymptomsPage() {
             ? data.differential_diagnoses[0] 
             : null
 
-          const term = label.toLowerCase()
+          const term = label.toLowerCase().trim()
           let matchedIds: string[] = []
           
-          for (const [key, ids] of Object.entries(ORGAN_MAP)) {
-             if (term.includes(key)) matchedIds.push(...ids)
-          }
+          if (LABEL_TO_ORGAN_IDS[term]) {
+             matchedIds.push(...LABEL_TO_ORGAN_IDS[term])
+          } else {
+            for (const [key, ids] of Object.entries(ORGAN_MAP)) {
+               if (term.includes(key)) matchedIds.push(...ids)
+            }
 
-          const tokens = term.split(/[\s-]+/)
-          tokens.forEach((t: string) => {
-             const clean = t.replace(/[^a-z0-9]/g, '')
-             if (clean.length > 2) matchedIds.push(clean)
-          })
+            const tokens = term.split(/[\s-]+/)
+            tokens.forEach((t: string) => {
+               const clean = t.replace(/[^a-z0-9]/g, '')
+               if (clean.length > 2) matchedIds.push(clean)
+            })
 
-          matchedIds.push(term.replace(/[^a-z0-9]/g, '_'))
-          
-          if (term.includes('bone') || term.includes('spine') || term.includes('joint')) {
-             matchedIds.push('skeleton')
-          }
-          if (term.includes('muscle') || term.includes('tendon') || term.includes('ligament')) {
-             matchedIds.push('muscles')
-          }
-          if (term.includes('vein') || term.includes('artery') || term.includes('blood')) {
-             matchedIds.push('cardiovascular')
+            matchedIds.push(term.replace(/[^a-z0-9]/g, '_'))
+            
+            if (term.includes('bone') || term.includes('spine') || term.includes('joint')) {
+               matchedIds.push('skeleton')
+            }
+            if (term.includes('muscle') || term.includes('tendon') || term.includes('ligament')) {
+               matchedIds.push('muscles')
+            }
+            if (term.includes('vein') || term.includes('artery') || term.includes('blood')) {
+               matchedIds.push('cardiovascular')
+            }
           }
 
           const uniqueMatched = Array.from(new Set(matchedIds))
