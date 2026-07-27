@@ -193,168 +193,276 @@ REQUIRED JSON FORMAT:
     if (!parsedJson) {
       const query = symptoms.toLowerCase();
 
-      // Scenario A: Chest Pain / STEMI (Heart)
-      if (query.includes('chest') || query.includes('heart') || query.includes('retrosternal') || query.includes('stemi') || query.includes('cardiac')) {
-        parsedJson = {
-          body_system: "Cardiovascular",
-          body_region: "Chest",
-          affected_anatomy: [
+      // We will perform a keyword scoring match to find the most relevant systems/organs
+      const ruleMatches: Array<{
+        system: string
+        region: string
+        anatomy: Array<{ label: string; description: string }>
+        diagnoses: Array<{ condition: string; confidence: number; reasoning: string }>
+        investigations: string[]
+        score: number
+      }> = []
+
+      const RULES = [
+        {
+          keywords: ['ear', 'otitis', 'hearing', 'tinnitus', 'eardrum', 'canal', 'auditory', 'mastoid', 'tympanic', 'audiometry', 'vestibular'],
+          system: "Nervous / Sensory",
+          region: "Head (Ear)",
+          anatomy: [
+            { label: "Brain", description: "Auditory cranial nerves (CN VIII) and vestibular pathways, transmitting sound/balance signals to the cortex." },
+            { label: "Nasal Cavity", description: "The Eustachian tube connects the middle ear to the nasopharynx (nasal cavity), equalizing middle ear pressure." }
+          ],
+          diagnoses: [
+            { condition: "Otitis Media / Eustachian Tube Dysfunction", confidence: 85, reasoning: "Ear discomfort associated with pressure feeling, likely secondary to upper respiratory tract congestion or auditory canal block." },
+            { condition: "Otitis Externa", confidence: 60, reasoning: "Outer ear canal infection, causing localized tenderness." }
+          ],
+          investigations: ["Otoscopic examination", "Tympanometry", "Audiogram"]
+        },
+        {
+          keywords: ['eye', 'vision', 'orbital', 'blur', 'blind', 'retina', 'cornea', 'cataract', 'glaucoma', 'ophthalmic'],
+          system: "Nervous / Sensory",
+          region: "Head (Eye)",
+          anatomy: [
+            { label: "Brain", description: "The visual pathway and optic nerve (CN II) projecting back to the occipital cortex." },
+            { label: "Nasal Cavity", description: "Paranasal sinuses bordering the orbits; sinus pressure frequently refers to the retro-orbital area." }
+          ],
+          diagnoses: [
+            { condition: "Sinusitis / Orbital Cellulitis", confidence: 70, reasoning: "Eye pain or pressure, often related to neighboring sinus congestion." },
+            { condition: "Optic Neuritis", confidence: 45, reasoning: "Inflammatory demyelination of the optic nerve causing eye pain on movement." }
+          ],
+          investigations: ["Visual Acuity Test", "Fundoscopic exam", "Sinus CT / Brain MRI"]
+        },
+        {
+          keywords: ['headache', 'migraine', 'head', 'brain', 'seizure', 'convulsion', 'concussion', 'dizzy', 'dizziness', 'vertigo', 'cranial', 'skull'],
+          system: "Nervous",
+          region: "Head",
+          anatomy: [
+            { label: "Brain", description: "The primary organ of the central nervous system, regulating all cognitive and motor feedback." },
+            { label: "Skull", description: "The bony framework surrounding and protecting the brain tissue." }
+          ],
+          diagnoses: [
+            { condition: "Tension Headache / Migraine", confidence: 80, reasoning: "Recurrent head pressure with sensory hypersensitivity." },
+            { condition: "Acute Meningitis", confidence: 40, reasoning: "Inflammatory irritation of the meningeal layers surrounding the brain." }
+          ],
+          investigations: ["Non-contrast Head CT", "Lumbar Puncture", "Neurological evaluation"]
+        },
+        {
+          keywords: ['chest', 'heart', 'cardiac', 'angina', 'stemi', 'nstemi', 'infarction', 'palpitation', 'aorta', 'vessel', 'coronary', 'retrosternal', 'pulse', 'bpm', 'bp'],
+          system: "Cardiovascular",
+          region: "Chest",
+          anatomy: [
             { label: "Heart", description: "The primary muscular organ of the circulatory system, responsible for pumping blood throughout the body." },
             { label: "Aorta", description: "The main artery of the body, transporting oxygenated blood from the heart." }
           ],
-          differential_diagnoses: [
+          diagnoses: [
             { condition: "Myocardial Infarction (STEMI)", confidence: 92, reasoning: "Acute retrosternal chest pain radiating to left arm with breathlessness." },
             { condition: "Acute Pericarditis", confidence: 45, reasoning: "Retrosternal chest pain modified by posture." }
           ],
-          recommended_investigations: ["12-Lead ECG", "Troponin I/T assay", "Coronary Angiography"]
-        };
-      }
-      // Scenario B: High Fever / Joint Pain (Dengue)
-      else if (query.includes('dengue') || query.includes('fever') || query.includes('joint') || query.includes('rash') || query.includes('petechiae')) {
-        parsedJson = {
-          body_system: "Circulatory / Integumentary",
-          body_region: "Systemic",
-          affected_anatomy: [
-            { label: "Skin", description: "The outer integumentary covering of the body, showing petechial rashes." },
-            { label: "Lymph Nodes", description: "Nodular structures of the lymphatic system, enlarged during viral infection." }
-          ],
-          differential_diagnoses: [
-            { condition: "Dengue Fever", confidence: 88, reasoning: "High fever, joint pain, retro-orbital headache, petechial rash." },
-            { condition: "Chikungunya", confidence: 60, reasoning: "Severe debilitating polyarthralgia and fever." }
-          ],
-          recommended_investigations: ["CBC (Platelet count)", "Dengue NS1 Antigen Test", "Dengue IgM/IgG ELISA"]
-        };
-      }
-      // Scenario C: Chronic Cough / Hemoptysis (TB / Lungs)
-      else if (query.includes('cough') || query.includes('lung') || query.includes('hemoptysis') || query.includes('tb') || query.includes('tuberculosis')) {
-        parsedJson = {
-          body_system: "Respiratory",
-          body_region: "Chest / Lungs",
-          affected_anatomy: [
+          investigations: ["12-Lead ECG", "Troponin I/T assay", "Coronary Angiography"]
+        },
+        {
+          keywords: ['cough', 'lung', 'breathe', 'breath', 'dyspnea', 'sob', 'wheeze', 'asthma', 'pneumonia', 'tuberculosis', 'tb', 'sputum', 'hemoptysis', 'bronchial', 'pleural', 'respiratory'],
+          system: "Respiratory",
+          region: "Chest / Lungs",
+          anatomy: [
             { label: "Lung Left", description: "Left lung showing signs of focal infiltration or cavitary lesions in upper lobes." },
             { label: "Lung Right", description: "Right lung showing parenchymal consolidation." },
             { label: "Trachea", description: "The cartilaginous tube connecting the larynx to bronchi, through which sputum is expectorated." }
           ],
-          differential_diagnoses: [
+          diagnoses: [
             { condition: "Pulmonary Tuberculosis", confidence: 90, reasoning: "Chronic productive cough, hemoptysis, night sweats, weight loss." },
             { condition: "Bacterial Pneumonia", confidence: 50, reasoning: "Productive cough with fever and chest pain." }
           ],
-          recommended_investigations: ["Sputum Acid-Fast Bacilli (AFB) smear", "Chest X-ray (PA view)", "GeneXpert MTB/RIF assay"]
-        };
-      }
-      // Scenario D: Lower Right Abdomen Pain (Appendicitis / Abdominal Distress)
-      else if (query.includes('appendicitis') || query.includes('abdomen') || query.includes('abdominal') || query.includes('abdomin') || query.includes('appendix') || query.includes('mcburney') || query.includes('cramp') || query.includes('cramping')) {
-        parsedJson = {
-          body_system: "Digestive",
-          body_region: "Abdomen",
-          affected_anatomy: [
+          investigations: ["Sputum Acid-Fast Bacilli (AFB) smear", "Chest X-ray (PA view)", "GeneXpert MTB/RIF assay"]
+        },
+        {
+          keywords: ['dengue', 'fever', 'joint', 'rash', 'petechiae', 'malaria', 'typhoid', 'chills', 'lymph', 'nodes', 'skin'],
+          system: "Circulatory / Integumentary",
+          region: "Systemic",
+          anatomy: [
+            { label: "Skin", description: "The outer integumentary covering of the body, showing petechial rashes." },
+            { label: "Lymph Nodes", description: "Nodular structures of the lymphatic system, enlarged during viral infection." }
+          ],
+          diagnoses: [
+            { condition: "Dengue Fever", confidence: 88, reasoning: "High fever, joint pain, retro-orbital headache, petechial rash." },
+            { condition: "Chikungunya", confidence: 60, reasoning: "Severe debilitating polyarthralgia and fever." }
+          ],
+          investigations: ["CBC (Platelet count)", "Dengue NS1 Antigen Test", "Dengue IgM/IgG ELISA"]
+        },
+        {
+          keywords: ['appendicitis', 'appendix', 'mcburney', 'rlq', 'lower right'],
+          system: "Digestive",
+          region: "Abdomen (Lower Right)",
+          anatomy: [
             { label: "Appendix", description: "A narrow, blind-ended tube projecting from the cecum, acutely inflamed." },
             { label: "Intestines", description: "The cecum and surrounding small bowel loops showing reactive wall thickening." }
           ],
-          differential_diagnoses: [
+          diagnoses: [
             { condition: "Acute Appendicitis", confidence: 95, reasoning: "Migrating pain to RLQ, rebound tenderness at McBurney's point, fever." },
             { condition: "Mesenteric Lymphadenitis", confidence: 40, reasoning: "Abdominal pain with reactive lymph nodes." }
           ],
-          recommended_investigations: ["Ultrasonography (USG) of abdomen", "Contrast-Enhanced CT (CECT) scan", "Total Leucocyte Count (TLC)"]
-        };
-      }
-      // Scenario E: Severe Headache / Stiff Neck (Meningitis)
-      else if (query.includes('headache') || query.includes('stiff') || query.includes('neck') || query.includes('meningitis') || query.includes('brain')) {
-        parsedJson = {
-          body_system: "Nervous",
-          body_region: "Head & Neck",
-          affected_anatomy: [
-            { label: "Brain", description: "Central nervous system organ covered by the leptomeninges, showing inflammatory signs." },
-            { label: "Spinal Cord", description: "The nerve fiber bundle protected by the vertebral column, showing meningeal irritation." }
-          ],
-          differential_diagnoses: [
-            { condition: "Acute Bacterial Meningitis", confidence: 85, reasoning: "High fever, neck stiffness, photophobia, altered mental status, positive Kernig's sign." },
-            { condition: "Viral Encephalitis", confidence: 55, reasoning: "Headache, fever, and confusion without severe stiffness." }
-          ],
-          recommended_investigations: ["Lumbar Puncture (CSF analysis)", "Contrast-Enhanced MRI of brain", "Blood Culture"]
-        };
-      }
-      // Scenario F: Jaundice / Liver / Abdominal Bloating (Liver / Kidneys)
-      else if (query.includes('jaundice') || query.includes('liver') || query.includes('urine') || query.includes('kidney') || query.includes('renal') || query.includes('yellow')) {
-        parsedJson = {
-          body_system: "Digestive / Urinary",
-          body_region: "Abdomen",
-          affected_anatomy: [
-            { label: "Liver", description: "The large glandular organ that filters blood, secretes bile, and detoxifies chemicals." },
-            { label: "Kidney Left", description: "The left organ that filters blood to remove waste products and produce urine." },
-            { label: "Kidney Right", description: "The right kidney." }
-          ],
-          differential_diagnoses: [
-            { condition: "Acute Hepatorenal Syndrome", confidence: 75, reasoning: "Presence of jaundice, yellow skin, and urinary backlog." },
-            { condition: "Chronic Hepatitis / Cirrhosis", confidence: 60, reasoning: "Progressive liver dysfunction leading to portal hypertension." }
-          ],
-          recommended_investigations: ["Liver Function Tests (LFT)", "Renal Function Tests (RFT / Serum Creatinine)", "Abdominal USG"]
-        };
-      }
-      // Scenario G: Gastric pain / Stomach ache / Nausea / Vomiting (Stomach / Intestines)
-      else if (query.includes('stomach') || query.includes('vomit') || query.includes('nausea') || query.includes('gastric') || query.includes('acid') || query.includes('heartburn') || query.includes('digestive')) {
-        parsedJson = {
-          body_system: "Digestive",
-          body_region: "Abdomen",
-          affected_anatomy: [
+          investigations: ["Ultrasonography (USG) of abdomen", "Contrast-Enhanced CT (CECT) scan", "Total Leucocyte Count (TLC)"]
+        },
+        {
+          keywords: ['stomach', 'vomit', 'nausea', 'gastric', 'acid', 'heartburn', 'gerd', 'indigestion', 'digestive', 'abdominal', 'abdomen', 'colic', 'cramp', 'cramping', 'intestine', 'bowel', 'colon', 'diarrhea', 'constipation'],
+          system: "Digestive",
+          region: "Abdomen",
+          anatomy: [
             { label: "Stomach", description: "The muscular organ that receives food and performs primary mechanical and chemical digestion." },
             { label: "Intestines", description: "The digestive tract where water and nutrients are absorbed." }
           ],
-          differential_diagnoses: [
-            { condition: "Acute Gastritis / GERD", confidence: 85, reasoning: "Upper abdominal discomfort, acidity, nausea, or vomiting." },
+          diagnoses: [
+            { condition: "Acute Gastritis / Gastroenteritis", confidence: 85, reasoning: "Upper abdominal discomfort, acidity, nausea, vomiting, or diarrhea." },
             { condition: "Peptic Ulcer Disease", confidence: 65, reasoning: "Localized epigastric burning pain relieved or exacerbated by food." }
           ],
-          recommended_investigations: ["Upper GI Endoscopy", "H. pylori stool antigen test", "Abdominal USG"]
-        };
+          investigations: ["Upper GI Endoscopy", "H. pylori stool antigen test", "Abdominal USG"]
+        },
+        {
+          keywords: ['jaundice', 'liver', 'hepatic', 'yellow', 'gallbladder', 'bile', 'cholecystitis'],
+          system: "Digestive",
+          region: "Abdomen (Right Upper)",
+          anatomy: [
+            { label: "Liver", description: "The large glandular organ that filters blood, secretes bile, and detoxifies chemicals." },
+            { label: "Gallbladder", description: "A pear-shaped sac beneath the liver that stores and concentrates bile." }
+          ],
+          diagnoses: [
+            { condition: "Acute Cholecystitis / Biliary Colic", confidence: 80, reasoning: "RUQ pain radiating to scapula with positive Murphy sign." },
+            { condition: "Acute Hepatitis", confidence: 70, reasoning: "Jaundice, scleral icterus, and tender hepatomegaly." }
+          ],
+          investigations: ["Liver Function Tests (LFT)", "Abdominal USG", "HIDA scan"]
+        },
+        {
+          keywords: ['kidney', 'renal', 'flank', 'nephritis', 'dysuria', 'urine', 'bladder', 'urinary', 'micturition', 'cystitis'],
+          system: "Urinary",
+          region: "Abdomen / Pelvis",
+          anatomy: [
+            { label: "Kidney Left", description: "Left retroperitoneal organ filtering blood and regulating fluids." },
+            { label: "Kidney Right", description: "Right retroperitoneal organ filtering blood and regulating fluids." },
+            { label: "Bladder", description: "Muscular bladder storing urine prior to voiding." }
+          ],
+          diagnoses: [
+            { condition: "Urinary Tract Infection (UTI)", confidence: 85, reasoning: "Dysuria, increased urinary frequency, and lower abdominal discomfort." },
+            { condition: "Nephrolithiasis (Kidney Stones)", confidence: 75, reasoning: "Acute severe spasmodic flank pain radiating to the groin." }
+          ],
+          investigations: ["Urinalysis (Urine R/E and culture)", "Renal / Bladder USG", "Non-contrast CT KUB"]
+        },
+        {
+          keywords: ['bone', 'fracture', 'joint', 'ribs', 'pelvis', 'femur', 'tibia', 'fibula', 'patella', 'humerus', 'radius', 'ulna', 'clavicle', 'scapula', 'skeletal', 'spine', 'vertebrae'],
+          system: "Musculoskeletal (Skeletal)",
+          region: "Skeleton",
+          anatomy: [
+            { label: "Skeleton", description: "The structural framework of the body consisting of bones and joints." }
+          ],
+          diagnoses: [
+            { condition: "Bone Fracture / Joint Dislocation", confidence: 90, reasoning: "Localized pain, swelling, and deformity following physical trauma." }
+          ],
+          investigations: ["Radiography (X-ray)", "CT scan of affected region", "Orthopedic consult"]
+        },
+        {
+          keywords: ['muscle', 'strain', 'sprain', 'biceps', 'triceps', 'quadriceps', 'hamstrings', 'deltoid', 'pectoral', 'gluteus', 'calf', 'myalgia'],
+          system: "Musculoskeletal (Muscular)",
+          region: "Muscles",
+          anatomy: [
+            { label: "Muscles", description: "The contractile tissues enabling physical movement." }
+          ],
+          diagnoses: [
+            { condition: "Acute Muscle Strain", confidence: 85, reasoning: "Pain and stiffness exacerbated by active contraction or passive stretch." }
+          ],
+          investigations: ["Soft tissue Ultrasonography", "Clinical examination"]
+        }
+      ]
+
+      // Count scores
+      for (const rule of RULES) {
+        let score = 0
+        for (const kw of rule.keywords) {
+          if (query.includes(kw)) {
+            score += 10
+            // Boost exact matches
+            const regex = new RegExp(`\\b${kw}\\b`, 'i')
+            if (regex.test(query)) {
+              score += 20
+            }
+          }
+        }
+        if (score > 0) {
+          ruleMatches.push({ ...rule, score })
+        }
       }
-      // Scenario H: Skeletal / Bone (Femur, Tibia, Fracture)
-      else if (query.includes('femur') || query.includes('tibia') || query.includes('bone') || query.includes('fracture') || query.includes('skull') || query.includes('spine') || query.includes('ribs') || query.includes('skeletal')) {
-        const isFemur = query.includes('femur')
-        const isTibia = query.includes('tibia')
-        const isSkull = query.includes('skull')
+
+      // Sort by score
+      ruleMatches.sort((a, b) => b.score - a.score)
+
+      // Direct anatomical scanning boost
+      const ALLOWED_LABELS = [
+        "Brain", "Nasal Cavity", "Throat", "Trachea", "Lung Left", "Lung Right", "Heart", "Aorta",
+        "Liver", "Stomach", "Gallbladder", "Spleen", "Pancreas", "Kidney Left", "Kidney Right",
+        "Intestines", "Appendix", "Bladder", "Spinal Cord", "Skin", "Lymph Nodes",
+        "Skeleton", "Muscles", "Skull", "Spine", "Ribs", "Pelvis", "Femur", "Tibia",
+        "Patella", "Humerus", "Radius", "Ulna", "Clavicle", "Scapula",
+        "Biceps", "Triceps", "Quadriceps", "Hamstrings", "Deltoid", "Pectoral", "Gluteus", "Calf"
+      ]
+
+      const directAnatomyList: Array<{ label: string; description: string }> = []
+      for (const label of ALLOWED_LABELS) {
+        const lLower = label.toLowerCase()
+        const regex = new RegExp(`\\b${lLower}\\b`, 'i')
+        if (regex.test(query)) {
+          directAnatomyList.push({
+            label: label,
+            description: `Direct symptom correlation identified for the ${label}.`
+          })
+        }
+      }
+
+      if (ruleMatches.length > 0) {
+        const best = ruleMatches[0]
+        
+        // Merge rule matches and direct matches
+        const mergedAnatomy = [...best.anatomy]
+        
+        // Add direct anatomy matches if not already present
+        for (const item of directAnatomyList) {
+          if (!mergedAnatomy.some(a => a.label === item.label)) {
+            mergedAnatomy.push(item)
+          }
+        }
+
+        let system = best.system
+        let region = best.region
+        if (directAnatomyList.length > 0) {
+          const hasBoneOrMuscle = directAnatomyList.some(item => 
+            ["Skeleton", "Skull", "Spine", "Ribs", "Pelvis", "Femur", "Tibia", "Patella", "Humerus", "Radius", "Ulna", "Clavicle", "Scapula", "Muscles", "Biceps", "Triceps", "Quadriceps", "Hamstrings", "Deltoid", "Pectoral", "Gluteus", "Calf"].includes(item.label)
+          )
+          if (hasBoneOrMuscle && system === "Digestive") {
+            system = "Musculoskeletal"
+            region = "Locomotor System"
+          }
+        }
+
+        parsedJson = {
+          body_system: system,
+          body_region: region,
+          affected_anatomy: mergedAnatomy,
+          differential_diagnoses: best.diagnoses,
+          recommended_investigations: best.investigations
+        }
+      } else if (directAnatomyList.length > 0) {
+        const firstLabel = directAnatomyList[0].label
+        const isBone = ["Skeleton", "Skull", "Spine", "Ribs", "Pelvis", "Femur", "Tibia", "Patella", "Humerus", "Radius", "Ulna", "Clavicle", "Scapula"].includes(firstLabel)
+        const isMuscle = ["Muscles", "Biceps", "Triceps", "Quadriceps", "Hamstrings", "Deltoid", "Pectoral", "Gluteus", "Calf"].includes(firstLabel)
         
         parsedJson = {
-          body_system: "Musculoskeletal (Skeletal)",
-          body_region: isFemur ? "Lower Limb (Thigh)" : isTibia ? "Lower Limb (Shin)" : isSkull ? "Head" : "Skeleton",
-          affected_anatomy: [
-            { 
-              label: isFemur ? "Femur" : isTibia ? "Tibia" : isSkull ? "Skull" : "Skeleton", 
-              description: isFemur ? "Long, weight-bearing bone in the thigh, showing structural disruption." : 
-                           isTibia ? "The shinbone, the second largest bone in the human body." : 
-                           isSkull ? "The bony structure that forms the head." : 
-                           "Systemic skeletal system showing focal bone trauma." 
-            }
-          ],
+          body_system: isBone ? "Musculoskeletal (Skeletal)" : isMuscle ? "Musculoskeletal (Muscular)" : "Systemic",
+          body_region: firstLabel,
+          affected_anatomy: directAnatomyList,
           differential_diagnoses: [
-            { condition: isFemur ? "Acute Femoral Fracture" : isTibia ? "Tibial Shaft Fracture" : "Focal Bone Trauma", confidence: 95, reasoning: "Reported trauma with localized extreme pain, deformity, and weight-bearing inability." }
+            { condition: `Focal ${firstLabel} Pathology`, confidence: 80, reasoning: `Reported symptoms localizing directly to the ${firstLabel}.` }
           ],
-          recommended_investigations: ["Plain Radiography (X-ray)", "CT scan of affected limb", "Orthopedic consult"]
-        };
-      }
-      // Scenario I: Muscular / Sprain (Muscle, Biceps, Calf, etc.)
-      else if (query.includes('muscle') || query.includes('sprain') || query.includes('biceps') || query.includes('triceps') || query.includes('quadriceps') || query.includes('calf')) {
-        const isBiceps = query.includes('biceps')
-        const isCalf = query.includes('calf')
-        
-        parsedJson = {
-          body_system: "Musculoskeletal (Muscular)",
-          body_region: isBiceps ? "Upper Arm" : isCalf ? "Lower Leg" : "Skeletal Muscle",
-          affected_anatomy: [
-            { 
-              label: isBiceps ? "Biceps" : isCalf ? "Calf" : "Muscles", 
-              description: isBiceps ? "Biceps brachii muscle in the upper arm, showing localized myofibrillar strain." : 
-                           isCalf ? "Gastrocnemius or soleus muscle group showing structural strain." : 
-                           "Skeletal muscle tissue showing strain, spasm, or focal tear." 
-            }
-          ],
-          differential_diagnoses: [
-            { condition: isBiceps ? "Biceps Muscle Strain" : isCalf ? "Gastrocnemius Muscle Strain" : "Acute Muscle Sprain", confidence: 90, reasoning: "Sudden strain or tearing of muscle fibers following excessive load or twisting motion." }
-          ],
-          recommended_investigations: ["Soft tissue Ultrasonography", "MRI of the affected muscle group", "Conservative therapy assessment"]
-        };
-      }
-      // Fallback Default
-      else {
+          recommended_investigations: ["Clinical physical assessment", "Imaging of affected area"]
+        }
+      } else {
+        // Fallback Default
         parsedJson = {
           body_system: "Digestive",
           body_region: "Abdomen",

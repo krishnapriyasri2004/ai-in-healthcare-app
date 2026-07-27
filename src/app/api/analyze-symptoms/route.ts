@@ -128,23 +128,113 @@ ${userPrompt}<end_of_turn>
 
     if (!object) {
       const text = (symptoms + ' ' + (notes || '')).toLowerCase()
-      if (text.includes('chest') || text.includes('heart') || text.includes('retrosternal') || text.includes('khanna')) {
-        object = {
-          predictedCondition: 'Acute Coronary Syndrome (STEMI Risk)',
-          confidence: 'high' as const,
-          reasoning: 'Retrosternal chest pressure with radiation to the left arm in a patient with cardiovascular risk factors is highly suspect for acute myocardial ischemia.',
-          affectedRegions: [
+
+      const ruleMatches: Array<{
+        condition: string
+        confidence: 'high' | 'medium' | 'low'
+        reasoning: string
+        regions: Array<{
+          bodyRegion: string
+          confidence: 'high' | 'medium' | 'low'
+          condition: string
+          reasoning: string
+        }>
+        recommendations: string[]
+        severityScore: number
+        score: number
+      }> = []
+
+      const RULES = [
+        {
+          keywords: ['ear', 'otitis', 'hearing', 'tinnitus', 'eardrum', 'canal', 'auditory', 'mastoid', 'tympanic', 'audiometry', 'vestibular'],
+          condition: "Otitis Media / Eustachian Tube Dysfunction",
+          confidence: "high" as const,
+          reasoning: "Ear discomfort associated with pressure feeling, likely secondary to upper respiratory tract congestion or auditory canal block.",
+          regions: [
             {
-              bodyRegion: 'heart',
-              confidence: 'high' as const,
-              condition: 'Myocardial Ischemia',
-              reasoning: 'Compromised coronary artery perfusion causing active cardiac cellular strain.'
+              bodyRegion: "brain",
+              confidence: "medium" as const,
+              condition: "Auditory referral",
+              reasoning: "Referred sensation via cranial nerve pathways to auditory centers."
             },
             {
-              bodyRegion: 'lungs',
-              confidence: 'medium' as const,
-              condition: 'Secondary Pulmonary Congestion',
-              reasoning: 'Mild respiratory backlog from transient cardiac output reduction.'
+              bodyRegion: "nasal_cavity",
+              confidence: "high" as const,
+              condition: "Eustachian tube congestion",
+              reasoning: "Blockage at nasopharyngeal junction leading to middle ear pressure build-up."
+            }
+          ],
+          recommendations: [
+            "Perform otoscopic examination of the external canal and tympanic membrane.",
+            "Avoid insertion of cotton buds or foreign objects.",
+            "Consider nasal decongestants if associated with cold/sinus congestion.",
+            "Seek ENT consultation if pain is severe, pulsing, or accompanied by discharge."
+          ],
+          severityScore: 35
+        },
+        {
+          keywords: ['eye', 'vision', 'orbital', 'blur', 'blind', 'retina', 'cornea', 'cataract', 'glaucoma', 'ophthalmic'],
+          condition: "Sinusitis / Referred Orbital Cephalgia",
+          confidence: "medium" as const,
+          reasoning: "Retro-orbital pain or visual discomfort, commonly secondary to surrounding sinus pressure or visual fatigue.",
+          regions: [
+            {
+              bodyRegion: "brain",
+              confidence: "medium" as const,
+              condition: "Visual pathway strain",
+              reasoning: "Secondary strain along visual tracts."
+            },
+            {
+              bodyRegion: "nasal_cavity",
+              confidence: "high" as const,
+              condition: "Paranasal sinus congestion",
+              reasoning: "Close proximity of maxillary and frontal sinuses to the orbit causes referred orbital pain."
+            }
+          ],
+          recommendations: [
+            "Assess visual acuity and pupillary reflexes.",
+            "Conduct sinus palpation for tenderness.",
+            "Refer to ophthalmology or ENT as clinically indicated."
+          ],
+          severityScore: 45
+        },
+        {
+          keywords: ['headache', 'migraine', 'head', 'brain', 'seizure', 'convulsion', 'concussion', 'dizzy', 'dizziness', 'vertigo', 'cranial', 'skull'],
+          condition: "Primary Headache Disorder / Tension Migraine",
+          confidence: "high" as const,
+          reasoning: "Bilateral or unilateral throbbing pain with neck stiffness, vertigo, or sensory hypersensitivity.",
+          regions: [
+            {
+              bodyRegion: "brain",
+              confidence: "high" as const,
+              condition: "Neurovascular hypersensitivity",
+              reasoning: "Trigeminal nerve pathway activation causing migraine cephalgia."
+            }
+          ],
+          recommendations: [
+            "Rest in a quiet, dark room.",
+            "Administer simple analgesics like paracetamol if not contraindicated.",
+            "Keep hydration level high and avoid caffeine triggers."
+          ],
+          severityScore: 50
+        },
+        {
+          keywords: ['chest', 'heart', 'cardiac', 'angina', 'stemi', 'nstemi', 'infarction', 'palpitation', 'aorta', 'vessel', 'coronary', 'retrosternal', 'pulse', 'bpm', 'bp'],
+          condition: "Acute Coronary Syndrome (STEMI Risk)",
+          confidence: "high" as const,
+          reasoning: "Retrosternal chest pressure with radiation to the left arm in a patient with cardiovascular risk factors is highly suspect for acute myocardial ischemia.",
+          regions: [
+            {
+              bodyRegion: "heart",
+              confidence: "high" as const,
+              condition: "Myocardial Ischemia",
+              reasoning: "Compromised coronary artery perfusion causing active cardiac cellular strain."
+            },
+            {
+              bodyRegion: "lungs",
+              confidence: "medium" as const,
+              condition: "Secondary Pulmonary Congestion",
+              reasoning: "Mild respiratory backlog from transient cardiac output reduction."
             }
           ],
           recommendations: [
@@ -154,24 +244,24 @@ ${userPrompt}<end_of_turn>
             'Urgent activation of the Cardiac Cath Lab routing.'
           ],
           severityScore: 90
-        }
-      } else if (text.includes('dengue') || text.includes('retro-orbital') || text.includes('petechia') || (text.includes('fever') && (text.includes('joint') || text.includes('rash') || text.includes('breakbone')))) {
-        object = {
-          predictedCondition: 'Dengue Hemorrhagic Fever (Suspected)',
-          confidence: 'high' as const,
-          reasoning: 'High-grade continuous pyrexia, severe retro-orbital headache, arthralgia/myalgia (breakbone fever), and thrombocytopenic signs point to Dengue virus infection.',
-          affectedRegions: [
+        },
+        {
+          keywords: ['dengue', 'fever', 'joint', 'rash', 'petechiae', 'malaria', 'typhoid', 'chills', 'lymph', 'nodes', 'skin'],
+          condition: "Dengue Hemorrhagic Fever (Suspected)",
+          confidence: "high" as const,
+          reasoning: "High-grade continuous pyrexia, severe retro-orbital headache, arthralgia/myalgia (breakbone fever), and thrombocytopenic signs point to Dengue virus infection.",
+          regions: [
             {
-              bodyRegion: 'brain',
-              confidence: 'medium' as const,
-              condition: 'Retro-orbital neuralgia',
-              reasoning: 'Intense headache from systemic viral infection.'
+              bodyRegion: "brain",
+              confidence: "medium" as const,
+              condition: "Retro-orbital neuralgia",
+              reasoning: "Intense headache from systemic viral infection."
             },
             {
-              bodyRegion: 'liver',
-              confidence: 'medium' as const,
-              condition: 'Hepatitis / Hepatic congestion',
-              reasoning: 'Common site of secondary viral inflammation in Dengue cases.'
+              bodyRegion: "liver",
+              confidence: "medium" as const,
+              condition: "Hepatitis / Hepatic congestion",
+              reasoning: "Common site of secondary viral inflammation in Dengue cases."
             }
           ],
           recommendations: [
@@ -181,18 +271,18 @@ ${userPrompt}<end_of_turn>
             'Advise warning signs for hospitalization: persistent vomiting, mucosal bleeding.'
           ],
           severityScore: 70
-        }
-      } else if (text.includes('cough') && (text.includes('sputum') || text.includes('blood') || text.includes('hemoptysis') || text.includes('tuberculosis') || text.includes('amit'))) {
-        object = {
-          predictedCondition: 'Pulmonary Tuberculosis (Active)',
-          confidence: 'high' as const,
-          reasoning: 'Persistent productive cough for 3 weeks, evening temperature rise, night sweats, hemoptysis, and weight loss are pathognomonic of pulmonary TB in endemic regions.',
-          affectedRegions: [
+        },
+        {
+          keywords: ['cough', 'lung', 'breathe', 'breath', 'dyspnea', 'sob', 'wheeze', 'asthma', 'pneumonia', 'tuberculosis', 'tb', 'sputum', 'hemoptysis', 'bronchial', 'pleural', 'respiratory'],
+          condition: "Pulmonary Tuberculosis (Active)",
+          confidence: "high" as const,
+          reasoning: "Persistent productive cough for 3 weeks, evening temperature rise, night sweats, hemoptysis, and weight loss are pathognomonic of pulmonary TB in endemic regions.",
+          regions: [
             {
-              bodyRegion: 'lungs',
-              confidence: 'high' as const,
-              condition: 'Pulmonary Cavitation & Alveolar Consolidation',
-              reasoning: 'Infiltration and destruction of lung tissue by Mycobacterium tuberculosis.'
+              bodyRegion: "lungs",
+              confidence: "high" as const,
+              condition: "Pulmonary Cavitation & Alveolar Consolidation",
+              reasoning: "Infiltration and destruction of lung tissue by Mycobacterium tuberculosis."
             }
           ],
           recommendations: [
@@ -202,18 +292,38 @@ ${userPrompt}<end_of_turn>
             'Counsel on adherence to the full course of anti-tubercular therapy.'
           ],
           severityScore: 65
-        }
-      } else {
-        object = {
-          predictedCondition: 'Acute Gastroenteritis',
-          confidence: 'high' as const,
-          reasoning: 'History of sudden onset vomiting, watery stools, and abdominal colic following ingestion of contaminated food/water.',
-          affectedRegions: [
+        },
+        {
+          keywords: ['appendicitis', 'appendix', 'mcburney', 'rlq', 'lower right'],
+          condition: "Acute Appendicitis (Suspected)",
+          confidence: "high" as const,
+          reasoning: "Migrating pain to the right lower quadrant with positive peritoneal signs suggests acute appendiceal inflammation.",
+          regions: [
+            {
+              bodyRegion: "intestines",
+              confidence: "high" as const,
+              condition: "Inflamed cecal/appendiceal segment",
+              reasoning: "Obstruction of appendix lumen leading to acute distension."
+            }
+          ],
+          recommendations: [
+            "Maintain NPO (nothing by mouth) status.",
+            "Urgent surgical consult for appendectomy routing.",
+            "Perform abdominal ultrasound or CT to confirm."
+          ],
+          severityScore: 85
+        },
+        {
+          keywords: ['stomach', 'vomit', 'nausea', 'gastric', 'acid', 'heartburn', 'gerd', 'indigestion', 'digestive', 'abdominal', 'abdomen', 'colic', 'cramp', 'cramping', 'intestine', 'bowel', 'colon', 'diarrhea', 'constipation'],
+          condition: "Acute Gastroenteritis",
+          confidence: "high" as const,
+          reasoning: "History of sudden onset vomiting, watery stools, and abdominal colic following ingestion of contaminated food/water.",
+          regions: [
             {
               bodyRegion: 'stomach',
               confidence: 'high' as const,
-              condition: 'Gastric mucosal inflammation',
-              reasoning: 'Direct mucosal irritation by bacterial/viral pathogens.'
+              condition: 'Gastric mucosal irritation',
+              reasoning: 'Direct mucosal irritation by enteric pathogens.'
             },
             {
               bodyRegion: 'intestines',
@@ -229,6 +339,63 @@ ${userPrompt}<end_of_turn>
             'Monitor for dehydration signs (sunken eyes, oliguria).'
           ],
           severityScore: 40
+        }
+      ]
+
+      // Count scores
+      for (const rule of RULES) {
+        let score = 0
+        for (const kw of rule.keywords) {
+          if (text.includes(kw)) {
+            score += 10
+            const regex = new RegExp(`\\b${kw}\\b`, 'i')
+            if (regex.test(text)) {
+              score += 20
+            }
+          }
+        }
+        if (score > 0) {
+          ruleMatches.push({ ...rule, score })
+        }
+      }
+
+      ruleMatches.sort((a, b) => b.score - a.score)
+
+      if (ruleMatches.length > 0) {
+        const best = ruleMatches[0]
+        object = {
+          predictedCondition: best.condition,
+          confidence: best.confidence,
+          reasoning: best.reasoning,
+          affectedRegions: best.regions,
+          recommendations: best.recommendations,
+          severityScore: best.severityScore
+        }
+      } else {
+        // Fallback Default
+        object = {
+          predictedCondition: 'Acute Gastroenteritis / Non-specific Abdominal distress',
+          confidence: 'medium' as const,
+          reasoning: 'History of sudden onset abdominal discomfort, nausea, or cramping.',
+          affectedRegions: [
+            {
+              bodyRegion: 'stomach',
+              confidence: 'high' as const,
+              condition: 'Gastric mucosal irritation',
+              reasoning: 'Direct mucosal irritation by pathogens.'
+            },
+            {
+              bodyRegion: 'intestines',
+              confidence: 'high' as const,
+              condition: 'Enteric hypermotility',
+              reasoning: 'Infection causing diarrhea/discomfort.'
+            }
+          ],
+          recommendations: [
+            'Administer hydration fluid continuously.',
+            'Recommend light, easily digestible diet.'
+          ],
+          severityScore: 35
         }
       }
     }
