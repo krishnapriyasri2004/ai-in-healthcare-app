@@ -135,7 +135,7 @@ export default function Home() {
   ]
 
   return (
-    <div className="w-full h-full min-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-surface text-gray-100 flex flex-col font-sans px-8 py-10 relative">
+    <div className="w-full min-h-full bg-surface text-gray-100 flex flex-col font-sans px-8 py-10 relative">
       
       {/* Subtle Background Elements */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#070f2b]/40 via-transparent to-transparent pointer-events-none z-0"></div>

@@ -210,7 +210,7 @@ export function Dashboard() {
   const activeAlerts = ALERTS.filter(a => !dismissedAlerts.includes(a.id))
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-[#020817] text-slate-100 font-sans custom-scrollbar">
+    <div className="w-full min-h-full bg-[#020817] text-slate-100 font-sans">
       <div className="max-w-[1400px] mx-auto px-8 py-8 space-y-7">
 
         {/* ── HEADER ───────────────────────────────────────────────────────── */}
