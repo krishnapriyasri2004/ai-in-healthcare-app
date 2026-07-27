@@ -115,12 +115,40 @@ export default function PatientsPage() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       
-      const primary = data.possibleConditions?.[0]
+      const rawAnatomy = data.affected_anatomy || []
+      const affectedRegions = rawAnatomy.map((item: any) => item.label).filter(Boolean)
+
+      const differentialDiagnoses = data.differential_diagnoses || []
+      const possibleConditions = differentialDiagnoses.map((d: any) => ({
+        name: d.condition || 'Unknown',
+        confidence: d.confidence || 0,
+        reasoning: d.reasoning || ''
+      }))
+
+      const primary = differentialDiagnoses[0]
+      const lowercaseSymptoms = symptoms.toLowerCase()
+      const isHeartIssue = lowercaseSymptoms.includes('heart') || 
+                           lowercaseSymptoms.includes('chest pain') ||
+                           lowercaseSymptoms.includes('myocardial') ||
+                           lowercaseSymptoms.includes('cardiac') ||
+                           lowercaseSymptoms.includes('coronary') ||
+                           lowercaseSymptoms.includes('angina') ||
+                           lowercaseSymptoms.includes('stemi') ||
+                           lowercaseSymptoms.includes('nstemi') ||
+                           lowercaseSymptoms.includes('heart issue') ||
+                           lowercaseSymptoms.includes('heart problem') ||
+                           lowercaseSymptoms.includes('heart attack') ||
+                           rawAnatomy.some((item: any) => {
+                             const l = (item.label || '').toLowerCase()
+                             const d = (item.description || '').toLowerCase()
+                             return l.includes('heart') || d.includes('heart') || l.includes('cardiac') || d.includes('cardiac')
+                           })
+
       const finalResult: DiagnosisResult = {
-        affectedRegions: data.affectedRegions || [],
-        possibleConditions: data.possibleConditions || [],
-        redFlag: !!data.redFlag,
-        primaryCondition: primary?.name || '',
+        affectedRegions,
+        possibleConditions,
+        redFlag: isHeartIssue || !!data.redFlag || (primary && primary.confidence >= 85),
+        primaryCondition: primary?.condition || '',
         primaryConfidence: primary?.confidence || 0,
         primaryReasoning: primary?.reasoning || ''
       }
@@ -161,12 +189,40 @@ export default function PatientsPage() {
           const data = await res.json()
           if (data.error) throw new Error(data.error)
           
-          const primary = data.possibleConditions?.[0]
+          const rawAnatomy = data.affected_anatomy || []
+          const affectedRegions = rawAnatomy.map((item: any) => item.label).filter(Boolean)
+
+          const differentialDiagnoses = data.differential_diagnoses || []
+          const possibleConditions = differentialDiagnoses.map((d: any) => ({
+            name: d.condition || 'Unknown',
+            confidence: d.confidence || 0,
+            reasoning: d.reasoning || ''
+          }))
+
+          const primary = differentialDiagnoses[0]
+          const lowercaseSymptoms = symptoms.toLowerCase()
+          const isHeartIssue = lowercaseSymptoms.includes('heart') || 
+                               lowercaseSymptoms.includes('chest pain') ||
+                               lowercaseSymptoms.includes('myocardial') ||
+                               lowercaseSymptoms.includes('cardiac') ||
+                               lowercaseSymptoms.includes('coronary') ||
+                               lowercaseSymptoms.includes('angina') ||
+                               lowercaseSymptoms.includes('stemi') ||
+                               lowercaseSymptoms.includes('nstemi') ||
+                               lowercaseSymptoms.includes('heart issue') ||
+                               lowercaseSymptoms.includes('heart problem') ||
+                               lowercaseSymptoms.includes('heart attack') ||
+                               rawAnatomy.some((item: any) => {
+                                 const l = (item.label || '').toLowerCase()
+                                 const d = (item.description || '').toLowerCase()
+                                 return l.includes('heart') || d.includes('heart') || l.includes('cardiac') || d.includes('cardiac')
+                               })
+
           const finalResult: DiagnosisResult = {
-            affectedRegions: data.affectedRegions || [],
-            possibleConditions: data.possibleConditions || [],
-            redFlag: !!data.redFlag,
-            primaryCondition: primary?.name || '',
+            affectedRegions,
+            possibleConditions,
+            redFlag: isHeartIssue || !!data.redFlag || (primary && primary.confidence >= 85),
+            primaryCondition: primary?.condition || '',
             primaryConfidence: primary?.confidence || 0,
             primaryReasoning: primary?.reasoning || ''
           }
