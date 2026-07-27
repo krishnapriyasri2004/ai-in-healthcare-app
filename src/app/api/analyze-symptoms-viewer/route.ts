@@ -375,8 +375,11 @@ REQUIRED JSON FORMAT:
           system: "Musculoskeletal",
           region: "Lower Extremity (Leg)",
           anatomy: [
-            { label: "Skeleton", description: "Lower limb bones including the femur (thigh), patella (knee), and tibia/fibula (lower leg) supporting locomotion." },
-            { label: "Muscles", description: "Lower limb skeletal muscle groups including quadriceps, hamstrings, and calf muscles that enable leg movements." }
+            { label: "Femur", description: "The thigh bone, supporting weight and enabling leg movement." },
+            { label: "Tibia", description: "The shin bone, supporting lower leg structure." },
+            { label: "Patella", description: "The kneecap, protecting the knee joint." },
+            { label: "Quadriceps", description: "The front thigh muscles responsible for extending the knee." },
+            { label: "Calf", description: "The calf muscles at the back of the lower leg responsible for plantar flexion." }
           ],
           diagnoses: [
             { condition: "Musculoskeletal Leg Pain / Strain", confidence: 85, reasoning: "Pain localizing to lower extremity muscles or bones, commonly secondary to physical activity or minor injury." }
@@ -388,8 +391,11 @@ REQUIRED JSON FORMAT:
           system: "Musculoskeletal",
           region: "Upper Extremity (Arm)",
           anatomy: [
-            { label: "Skeleton", description: "Upper limb bones including the humerus, radius, and ulna forming the skeletal arm structure." },
-            { label: "Muscles", description: "Upper limb muscle groups including the biceps, triceps, and deltoid enabling arm/shoulder movement." }
+            { label: "Humerus", description: "The upper arm bone connecting shoulder to elbow." },
+            { label: "Radius", description: "The forearm bone on the thumb side." },
+            { label: "Ulna", description: "The forearm bone on the pinky side." },
+            { label: "Biceps", description: "The front upper arm muscle responsible for elbow flexion." },
+            { label: "Triceps", description: "The back upper arm muscle responsible for elbow extension." }
           ],
           diagnoses: [
             { condition: "Musculoskeletal Arm Pain / Strain", confidence: 85, reasoning: "Discomfort localizing to upper extremity muscles or joints, often due to overexertion or strain." }

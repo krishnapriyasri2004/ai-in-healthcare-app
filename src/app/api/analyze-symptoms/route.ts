@@ -387,16 +387,28 @@ ${userPrompt}<end_of_turn>
           reasoning: "Pain localizing to lower extremity skeletal or muscular structures, often post-activity.",
           regions: [
             {
-              bodyRegion: "skeleton",
+              bodyRegion: "femur",
               confidence: "high" as const,
-              condition: "Leg bone correlation",
-              reasoning: "Weight-bearing impact on lower limb bones."
+              condition: "Thigh discomfort",
+              reasoning: "Tension in the upper leg/femur area."
             },
             {
-              bodyRegion: "muscles",
+              bodyRegion: "tibia",
               confidence: "high" as const,
-              condition: "Leg muscle strain",
-              reasoning: "Locomotor muscle strain (quadriceps/hamstrings/calf)."
+              condition: "Shin discomfort",
+              reasoning: "Stress on the lower leg/tibia area."
+            },
+            {
+              bodyRegion: "quadriceps",
+              confidence: "high" as const,
+              condition: "Quadriceps strain",
+              reasoning: "Strain of the front thigh muscle group."
+            },
+            {
+              bodyRegion: "calf",
+              confidence: "high" as const,
+              condition: "Calf strain",
+              reasoning: "Strain of the gastrocnemius muscle group."
             }
           ],
           recommendations: [
@@ -413,16 +425,22 @@ ${userPrompt}<end_of_turn>
           reasoning: "Symptom localization to upper limb musculoskeletal structures.",
           regions: [
             {
-              bodyRegion: "skeleton",
+              bodyRegion: "humerus",
               confidence: "medium" as const,
-              condition: "Arm skeletal focus",
-              reasoning: "Strain along humerus, radius, or ulna joints."
+              condition: "Upper arm strain",
+              reasoning: "Stress along the humerus region."
             },
             {
-              bodyRegion: "muscles",
+              bodyRegion: "biceps",
               confidence: "high" as const,
-              condition: "Arm muscle focus",
-              reasoning: "Strain of biceps, triceps, or deltoid muscles."
+              condition: "Biceps strain",
+              reasoning: "Strain of the biceps muscle."
+            },
+            {
+              bodyRegion: "triceps",
+              confidence: "high" as const,
+              condition: "Triceps strain",
+              reasoning: "Strain of the triceps muscle."
             }
           ],
           recommendations: [
