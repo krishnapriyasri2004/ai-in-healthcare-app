@@ -369,6 +369,32 @@ REQUIRED JSON FORMAT:
             { condition: "Acute Muscle Strain", confidence: 85, reasoning: "Pain and stiffness exacerbated by active contraction or passive stretch." }
           ],
           investigations: ["Soft tissue Ultrasonography", "Clinical examination"]
+        },
+        {
+          keywords: ['leg', 'thigh', 'knee', 'shin', 'calf', 'ankle', 'foot', 'femur', 'tibia', 'patella', 'fibula', 'quadriceps', 'hamstrings', 'gluteus'],
+          system: "Musculoskeletal",
+          region: "Lower Extremity (Leg)",
+          anatomy: [
+            { label: "Skeleton", description: "Lower limb bones including the femur (thigh), patella (knee), and tibia/fibula (lower leg) supporting locomotion." },
+            { label: "Muscles", description: "Lower limb skeletal muscle groups including quadriceps, hamstrings, and calf muscles that enable leg movements." }
+          ],
+          diagnoses: [
+            { condition: "Musculoskeletal Leg Pain / Strain", confidence: 85, reasoning: "Pain localizing to lower extremity muscles or bones, commonly secondary to physical activity or minor injury." }
+          ],
+          investigations: ["Lower limb X-ray", "Soft tissue ultrasound", "Clinical motor/sensory exam"]
+        },
+        {
+          keywords: ['arm', 'shoulder', 'elbow', 'wrist', 'hand', 'humerus', 'radius', 'ulna', 'clavicle', 'scapula', 'biceps', 'triceps', 'deltoid'],
+          system: "Musculoskeletal",
+          region: "Upper Extremity (Arm)",
+          anatomy: [
+            { label: "Skeleton", description: "Upper limb bones including the humerus, radius, and ulna forming the skeletal arm structure." },
+            { label: "Muscles", description: "Upper limb muscle groups including the biceps, triceps, and deltoid enabling arm/shoulder movement." }
+          ],
+          diagnoses: [
+            { condition: "Musculoskeletal Arm Pain / Strain", confidence: 85, reasoning: "Discomfort localizing to upper extremity muscles or joints, often due to overexertion or strain." }
+          ],
+          investigations: ["Upper limb X-ray", "Joint mobility assessment", "Clinical examination"]
         }
       ]
 
@@ -393,7 +419,7 @@ REQUIRED JSON FORMAT:
       // Sort by score
       ruleMatches.sort((a, b) => b.score - a.score)
 
-      // Direct anatomical scanning boost
+      // Direct anatomical scanning boost with synonym mapping
       const ALLOWED_LABELS = [
         "Brain", "Nasal Cavity", "Throat", "Trachea", "Lung Left", "Lung Right", "Heart", "Aorta",
         "Liver", "Stomach", "Gallbladder", "Spleen", "Pancreas", "Kidney Left", "Kidney Right",
@@ -404,14 +430,49 @@ REQUIRED JSON FORMAT:
       ]
 
       const directAnatomyList: Array<{ label: string; description: string }> = []
+      
+      const SYNONYM_TO_LABELS: Record<string, string[]> = {
+        'thigh': ['Femur', 'Quadriceps', 'Hamstrings'],
+        'shin': ['Tibia'],
+        'kneecap': ['Patella'],
+        'knee': ['Patella'],
+        'upper arm': ['Humerus', 'Biceps', 'Triceps'],
+        'forearm': ['Radius', 'Ulna'],
+        'shoulder': ['Deltoid', 'Scapula', 'Clavicle'],
+        'chest': ['Ribs', 'Heart', 'Aorta'],
+        'neck': ['Spine', 'Spinal Cord', 'Throat'],
+        'back': ['Spine', 'Spinal Cord'],
+        'lower back': ['Spine', 'Spinal Cord', 'Pelvis'],
+        'hip': ['Pelvis', 'Gluteus'],
+        'butt': ['Gluteus'],
+        'buttock': ['Gluteus'],
+        'calf': ['Calf'],
+        'lower leg': ['Calf', 'Tibia']
+      }
+
+      for (const [synonym, targetLabels] of Object.entries(SYNONYM_TO_LABELS)) {
+        if (query.includes(synonym)) {
+          for (const label of targetLabels) {
+            if (!directAnatomyList.some(item => item.label === label)) {
+              directAnatomyList.push({
+                label: label,
+                description: `Direct symptom correlation identified in the ${label} region.`
+              })
+            }
+          }
+        }
+      }
+
       for (const label of ALLOWED_LABELS) {
         const lLower = label.toLowerCase()
         const regex = new RegExp(`\\b${lLower}\\b`, 'i')
         if (regex.test(query)) {
-          directAnatomyList.push({
-            label: label,
-            description: `Direct symptom correlation identified for the ${label}.`
-          })
+          if (!directAnatomyList.some(item => item.label === label)) {
+            directAnatomyList.push({
+              label: label,
+              description: `Direct symptom correlation identified for the ${label}.`
+            })
+          }
         }
       }
 

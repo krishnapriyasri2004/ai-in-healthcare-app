@@ -339,6 +339,98 @@ ${userPrompt}<end_of_turn>
             'Monitor for dehydration signs (sunken eyes, oliguria).'
           ],
           severityScore: 40
+        },
+        {
+          keywords: ['bone', 'fracture', 'joint', 'ribs', 'pelvis', 'femur', 'tibia', 'fibula', 'patella', 'humerus', 'radius', 'ulna', 'clavicle', 'scapula', 'skeletal', 'spine', 'vertebrae'],
+          condition: "Skeletal Injury / Bone Trauma",
+          confidence: "high" as const,
+          reasoning: "Reported trauma or pain localizing to skeletal joints or bony structures.",
+          regions: [
+            {
+              bodyRegion: "skeleton",
+              confidence: "high" as const,
+              condition: "Localized skeletal stress",
+              reasoning: "Potential focal fracture or joint misalignment."
+            }
+          ],
+          recommendations: [
+            "Request plain radiography (X-ray) of the affected joint or bone.",
+            "Immobilize the affected limb to prevent displacement.",
+            "Consult orthopedic surgery for definitive care."
+          ],
+          severityScore: 60
+        },
+        {
+          keywords: ['muscle', 'strain', 'sprain', 'biceps', 'triceps', 'quadriceps', 'hamstrings', 'deltoid', 'pectoral', 'gluteus', 'calf', 'myalgia'],
+          condition: "Acute Muscle Strain",
+          confidence: "high" as const,
+          reasoning: "Soft tissue strain or muscle fiber injury due to mechanical overload.",
+          regions: [
+            {
+              bodyRegion: "muscles",
+              confidence: "high" as const,
+              condition: "Myofibrillar strain",
+              reasoning: "Inflammatory response following focal muscle fiber tear."
+            }
+          ],
+          recommendations: [
+            "Apply RICE protocol (Rest, Ice, Compression, Elevation).",
+            "Avoid painful loading and heavy eccentric contractions.",
+            "Consider soft tissue ultrasound if tearing is suspected."
+          ],
+          severityScore: 40
+        },
+        {
+          keywords: ['leg', 'thigh', 'knee', 'shin', 'calf', 'ankle', 'foot', 'femur', 'tibia', 'patella', 'fibula', 'quadriceps', 'hamstrings', 'gluteus'],
+          condition: "Lower Extremity Strain / Leg Pain",
+          confidence: "high" as const,
+          reasoning: "Pain localizing to lower extremity skeletal or muscular structures, often post-activity.",
+          regions: [
+            {
+              bodyRegion: "skeleton",
+              confidence: "high" as const,
+              condition: "Leg bone correlation",
+              reasoning: "Weight-bearing impact on lower limb bones."
+            },
+            {
+              bodyRegion: "muscles",
+              confidence: "high" as const,
+              condition: "Leg muscle strain",
+              reasoning: "Locomotor muscle strain (quadriceps/hamstrings/calf)."
+            }
+          ],
+          recommendations: [
+            "Evaluate gait and weight-bearing capability.",
+            "Obtain X-ray if localized bone tenderness is present.",
+            "Counsel on muscle rest and light stretching."
+          ],
+          severityScore: 45
+        },
+        {
+          keywords: ['arm', 'shoulder', 'elbow', 'wrist', 'hand', 'humerus', 'radius', 'ulna', 'clavicle', 'scapula', 'biceps', 'triceps', 'deltoid'],
+          condition: "Upper Extremity Strain / Arm Pain",
+          confidence: "high" as const,
+          reasoning: "Symptom localization to upper limb musculoskeletal structures.",
+          regions: [
+            {
+              bodyRegion: "skeleton",
+              confidence: "medium" as const,
+              condition: "Arm skeletal focus",
+              reasoning: "Strain along humerus, radius, or ulna joints."
+            },
+            {
+              bodyRegion: "muscles",
+              confidence: "high" as const,
+              condition: "Arm muscle focus",
+              reasoning: "Strain of biceps, triceps, or deltoid muscles."
+            }
+          ],
+          recommendations: [
+            "Check joint range of motion and distal pulses.",
+            "Support arm with a sling if severe joint pain exists.",
+            "Recommend relative rest and local warm compress."
+          ],
+          severityScore: 40
         }
       ]
 

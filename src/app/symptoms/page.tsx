@@ -167,6 +167,7 @@ export default function SymptomsPage() {
   useEffect(() => {
     if (!symptomsInput.trim()) {
       setHighlightedMeshNames([])
+      setAffectedOrganIds([])
       setResult(null)
       setActiveDiagnosisResult(null)
       setOrganConditions({})
@@ -184,12 +185,14 @@ export default function SymptomsPage() {
   }
 
   const handleClear = () => {
-    setSymptomsInput(activePatient?.symptoms || '')
+    setSymptomsInput('')
     setResult(null)
     setActiveDiagnosisResult(null)
     setErrorMsg(null)
     setProgressStep(0)
     setOrganConditions({})
+    setAffectedOrganIds([])
+    setHighlightedMeshNames([])
     setViewMode('single')
   }
 

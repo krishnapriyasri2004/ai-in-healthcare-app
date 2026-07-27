@@ -221,6 +221,10 @@ function ViewAnatomyPageContent() {
     setRecommendedInvestigations([])
     setErrorMsg(null)
     setSelectedOrgan(null)
+    setHighlightedMeshNames([])
+    setAffectedOrganIds([])
+    setAffectedAnatomyList([])
+    setConditionsByOrgan({})
     isSplittedRef.current = false
     setIsSymptomSubmitted(false)
     updateSplitStatusHUD()
@@ -383,7 +387,19 @@ function ViewAnatomyPageContent() {
   // Debounced auto-analysis when symptoms are entered
   useEffect(() => {
     const trimmed = symptomsInput.trim()
-    if (!trimmed) return
+    if (!trimmed) {
+      setPossibleConditions([])
+      setRedFlag(false)
+      setAnatomyList([])
+      setValidatedLabels(new Set())
+      setHighlightedMeshNames([])
+      setAffectedOrganIds([])
+      setAffectedAnatomyList([])
+      setConditionsByOrgan({})
+      setSelectedOrgan(null)
+      setIsSymptomSubmitted(false)
+      return
+    }
 
     const timer = setTimeout(() => {
       handleAnalyze()
