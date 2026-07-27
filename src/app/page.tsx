@@ -1,11 +1,138 @@
 'use client'
 
 import Link from 'next/link'
-import { Activity, ShieldCheck, Heart, Users, AlertTriangle, Clock, Brain, CheckCircle2, Circle, Wind, Thermometer, Stethoscope, Download, Table } from 'lucide-react'
+import {
+  Activity, ShieldCheck, Heart, Users, AlertTriangle, Clock,
+  Brain, CheckCircle2, Circle, Wind, Thermometer, Stethoscope,
+  Download, Table, Bed, TrendingUp, TrendingDown, Zap, Minus
+} from 'lucide-react'
 import { useAppContext } from '@/components/AppContext'
 
 export default function Home() {
   const { patients, activePatient } = useAppContext()
+
+  const STATS = [
+    {
+      label: "Today's Patients",
+      value: String(patients.length),
+      sub: '+12% vs yesterday',
+      icon: Users,
+      trend: 'up',
+      accent: {
+        border: 'border-cyan-500/20',
+        bg: 'bg-cyan-950/10',
+        iconBg: 'bg-cyan-950/50 border border-cyan-500/20',
+        icon: 'text-cyan-400',
+        value: 'text-white',
+        trend: 'text-emerald-400',
+      }
+    },
+    {
+      label: 'Critical Patients',
+      value: '4',
+      sub: '+1 new since 10 AM',
+      icon: AlertTriangle,
+      trend: 'alert',
+      accent: {
+        border: 'border-red-500/25',
+        bg: 'bg-red-950/10',
+        iconBg: 'bg-red-950/50 border border-red-500/20',
+        icon: 'text-red-400',
+        value: 'text-white',
+        trend: 'text-red-400',
+      }
+    },
+    {
+      label: 'Waiting Patients',
+      value: '8',
+      sub: '-2 in last hour',
+      icon: Clock,
+      trend: 'down',
+      accent: {
+        border: 'border-amber-500/20',
+        bg: 'bg-amber-950/10',
+        iconBg: 'bg-amber-950/50 border border-amber-500/20',
+        icon: 'text-amber-400',
+        value: 'text-white',
+        trend: 'text-emerald-400',
+      }
+    },
+    {
+      label: 'Admissions',
+      value: '14',
+      sub: '+3 today',
+      icon: Activity,
+      trend: 'up',
+      accent: {
+        border: 'border-emerald-500/20',
+        bg: 'bg-emerald-950/10',
+        iconBg: 'bg-emerald-950/50 border border-emerald-500/20',
+        icon: 'text-emerald-400',
+        value: 'text-white',
+        trend: 'text-emerald-400',
+      }
+    },
+    {
+      label: 'Discharges',
+      value: '9',
+      sub: 'Target: 12 by 5 PM',
+      icon: CheckCircle2,
+      trend: 'neutral',
+      accent: {
+        border: 'border-slate-500/20',
+        bg: 'bg-slate-950/10',
+        iconBg: 'bg-slate-950/50 border border-slate-500/20',
+        icon: 'text-slate-400',
+        value: 'text-white',
+        trend: 'text-slate-400',
+      }
+    },
+    {
+      label: 'Available Beds',
+      value: '18',
+      sub: '82% occupancy rate',
+      icon: Bed,
+      trend: 'neutral',
+      accent: {
+        border: 'border-blue-500/20',
+        bg: 'bg-blue-950/10',
+        iconBg: 'bg-blue-950/50 border border-blue-500/20',
+        icon: 'text-blue-400',
+        value: 'text-white',
+        trend: 'text-blue-400',
+      }
+    },
+    {
+      label: 'Average Waiting Time',
+      value: '18m',
+      sub: '-4 min avg waiting',
+      icon: Clock,
+      trend: 'down',
+      accent: {
+        border: 'border-violet-500/20',
+        bg: 'bg-violet-950/10',
+        iconBg: 'bg-violet-950/50 border border-violet-500/20',
+        icon: 'text-violet-400',
+        value: 'text-white',
+        trend: 'text-emerald-400',
+      }
+    },
+    {
+      label: 'AI Recommendations',
+      value: '27',
+      sub: '94% clinical accuracy',
+      icon: Brain,
+      trend: 'up',
+      accent: {
+        border: 'border-fuchsia-500/20',
+        bg: 'bg-fuchsia-950/10',
+        iconBg: 'bg-fuchsia-950/50 border border-fuchsia-500/20',
+        icon: 'text-fuchsia-400',
+        value: 'text-white',
+        trend: 'text-emerald-400',
+      }
+    }
+  ]
 
   return (
     <div className="w-full h-full min-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-surface text-gray-100 flex flex-col font-sans px-8 py-10 relative">
@@ -38,63 +165,37 @@ export default function Home() {
       </header>
 
       {/* ── STATS ROW ── */}
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10 relative z-10">
-        
-        <div className="p-5 glass-panel border border-white/5 rounded-xl flex flex-col gap-3 relative overflow-hidden group hover:bg-white/[0.02] transition-colors">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex justify-between items-start">
-             <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-cyan-400">
-               <Users className="w-4 h-4" />
-             </div>
-             <div className="text-[10px] text-emerald-400 font-mono tracking-wider flex items-center gap-1"><Activity className="w-3 h-3"/> +3</div>
-          </div>
-          <div className="mt-2">
-            <div className="text-3xl font-black text-white tracking-tight">{patients.length}</div>
-            <div className="text-[12px] font-medium text-gray-400 font-sans mt-0.5">Patients Today</div>
-          </div>
-        </div>
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 relative z-10">
+        {STATS.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <div
+              key={stat.label}
+              className={`relative rounded-2xl border p-5 flex flex-col justify-between gap-4 overflow-hidden ${stat.accent.border} ${stat.accent.bg} glass-panel`}
+            >
+              {/* Top glow line */}
+              <div className={`absolute top-0 left-6 right-6 h-px ${stat.accent.icon.replace('text-', 'bg-')}/30`} />
 
-        <div className="p-5 glass-panel border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)] rounded-xl flex flex-col gap-3 relative overflow-hidden group hover:border-red-500/40 transition-colors">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex justify-between items-start">
-             <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 animate-pulse">
-               <AlertTriangle className="w-4 h-4" />
-             </div>
-             <div className="text-[10px] text-red-400 font-mono tracking-wider flex items-center gap-1">Action Req</div>
-          </div>
-          <div className="mt-2">
-            <div className="text-3xl font-black text-white tracking-tight">2</div>
-            <div className="text-[12px] font-medium text-gray-400 font-sans mt-0.5">Critical Alerts</div>
-          </div>
-        </div>
+              <div className="flex justify-between items-start">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${stat.accent.iconBg}`}>
+                  <Icon className={`w-[18px] h-[18px] ${stat.accent.icon}`} />
+                </div>
+                <div className={`flex items-center gap-1 text-[10px] font-mono tracking-wider ${stat.accent.trend}`}>
+                  {stat.trend === 'up' && <><TrendingUp className="w-3.5 h-3.5" /> Up</>}
+                  {stat.trend === 'down' && <><TrendingDown className="w-3.5 h-3.5" /> Improved</>}
+                  {stat.trend === 'alert' && <><Zap className="w-3.5 h-3.5 animate-pulse" /> Alert</>}
+                  {stat.trend === 'neutral' && <><Minus className="w-3.5 h-3.5" /> Stable</>}
+                </div>
+              </div>
 
-        <div className="p-5 glass-panel border border-white/5 rounded-xl flex flex-col gap-3 relative overflow-hidden group hover:bg-white/[0.02] transition-colors">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex justify-between items-start">
-             <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-purple-400">
-               <Clock className="w-4 h-4" />
-             </div>
-             <div className="text-[10px] text-emerald-400 font-mono tracking-wider flex items-center gap-1">-2 min</div>
-          </div>
-          <div className="mt-2">
-            <div className="text-3xl font-black text-white tracking-tight">14<span className="text-lg font-medium text-gray-500 ml-1">min</span></div>
-            <div className="text-[12px] font-medium text-gray-400 font-sans mt-0.5">Avg. Consult Time</div>
-          </div>
-        </div>
-
-        <div className="p-5 glass-panel border border-white/5 rounded-xl flex flex-col gap-3 relative overflow-hidden group hover:bg-white/[0.02] transition-colors">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex justify-between items-start">
-             <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-               <Brain className="w-4 h-4" />
-             </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-3xl font-black text-white tracking-tight">18</div>
-            <div className="text-[12px] font-medium text-gray-400 font-sans mt-0.5">AI Diagnoses Run</div>
-          </div>
-        </div>
-
+              <div>
+                <div className={`text-3xl font-black tracking-tight leading-none ${stat.accent.value}`}>{stat.value}</div>
+                <div className="text-[12px] font-semibold text-slate-300 mt-1.5">{stat.label}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-mono">{stat.sub}</div>
+              </div>
+            </div>
+          )
+        })}
       </section>
 
       {/* ── CLINICAL ALERTS ── */}

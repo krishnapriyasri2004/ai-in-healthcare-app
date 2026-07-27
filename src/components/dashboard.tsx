@@ -8,7 +8,7 @@ import {
   CheckCircle2, Circle, Stethoscope, Thermometer,
   Droplets, Wind, Brain, ArrowRight, Calendar,
   ShieldCheck, Zap, Minus, BarChart2, ScanLine,
-  Download, Table
+  Download, Table, Bed
 } from 'lucide-react'
 import { useAppContext } from '@/components/AppContext'
 
@@ -16,9 +16,9 @@ import { useAppContext } from '@/components/AppContext'
 
 const STATS = [
   {
-    label: 'Patients Today',
-    value: '24',
-    sub: '+3 from yesterday',
+    label: "Today's Patients",
+    value: '32',
+    sub: '+12% vs yesterday',
     icon: Users,
     trend: 'up',
     accent: {
@@ -31,9 +31,9 @@ const STATS = [
     }
   },
   {
-    label: 'Critical Alerts',
-    value: '2',
-    sub: 'Require immediate action',
+    label: 'Critical Patients',
+    value: '4',
+    sub: '+1 new since 10 AM',
     icon: AlertTriangle,
     trend: 'alert',
     accent: {
@@ -46,9 +46,69 @@ const STATS = [
     }
   },
   {
-    label: 'Avg. Consult Time',
-    value: '14m',
-    sub: '2 min faster this week',
+    label: 'Waiting Patients',
+    value: '8',
+    sub: '-2 in last hour',
+    icon: Clock,
+    trend: 'down',
+    accent: {
+      border: 'border-amber-500/20',
+      bg: 'bg-amber-950/10',
+      iconBg: 'bg-amber-950/50 border border-amber-500/20',
+      icon: 'text-amber-400',
+      value: 'text-white',
+      trend: 'text-emerald-400',
+    }
+  },
+  {
+    label: 'Admissions',
+    value: '14',
+    sub: '+3 today',
+    icon: Activity,
+    trend: 'up',
+    accent: {
+      border: 'border-emerald-500/20',
+      bg: 'bg-emerald-950/10',
+      iconBg: 'bg-emerald-950/50 border border-emerald-500/20',
+      icon: 'text-emerald-400',
+      value: 'text-white',
+      trend: 'text-emerald-400',
+    }
+  },
+  {
+    label: 'Discharges',
+    value: '9',
+    sub: 'Target: 12 by 5 PM',
+    icon: CheckCircle2,
+    trend: 'neutral',
+    accent: {
+      border: 'border-slate-500/20',
+      bg: 'bg-slate-950/10',
+      iconBg: 'bg-slate-950/50 border border-slate-500/20',
+      icon: 'text-slate-400',
+      value: 'text-white',
+      trend: 'text-slate-400',
+    }
+  },
+  {
+    label: 'Available Beds',
+    value: '18',
+    sub: '82% occupancy rate',
+    icon: Bed,
+    trend: 'neutral',
+    accent: {
+      border: 'border-blue-500/20',
+      bg: 'bg-blue-950/10',
+      iconBg: 'bg-blue-950/50 border border-blue-500/20',
+      icon: 'text-blue-400',
+      value: 'text-white',
+      trend: 'text-blue-400',
+    }
+  },
+  {
+    label: 'Average Waiting Time',
+    value: '18m',
+    sub: '-4 min avg waiting',
     icon: Clock,
     trend: 'down',
     accent: {
@@ -61,20 +121,20 @@ const STATS = [
     }
   },
   {
-    label: 'AI Diagnoses Run',
-    value: '18',
-    sub: 'Gemini 2.5 engine',
+    label: 'AI Recommendations',
+    value: '27',
+    sub: '94% clinical accuracy',
     icon: Brain,
     trend: 'up',
     accent: {
-      border: 'border-emerald-500/20',
-      bg: 'bg-emerald-950/10',
-      iconBg: 'bg-emerald-950/50 border border-emerald-500/20',
-      icon: 'text-emerald-400',
+      border: 'border-fuchsia-500/20',
+      bg: 'bg-fuchsia-950/10',
+      iconBg: 'bg-fuchsia-950/50 border border-fuchsia-500/20',
+      icon: 'text-fuchsia-400',
       value: 'text-white',
       trend: 'text-emerald-400',
     }
-  },
+  }
 ]
 
 const ALERTS = [
@@ -180,7 +240,7 @@ export function Dashboard() {
         </div>
 
         {/* ── STAT CARDS ───────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {STATS.map((stat) => {
             const Icon = stat.icon
             return (
@@ -199,6 +259,7 @@ export function Dashboard() {
                     {stat.trend === 'up' && <><TrendingUp className="w-3.5 h-3.5" /> Up</>}
                     {stat.trend === 'down' && <><TrendingDown className="w-3.5 h-3.5" /> Improved</>}
                     {stat.trend === 'alert' && <><Zap className="w-3.5 h-3.5 animate-pulse" /> Alert</>}
+                    {stat.trend === 'neutral' && <><Minus className="w-3.5 h-3.5" /> Stable</>}
                   </div>
                 </div>
 
