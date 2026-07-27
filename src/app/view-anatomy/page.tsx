@@ -699,14 +699,14 @@ function ViewAnatomyPageContent() {
           <div className="w-[20%] min-w-[260px] bg-surface/40 backdrop-blur-3xl border-l border-primary/20 shadow-2xl p-3.5 flex flex-col overflow-y-auto custom-scrollbar shrink-0 shadow-sm transition-all">
             <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-3">
               <span className="font-bold text-[10px] uppercase text-primary tracking-wider flex items-center gap-1.5">
-                <Activity className="w-3 h-3" /> AI Clinical Results
+                <Activity className="w-3 h-3" /> AI Patient Anatomy Educator
               </span>
             </div>
 
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-40 text-center gap-2">
                 <span className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
-                <p className="text-[9px] text-cyan-400 font-mono uppercase animate-pulse">Running Diagnostic AI...</p>
+                <p className="text-[9px] text-cyan-400 font-mono uppercase animate-pulse">Mapping Body Systems...</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -714,8 +714,8 @@ function ViewAnatomyPageContent() {
                   <div className="bg-red-950/40 border border-red-500/50 p-2.5 rounded-lg flex items-start gap-1.5 shadow-[0_0_10px_rgba(239,68,68,0.15)]">
                     <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-red-400 font-bold uppercase text-[9px] tracking-wider mb-0.5">Medical Emergency</h4>
-                      <p className="text-[8px] text-red-200/80 leading-relaxed">Symptoms indicate a potentially life-threatening condition requiring immediate medical attention.</p>
+                      <h4 className="text-red-400 font-bold uppercase text-[9px] tracking-wider mb-0.5">Safety Warning</h4>
+                      <p className="text-[8px] text-red-200/80 leading-relaxed">These symptoms could indicate an urgent issue. Please consult a doctor or seek immediate emergency care.</p>
                     </div>
                   </div>
                 )}
@@ -723,7 +723,7 @@ function ViewAnatomyPageContent() {
                 {/* NEW: Affected Anatomy Section */}
                 <div className="mb-3 bg-slate-900/40 rounded-xl p-2.5 border border-blue-900/30">
                   <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <Search className="w-3 h-3 text-blue-400" /> Affected Anatomy
+                    <Search className="w-3 h-3 text-blue-400" /> Involved Organs &amp; Regions
                   </h3>
                   
                   {anatomyList.length > 0 ? (
@@ -740,7 +740,7 @@ function ViewAnatomyPageContent() {
                                  if (term.includes(key)) {
                                    matchedId = ids[0]
                                    break
-                                 }
+                                  }
                               }
                               const condInfo = conditionsByOrgan[matchedId] || {
                                 condition: item.label === 'Heart' ? 'Heart Attack' : item.label,
@@ -757,12 +757,12 @@ function ViewAnatomyPageContent() {
                               </span>
                               {!isFound && (
                                 <span className="text-[7.5px] bg-red-950/50 text-red-400 border border-red-500/20 px-1 py-0.5 rounded font-mono uppercase">
-                                  Mesh not found
+                                  Body System
                                 </span>
                               )}
                               {isFound && (
                                 <span className="text-[7.5px] bg-cyan-950/50 text-cyan-400 border border-cyan-500/20 px-1 py-0.5 rounded font-mono uppercase">
-                                  Validated
+                                  Mapped
                                 </span>
                               )}
                             </div>
@@ -780,17 +780,18 @@ function ViewAnatomyPageContent() {
 
                 {/* Differential Diagnoses */}
                 <div className="space-y-2.5 pt-1">
-                  <h3 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Differential Diagnoses</h3>
+                  <h3 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Anatomical System Associations</h3>
                   {possibleConditions.map((cond, idx) => (
                     <div key={idx} className="bg-black/30 border border-white/10 rounded-xl p-2.5 hover:border-primary/30 transition-colors">
                       <div className="flex items-start justify-between gap-1.5 mb-1.5">
                         <h4 className="text-[10px] font-bold text-white leading-tight">{cond.name}</h4>
-                        <span className={`text-[8px] font-black px-1 py-0.5 rounded border tracking-wider shrink-0 ${
+                        <span className={`text-[8px] font-black px-1 py-0.5 rounded border tracking-wider shrink-0 uppercase ${
                           cond.confidence >= 80 ? 'bg-cyan-950/50 text-cyan-400 border-cyan-500/30' :
                           cond.confidence >= 50 ? 'bg-amber-950/50 text-amber-400 border-amber-500/30' :
                           'bg-slate-800 text-slate-300 border-slate-600'
                         }`}>
-                          {cond.confidence}%
+                          {cond.confidence >= 80 ? 'High relevance' :
+                           cond.confidence >= 50 ? 'Moderate relevance' : 'General connection'}
                         </span>
                       </div>
                       <p className="text-[8.5px] text-slate-400 leading-relaxed font-sans">{cond.reasoning}</p>
@@ -801,11 +802,11 @@ function ViewAnatomyPageContent() {
                 {/* Recommended Investigations */}
                 {recommendedInvestigations.length > 0 && (
                   <div className="space-y-2.5 pt-1">
-                    <h3 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Recommended Investigations</h3>
-                    <div className="flex flex-wrap gap-1">
+                    <h3 className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest border-b border-white/5 pb-1">Suggested Doctor Discussion Topics</h3>
+                    <div className="flex flex-col gap-1.5">
                       {recommendedInvestigations.map((inv, idx) => (
-                        <span key={idx} className="px-1.5 py-0.5 bg-blue-950/30 border border-blue-500/20 rounded text-[8.5px] font-medium text-blue-200">
-                          {inv}
+                        <span key={idx} className="px-2 py-1 bg-blue-950/30 border border-blue-500/20 rounded text-[8.5px] font-medium text-blue-200">
+                          ❓ Ask if you need: {inv}
                         </span>
                       ))}
                     </div>
@@ -816,7 +817,7 @@ function ViewAnatomyPageContent() {
                 <div className="mt-6 p-2 bg-slate-900/50 border border-slate-800 rounded-lg flex gap-1.5">
                   <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <p className="text-[7.5px] text-slate-500 font-sans leading-relaxed">
-                    <strong>DISCLAIMER:</strong> AI decision support. Not a confirmed diagnosis. Always exercise clinical judgment and perform testing.
+                    <strong>DISCLAIMER:</strong> This is a patient education guide designed to help you understand your body. It is NOT a medical diagnosis. Always consult a healthcare professional.
                   </p>
                 </div>
               </div>

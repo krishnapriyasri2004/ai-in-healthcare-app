@@ -385,12 +385,12 @@ export default function SymptomsPage() {
       <div className="flex justify-between items-center border-b border-white/10 pb-4 mb-6">
         <div>
           <h1 className="text-sm font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-            🧬 AI Diagnostic Assistant — Gemini Clinical Engine
+            🩺 AI Patient Anatomy Educator
           </h1>
-          <p className="text-[10px] text-slate-500 mt-0.5">Enter patient symptoms to get AI-powered differential diagnoses mapped to the 3D anatomy model.</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Understand how your symptoms map to your body systems and learn about your anatomy.</p>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded glass-panel border border-white/10 text-emerald-400 font-bold uppercase text-[9px]">
-          ● Gemini 2.5 Online
+          ● Health Assistant Active
         </div>
       </div>
 
@@ -402,7 +402,7 @@ export default function SymptomsPage() {
           {/* Preset Shortcuts */}
           <div className="glass-panel border border-white/10 rounded-xl p-4 space-y-3">
             <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
-              💡 Rapid Clinical Presets
+              💡 Sample Symptoms to Explore
             </span>
             <div className="flex flex-col gap-2">
               {PRESET_SCENARIOS.map((preset, idx) => (
@@ -424,7 +424,7 @@ export default function SymptomsPage() {
           {/* Symptoms Input Form */}
           <div className="glass-panel border border-white/10 rounded-xl p-4 flex-1 flex flex-col gap-3">
             <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
-              ✍ Clinician Triage Entry
+              ✍ Describe What You Are Feeling
             </span>
 
             {/* Patient fields row */}
@@ -476,7 +476,7 @@ export default function SymptomsPage() {
 
             {/* Symptoms textarea */}
             <div className="flex-1 flex flex-col space-y-1">
-              <label className="text-slate-500 text-[9px] uppercase">Presenting Symptoms *</label>
+              <label className="text-slate-500 text-[9px] uppercase">Your Symptoms *</label>
               <textarea
                 ref={textareaRef}
                 value={symptomsInput}
@@ -507,12 +507,12 @@ export default function SymptomsPage() {
               {isAnalyzing ? (
                 <>
                   <span className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                  Gemini Analyzing...
+                  Analyzing Symptoms...
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  Submit &amp; Analyze Symptoms
+                  Analyze Symptoms &amp; Map Body
                 </>
               )}
             </button>
@@ -576,11 +576,11 @@ export default function SymptomsPage() {
         </div>
       </div>
 
-      {/* BOTTOM SECTION: AI Clinical Outcomes */}
+      {/* BOTTOM SECTION: AI Patient Health Outcomes */}
       {(isAnalyzing || result || errorMsg) && (
         <div className="mt-6 glass-panel border border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-bottom duration-250">
           <span className="text-cyan-400 font-bold uppercase text-[9px] border-b border-white/10 pb-1.5 tracking-wider block">
-            🔬 Gemini AI Clinical Prognosis Dossier
+            💡 Your Body's Health &amp; Anatomy Guide
           </span>
 
           {/* Error */}
@@ -599,12 +599,12 @@ export default function SymptomsPage() {
               </div>
               <div className="text-center space-y-1">
                 <span className="font-bold text-slate-300 text-[10px]">
-                  {progressStep === 0 ? 'CONNECTING TO GEMINI 2.5 ENGINE...' :
-                   progressStep === 1 ? 'PROCESSING CLINICAL SYMPTOM VECTORS...' :
-                   progressStep === 2 ? 'MAPPING AFFECTED ANATOMICAL REGIONS...' :
-                   'GENERATING DIFFERENTIAL DIAGNOSES...'}
+                  {progressStep === 0 ? 'CONNECTING TO ANATOMY ENGINE...' :
+                   progressStep === 1 ? 'ANALYZING YOUR SYMPTOMS...' :
+                   progressStep === 2 ? 'LOCATING INVOLVED BODY ORGANS...' :
+                   'COMPILING PATIENT EDUCATION GUIDE...'}
                 </span>
-                <p className="text-[9px] text-slate-500 uppercase">ABDM Security Gateway Active</p>
+                <p className="text-[9px] text-slate-500 uppercase">Self-Guided Patient Learning</p>
               </div>
             </div>
           ) : result && (
@@ -615,38 +615,35 @@ export default function SymptomsPage() {
                 {result.redFlag && (
                   <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-lg flex items-center gap-2 animate-pulse">
                     <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-                    <span className="text-red-400 font-bold text-[10px] uppercase">🚨 Red Flag — Immediate intervention required</span>
+                    <span className="text-red-400 font-bold text-[10px] uppercase">⚠️ Safety Notice — Seek professional medical care</span>
                   </div>
                 )}
 
                 <div className="p-3 bg-black/30 border border-white/10 rounded-lg space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] text-slate-500 uppercase">Primary Diagnosis</span>
+                    <span className="text-[9px] text-slate-500 uppercase">Primary Anatomy Focus</span>
                     <span className={`font-bold text-[10px] ${
-                      result.primaryConfidence >= 85 ? 'text-red-400' :
+                      result.primaryConfidence >= 85 ? 'text-cyan-400' :
                       result.primaryConfidence >= 65 ? 'text-amber-400' : 'text-green-400'
-                    }`}>{result.primaryConfidence}% Match</span>
+                    }`}>
+                      {result.primaryConfidence >= 85 ? 'High Relevance' :
+                       result.primaryConfidence >= 65 ? 'Moderate Relevance' : 'General Connection'}
+                    </span>
                   </div>
                   <h3 className="text-sm font-black text-rose-400 uppercase leading-snug">{result.primaryCondition}</h3>
                   <p className="text-[10px] text-slate-400 leading-normal">{result.primaryReasoning}</p>
                 </div>
 
-                {codes && (
-                  <div className="grid grid-cols-2 gap-3 font-sans">
-                    <div className="p-2.5 bg-black/30 border border-white/5 rounded text-center">
-                      <span className="text-[8px] text-slate-500 uppercase font-mono block mb-0.5">ICD-10 Code</span>
-                      <span className="text-xs font-black text-slate-100 font-mono tracking-wide">{codes.icd10}</span>
-                    </div>
-                    <div className="p-2.5 bg-black/30 border border-white/5 rounded text-center">
-                      <span className="text-[8px] text-slate-500 uppercase font-mono block mb-0.5">SNOMED CT ID</span>
-                      <span className="text-xs font-black text-slate-100 font-mono tracking-wide">{codes.snomed}</span>
-                    </div>
-                  </div>
-                )}
+                <div className="p-3 bg-cyan-950/10 border border-cyan-500/20 rounded-xl space-y-1">
+                  <span className="text-[9px] text-cyan-400 font-bold uppercase block">How to Use This Guide</span>
+                  <p className="text-[9.5px] text-slate-400 leading-normal font-sans">
+                    This portal helps you learn about your anatomy and systems. Use the notes and questions in the right columns to guide conversations with your healthcare provider.
+                  </p>
+                </div>
 
                 {/* Affected regions */}
                 <div className="p-2.5 bg-black/30 border border-white/10 rounded-lg">
-                  <span className="text-[9px] text-slate-500 uppercase block mb-2 font-bold">Mapped Anatomical Regions <span className="text-slate-600 normal-case">(click to view 3D)</span></span>
+                  <span className="text-[9px] text-slate-500 uppercase block mb-2 font-bold">Mapped Body Systems <span className="text-slate-600 normal-case">(click to view 3D)</span></span>
                   <div className="flex flex-wrap gap-1.5">
                     {result.affectedRegions.map((r, i) => (
                       <button
@@ -667,7 +664,7 @@ export default function SymptomsPage() {
 
               {/* All differential diagnoses */}
               <div className="col-span-4 space-y-2">
-                <span className="text-[9px] text-slate-500 uppercase block font-bold">Differential Diagnoses (All)</span>
+                <span className="text-[9px] text-slate-500 uppercase block font-bold">Possible Body System Areas</span>
                 {result.possibleConditions.map((cond, idx) => (
                   <div key={idx} className={`p-3 rounded-lg border space-y-1 ${
                     idx === 0 ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-black/30 border-white/10'
@@ -675,47 +672,50 @@ export default function SymptomsPage() {
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-slate-100 text-[10px] leading-snug max-w-[150px]">{cond.name}</span>
                       <span className={`text-[10px] font-black shrink-0 ${
-                        cond.confidence >= 85 ? 'text-red-400' :
+                        cond.confidence >= 85 ? 'text-cyan-400' :
                         cond.confidence >= 65 ? 'text-amber-400' : 'text-green-400'
-                      }`}>{cond.confidence}%</span>
+                      }`}>
+                        {cond.confidence >= 85 ? 'High Relevance' :
+                         cond.confidence >= 65 ? 'Moderate Relevance' : 'General Connection'}
+                      </span>
                     </div>
                     <p className="text-[9px] text-slate-400 leading-relaxed">{cond.reasoning}</p>
-                    {idx === 0 && <span className="text-[8px] font-bold uppercase text-cyan-400 border border-cyan-500/30 px-1.5 py-0.5 rounded bg-cyan-950/30">PRIMARY</span>}
+                    {idx === 0 && <span className="text-[8px] font-bold uppercase text-cyan-400 border border-cyan-500/30 px-1.5 py-0.5 rounded bg-cyan-950/30 font-mono">Main Focus</span>}
                   </div>
                 ))}
               </div>
 
               {/* Clinical directives */}
               <div className="col-span-3 p-3 bg-black/30 border border-white/10 rounded-lg space-y-2">
-                <span className="text-[9px] text-slate-500 uppercase block font-bold">Clinician Directives</span>
+                <span className="text-[9px] text-slate-500 uppercase block font-bold">Suggested Doctor Discussion Guide</span>
                 <ul className="space-y-2 text-[9px] text-slate-300">
                   {result.redFlag && (
                     <li className="flex gap-2 items-start leading-relaxed text-red-400 font-bold">
-                      <span className="text-red-500 shrink-0 mt-0.5">⚡</span>
-                      Call emergency response team immediately.
+                      <span className="text-red-500 shrink-0 mt-0.5">⚠️</span>
+                      Seek emergency medical care immediately.
                     </li>
                   )}
                   <li className="flex gap-2 items-start leading-relaxed">
-                    <span className="text-cyan-500 shrink-0 mt-0.5">•</span>
-                    Correlate findings with patient vitals and physical examination.
+                    <span className="text-cyan-500 shrink-0 mt-0.5">❓</span>
+                    Write down when your symptoms started and what triggers them.
                   </li>
                   <li className="flex gap-2 items-start leading-relaxed">
-                    <span className="text-cyan-500 shrink-0 mt-0.5">•</span>
-                    Order targeted investigations for the primary diagnosis.
+                    <span className="text-cyan-500 shrink-0 mt-0.5">❓</span>
+                    Ask your doctor: "Could this be related to my {result.affectedRegions[0]?.replace('_', ' ')}?"
                   </li>
                   <li className="flex gap-2 items-start leading-relaxed">
-                    <span className="text-cyan-500 shrink-0 mt-0.5">•</span>
-                    Review differential diagnoses if primary treatment shows no improvement.
+                    <span className="text-cyan-500 shrink-0 mt-0.5">❓</span>
+                    Ask if you need diagnostic tests like: {result.possibleConditions[0]?.name.includes('Heart') || result.possibleConditions[0]?.name.includes('STEMI') ? 'an ECG or Troponin check' : 'imaging or routine blood work'}.
                   </li>
                   <li className="flex gap-2 items-start leading-relaxed">
-                    <span className="text-cyan-500 shrink-0 mt-0.5">•</span>
-                    Document findings in ABDM patient record.
+                    <span className="text-cyan-500 shrink-0 mt-0.5">❓</span>
+                    Track changes in your vitals (temperature, pulse, blood pressure).
                   </li>
                 </ul>
 
-                <div className="mt-3 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[9px] text-slate-500">
-                  <Info className="w-3 h-3 shrink-0 mt-0.5 text-cyan-500" />
-                  AI decision support only. Clinical verification required.
+                <div className="mt-3 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[9px] text-slate-500 font-sans">
+                  <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-500" />
+                  Educational tool only. Always seek professional advice.
                 </div>
               </div>
 

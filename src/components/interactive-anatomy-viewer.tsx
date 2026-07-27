@@ -351,7 +351,7 @@ function OrganDetailModal({ organ, condition, reasoning, severity, onClose }: {
         <div className="h-[3px] w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-white/10">
           <div className="flex flex-col gap-1">
-            <span className="text-[9px] text-on-surface-variant uppercase tracking-[0.18em] font-bold">Clinical Detail View</span>
+            <span className="text-[9px] text-cyan-400 uppercase tracking-[0.18em] font-bold">Patient Health &amp; Anatomy Education</span>
             <h2 className="text-lg font-black text-white uppercase tracking-widest leading-tight">{organ}</h2>
             {info && <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{info.system} System</span>}
           </div>
@@ -372,30 +372,30 @@ function OrganDetailModal({ organ, condition, reasoning, severity, onClose }: {
         <div className="px-6 py-5 space-y-5">
           {condition && (
             <div className="flex flex-col gap-1">
-              <span className="text-[8.5px] text-on-surface-variant uppercase tracking-[0.15em] font-bold">Suspected Condition</span>
-              <div className="text-[13px] font-black text-red-400 uppercase tracking-wide">{condition}</div>
+              <span className="text-[8.5px] text-slate-500 uppercase tracking-[0.15em] font-bold">Anatomical System Connection</span>
+              <div className="text-[13px] font-black text-cyan-400 uppercase tracking-wide">{condition}</div>
             </div>
           )}
           {reasoning && (
             <div className="p-4 bg-black/50 border border-slate-800/80 rounded-xl space-y-1.5">
-              <span className="text-[8.5px] text-on-surface-variant uppercase tracking-[0.15em] font-bold block">AI Clinical Reasoning</span>
+              <span className="text-[8.5px] text-slate-400 uppercase tracking-[0.15em] font-bold block">How Symptoms Relate to This Organ</span>
               <p className="text-[11.5px] text-slate-200 leading-relaxed font-sans font-medium">{reasoning}</p>
             </div>
           )}
           {info && (
             <div className="p-4 bg-cyan-950/10 border border-cyan-500/10 rounded-xl space-y-1.5">
-              <span className="text-[8.5px] text-primary/70 uppercase tracking-[0.15em] font-bold block">Anatomical Overview</span>
+              <span className="text-[8.5px] text-primary/70 uppercase tracking-[0.15em] font-bold block">Did You Know? (About This Organ)</span>
               <p className="text-[11px] text-on-surface leading-relaxed font-sans">{info.description}</p>
             </div>
           )}
           {info && (
             <div className="space-y-2">
-              <span className="text-[8.5px] text-on-surface-variant uppercase tracking-[0.15em] font-bold block">Recommended Clinical Actions</span>
+              <span className="text-[8.5px] text-slate-400 uppercase tracking-[0.15em] font-bold block">Educational Discussion Guide for Your Doctor</span>
               <div className="grid grid-cols-2 gap-2">
                 {info.actions.map((action, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 bg-black/40 border border-blue-950/50 rounded-lg">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
-                    <span className="text-[10px] text-on-surface font-sans font-medium">{action}</span>
+                    <span className="text-[10px] text-on-surface font-sans font-medium">Ask about: {action}</span>
                   </div>
                 ))}
               </div>
@@ -403,7 +403,7 @@ function OrganDetailModal({ organ, condition, reasoning, severity, onClose }: {
           )}
         </div>
         <div className="px-6 pb-5 flex items-center justify-between">
-          <span className="text-[9px] text-slate-600 font-sans">AI decision support — requires physician verification</span>
+          <span className="text-[8.5px] text-slate-600 font-sans">Educational Guide — Not a diagnosis. Consult a doctor.</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-500/30 text-primary text-[10px] font-bold uppercase tracking-wider transition cursor-pointer"
