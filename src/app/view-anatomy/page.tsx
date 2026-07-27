@@ -386,20 +386,20 @@ function ViewAnatomyPageContent() {
 
   // Debounced auto-analysis when symptoms are entered
   useEffect(() => {
+    // Clear old state immediately so highlights/labels don't linger while typing new symptoms
+    setPossibleConditions([])
+    setRedFlag(false)
+    setAnatomyList([])
+    setValidatedLabels(new Set())
+    setHighlightedMeshNames([])
+    setAffectedOrganIds([])
+    setAffectedAnatomyList([])
+    setConditionsByOrgan({})
+    setSelectedOrgan(null)
+    setIsSymptomSubmitted(false)
+
     const trimmed = symptomsInput.trim()
-    if (!trimmed) {
-      setPossibleConditions([])
-      setRedFlag(false)
-      setAnatomyList([])
-      setValidatedLabels(new Set())
-      setHighlightedMeshNames([])
-      setAffectedOrganIds([])
-      setAffectedAnatomyList([])
-      setConditionsByOrgan({})
-      setSelectedOrgan(null)
-      setIsSymptomSubmitted(false)
-      return
-    }
+    if (!trimmed) return
 
     const timer = setTimeout(() => {
       handleAnalyze()
@@ -430,15 +430,15 @@ function ViewAnatomyPageContent() {
             href="/scan" 
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-white/10 transition text-[10px] font-bold text-gray-300 pointer-events-auto"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> BACK TO CLINIC
+            <ArrowLeft className="w-3.5 h-3.5" /> BACK TO HOMEPAGE
           </Link>
           <div className="h-4 w-px bg-blue-950/40"></div>
           <div>
             <h1 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
               <Activity className="w-4 h-4 text-primary animate-pulse" /> 
-              ABDM Clinician 3D Command Viewer
+              🩺 AI Patient Anatomy Educator
             </h1>
-            <p className="text-[9px] text-on-surface-variant mt-0.5 font-sans font-medium">Physically based medical models. Click body to split/merge anatomical columns.</p>
+            <p className="text-[9px] text-on-surface-variant mt-0.5 font-sans font-medium font-medium">Learn about your body's systems. Click body parts to view information.</p>
           </div>
         </div>
         
@@ -449,10 +449,10 @@ function ViewAnatomyPageContent() {
             className={`px-3 py-1 rounded-md font-bold text-[9px] uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
               !isFormCollapsed ? 'bg-cyan-950/60 border border-cyan-500/30 text-primary shadow-sm' : 'bg-slate-900 border border-white/10 text-on-surface-variant hover:text-slate-400'
             }`}
-            title={isFormCollapsed ? "Open Patient Intake Form" : "Collapse Patient Intake Form"}
+            title={isFormCollapsed ? "Open Symptom Entry" : "Collapse Symptom Entry"}
           >
             <FileText className="w-3 h-3" />
-            {isFormCollapsed ? "Intake Form" : "Hide Form"}
+            {isFormCollapsed ? "Symptom Entry" : "Hide Form"}
           </button>
 
           <div className="h-4 w-px bg-blue-950/40 mx-0.5"></div>
@@ -477,7 +477,7 @@ function ViewAnatomyPageContent() {
             </button>
           </div>
           <div className="h-4 w-px bg-blue-950/40 mx-1"></div>
-          <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold uppercase text-[9px]">● ABDM SECURE</span>
+          <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold uppercase text-[9px]">● Health Assistant</span>
         </div>
       </div>
 
@@ -496,7 +496,7 @@ function ViewAnatomyPageContent() {
           title={isFormCollapsed ? 'Open Patient Intake Form' : 'Close Patient Intake Form'}
         >
           <FileText className="w-3.5 h-3.5 rotate-90" />
-          <span className="text-[8px] font-bold uppercase tracking-widest">{isFormCollapsed ? 'Intake Form' : 'Close'}</span>
+          <span className="text-[8px] font-bold uppercase tracking-widest">{isFormCollapsed ? 'Symptom Entry' : 'Close'}</span>
         </button>
 
         {/* LEFT COLUMN: Patient Symptom Input (22% Width) — slides in/out */}
@@ -512,9 +512,9 @@ function ViewAnatomyPageContent() {
               {/* Section Header */}
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <span className="font-bold text-xs uppercase text-primary tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5" /> Patient Intake Form
+                  <FileText className="w-3.5 h-3.5" /> Describe Your Symptoms
                 </span>
-                <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider border border-emerald-500/20 bg-emerald-950/30 px-1.5 py-0.5 rounded">● LIVE</span>
+                <span className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider border border-emerald-500/20 bg-emerald-950/30 px-1.5 py-0.5 rounded">● ACTIVE</span>
               </div>
 
               <div className="space-y-3 text-[10px]">
@@ -615,7 +615,7 @@ function ViewAnatomyPageContent() {
                           handleAnalyze()
                         }
                       }}
-                      placeholder={'Describe patient symptoms in detail...\n\nInclude:\n• Location & radiation of pain\n• Duration & onset\n• Associated symptoms\n• Vital signs if known\n\nCtrl+Enter to submit'}
+                      placeholder={'Describe your symptoms in detail...\n\nInclude:\n• Location & details of discomfort\n• Duration & onset\n• Associated symptoms\n• Vital signs if known\n\nCtrl+Enter to submit'}
                       className={`w-full bg-surface-variant/50 border rounded p-2.5 pb-8 text-white outline-none text-xs resize-none leading-relaxed custom-scrollbar font-mono placeholder-slate-700 transition-colors ${
                         isRecording
                           ? 'border-red-500/60 shadow-[0_0_12px_rgba(239,68,68,0.2)]'
@@ -678,12 +678,12 @@ function ViewAnatomyPageContent() {
                 {isLoading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
-                    Gemini Analyzing...
+                    Analyzing Symptoms...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    Submit &amp; Analyze Symptoms
+                    Analyze Symptoms &amp; Map Body
                   </>
                 )}
               </button>
