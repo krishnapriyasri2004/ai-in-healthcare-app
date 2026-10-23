@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useAppContext } from '@/components/AppContext'
 import { downloadPatientsCsv } from '@/lib/export-patients'
+import { useNow } from '@/lib/use-now'
 
 // ── Static Data ────────────────────────────────────────────────────────────
 
@@ -135,10 +136,10 @@ export function Dashboard() {
   const [dismissedAlerts, setDismissedAlerts] = useState<number[]>([])
   const [registryQuery, setRegistryQuery] = useState('')
 
-  const now = new Date()
-  const hour = now.getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const now = useNow(60_000)
+  const hour = now?.getHours()
+  const greeting = hour === undefined ? 'Welcome' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const dateStr = now?.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) ?? ' '
 
   const activeAlerts = ALERTS.filter(a => !dismissedAlerts.includes(a.id))
   const registry = patients.filter(p =>

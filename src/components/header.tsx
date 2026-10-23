@@ -1,8 +1,11 @@
 'use client'
 
 import { Activity, AlertTriangle, Shield } from 'lucide-react'
+import { useNow } from '@/lib/use-now'
 
 export function Header() {
+  const now = useNow()
+
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-primary/20 shadow-[0_4px_30px_rgba(0,0,0,0.5)] px-6 h-16 flex items-center justify-between">
       <div className="flex items-center gap-6">
@@ -56,8 +59,8 @@ export function Header() {
       {/* Date/Time and Doctor Profile */}
       <div className="flex items-center gap-6">
         <div className="hidden md:flex flex-col items-end font-mono text-[10px]">
-          <span className="text-on-surface" suppressHydrationWarning>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-          <span className="text-on-surface-variant mt-0.5 tracking-wider" suppressHydrationWarning>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span className="text-on-surface">{now ? now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : ' '}</span>
+          <span className="text-on-surface-variant mt-0.5 tracking-wider">{now ? now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ' '}</span>
         </div>
         
         <div className="flex items-center gap-2.5">
@@ -66,7 +69,7 @@ export function Header() {
           </div>
           <div>
             <div className="text-[11px] font-bold text-on-surface">Dr. Srinidhi</div>
-            <div className="text-[9px] font-mono text-primary/70 uppercase tracking-wider">Orthopaedics</div>
+            <div className="text-[9px] font-mono text-primary/70 uppercase tracking-wider">General Physician</div>
           </div>
         </div>
       </div>

@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import {
-  Users, Plus, Heart, Calendar, Search, ClipboardList, FileText, Sparkles,
+  Users, Plus, Heart, Calendar, Search, FileText, Sparkles,
   AlertTriangle, Loader2, ExternalLink, Brain, Activity, Download, X,
-  Thermometer, Wind, Droplets, Gauge, User, IdCard, Stethoscope, Check,
+  Thermometer, Wind, Droplets, Gauge, User, IdCard, Check,
 } from 'lucide-react'
 import { useAppContext, Patient, DiagnosisResult } from '@/components/AppContext'
 import { downloadPatientsCsv } from '@/lib/export-patients'
@@ -36,6 +36,20 @@ const STATUS_STYLE: Record<VitalStatus, { label: string; cls: string }> = {
   high:    { label: 'High',   cls: 'bg-red-500/10 text-red-300' },
   low:     { label: 'Low',    cls: 'bg-amber-500/10 text-amber-300' },
   unknown: { label: '—',      cls: 'bg-white/5 text-slate-500' },
+}
+
+// Overall triage from how many vitals fall outside the reference ranges
+type Triage = 'Critical' | 'Watch' | 'Stable'
+function triage(p: Patient): Triage {
+  const abnormal = (['hr', 'temp', 'spo2', 'bp'] as const)
+    .filter(k => { const st = vitalStatus(k, p.vitals[k]); return st === 'high' || st === 'low' }).length
+    + (['high', 'low'].includes(vitalStatus('sugar', p.bloodSugar)) ? 1 : 0)
+  return abnormal >= 3 ? 'Critical' : abnormal >= 1 ? 'Watch' : 'Stable'
+}
+const TRIAGE_STYLE: Record<Triage, { badge: string; dot: string }> = {
+  Critical: { badge: 'bg-red-500/10 text-red-300 ring-red-400/25', dot: 'bg-red-400' },
+  Watch:    { badge: 'bg-amber-500/10 text-amber-300 ring-amber-400/25', dot: 'bg-amber-400' },
+  Stable:   { badge: 'bg-emerald-500/10 text-emerald-300 ring-emerald-400/25', dot: 'bg-emerald-400' },
 }
 
 // Formats up to 14 digits as XX-XXXX-XXXX-XXXX while typing
@@ -450,7 +464,13 @@ export default function PatientsPage() {
               <h1 className="text-[16px] font-semibold text-white flex items-center gap-2">
                 <Users className="w-4 h-4 text-cyan-300" /> Patients
               </h1>
-              <p className="text-[12px] text-slate-500 mt-0.5">{patients.length} registered</p>
+              <p className="text-[12px] text-slate-500 mt-0.5">
+                {patients.length} registered
+                {(['Critical', 'Watch'] as Triage[]).map(t => {
+                  const n = patients.filter(p => triage(p) === t).length
+                  return n > 0 && <span key={t} className="ml-2 inline-flex items-center gap-1"><span className={`w-1.5 h-1.5 rounded-full ${TRIAGE_STYLE[t].dot}`} />{n} {t.toLowerCase()}</span>
+                })}
+              </p>
             </div>
             <button
               onClick={() => downloadPatientsCsv(patients)}
@@ -483,7 +503,7 @@ export default function PatientsPage() {
         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5">
           {filteredPatients.map(p => {
             const active = selectedPatientId === p.id
-            const hrStatus = vitalStatus('hr', p.vitals.hr)
+            const t = triage(p)
             return (
               <button
                 key={p.id}
@@ -501,9 +521,9 @@ export default function PatientsPage() {
                   <div className="text-[14px] font-medium text-white truncate">{p.name}</div>
                   <div className="text-[12px] text-slate-500">{p.gender} · {p.age} yrs</div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className={`text-[13px] font-semibold tabular-nums ${hrStatus === 'normal' ? 'text-slate-300' : 'text-red-300'}`}>{p.vitals.hr}</div>
-                  <div className="text-[10px] text-slate-500 uppercase">bpm</div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`px-2 py-0.5 rounded-full ring-1 text-[10.5px] font-medium ${TRIAGE_STYLE[t].badge}`}>{t}</span>
+                  <span className="text-[11px] text-slate-500 tabular-nums flex items-center gap-1"><Heart className="w-3 h-3" />{p.vitals.hr}</span>
                 </div>
               </button>
             )
@@ -542,6 +562,17 @@ export default function PatientsPage() {
                 <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-500 font-mono">{activePatient.id}</span>
               </div>
             </div>
+            <div className="flex md:flex-col lg:flex-row gap-2 shrink-0">
+              <span className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl ring-1 text-[12px] font-medium ${TRIAGE_STYLE[triage(activePatient)].badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${TRIAGE_STYLE[triage(activePatient)].dot}`} /> {triage(activePatient)}
+              </span>
+              <a
+                href={getAnatomyViewerUrl()}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl bg-white/[0.06] hover:bg-white/10 ring-1 ring-white/10 text-[12px] font-medium text-white transition"
+              >
+                <Activity className="w-3.5 h-3.5 text-cyan-300" /> Open in 3D
+              </a>
+            </div>
           </div>
 
           {/* Vitals */}
@@ -565,8 +596,9 @@ export default function PatientsPage() {
             })}
           </div>
 
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
           {/* AI symptom analysis */}
-          <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-b from-cyan-400/[0.05] to-transparent overflow-hidden">
+          <div className="xl:col-span-2 rounded-2xl border border-cyan-400/20 bg-gradient-to-b from-cyan-400/[0.05] to-transparent overflow-hidden">
             <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-white/[0.06]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-cyan-400/15 flex items-center justify-center">
@@ -673,48 +705,64 @@ export default function PatientsPage() {
             </div>
           </div>
 
-          {/* Symptoms & clinical notes */}
-          <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
-            {[
-              { icon: ClipboardList, title: 'Presenting symptoms', body: activePatient.symptoms || 'No clinical symptoms registered.' },
-              { icon: FileText, title: 'Clinical case notes', body: activePatient.notes || 'No history notes submitted.' },
-            ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
-                <h3 className="text-[14px] font-semibold text-white flex items-center gap-2 mb-3">
-                  <Icon className="w-4 h-4 text-slate-400" /> {title}
-                </h3>
-                <p className="text-[13.5px] text-slate-300 leading-relaxed">{body}</p>
-              </div>
-            ))}
-          </div>
+          {/* Side column: notes, history, coverage */}
+          <div className="flex flex-col gap-6">
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
+              <h3 className="text-[14px] font-semibold text-white flex items-center gap-2 mb-3">
+                <FileText className="w-4 h-4 text-slate-400" /> Clinical case notes
+              </h3>
+              <p className="text-[13.5px] text-slate-300 leading-relaxed">{activePatient.notes || 'No history notes submitted.'}</p>
+            </div>
 
-          {/* History timeline */}
-          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
-            <h3 className="text-[14px] font-semibold text-white flex items-center gap-2 mb-4">
-              <Calendar className="w-4 h-4 text-slate-400" /> Diagnosis history
-            </h3>
-            {activePatient.history.length > 0 ? (
-              <ol className="space-y-2">
-                {activePatient.history.map((record, idx) => (
-                  <li key={idx} className="flex items-center gap-4 p-3.5 rounded-xl bg-black/20 ring-1 ring-white/[0.05]">
-                    <Stethoscope className="w-4 h-4 text-slate-500 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] font-medium text-white">{record.diagnosis}</div>
-                      <div className="text-[12px] text-slate-500 tabular-nums">
-                        {new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
+              <h3 className="text-[14px] font-semibold text-white flex items-center gap-2 mb-4">
+                <Calendar className="w-4 h-4 text-slate-400" /> Diagnosis history
+              </h3>
+              {activePatient.history.length > 0 ? (
+                <ol className="relative">
+                  {activePatient.history.map((record, idx) => (
+                    <li key={idx} className="relative flex gap-3.5 pb-5 last:pb-0">
+                      {idx < activePatient.history.length - 1 && <span className="absolute left-[5px] top-4 bottom-0 w-px bg-white/10" />}
+                      <span className={`relative mt-1.5 w-[11px] h-[11px] rounded-full shrink-0 ring-4 ring-[#0a0d14] ${
+                        record.severity === 'High' ? 'bg-red-400' : record.severity === 'Medium' ? 'bg-amber-400' : 'bg-emerald-400'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13.5px] font-medium text-white">{record.diagnosis}</div>
+                        <div className="text-[12px] text-slate-500 mt-0.5 tabular-nums">
+                          {new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}
+                          <span className="mx-1.5">·</span>{record.severity} severity
+                        </div>
                       </div>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                      record.severity === 'High' ? 'bg-red-500/10 text-red-300' : record.severity === 'Medium' ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'
-                    }`}>
-                      {record.severity} severity
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="py-8 text-center text-[13px] text-slate-500">No previous diagnoses on record for {activePatient.name}.</div>
-            )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="py-6 text-center text-[13px] text-slate-500">No previous diagnoses on record.</div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
+              <h3 className="text-[14px] font-semibold text-white flex items-center gap-2 mb-3">
+                <IdCard className="w-4 h-4 text-slate-400" /> ID &amp; coverage
+              </h3>
+              <dl className="text-[13px] divide-y divide-white/[0.06]">
+                <div className="flex items-center justify-between gap-3 pb-2.5">
+                  <dt className="text-slate-500 whitespace-nowrap">ABHA</dt>
+                  <dd className="font-mono text-white text-[12.5px] whitespace-nowrap">{activePatient.abhaId || '—'}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <dt className="text-slate-500">PM-JAY</dt>
+                  <dd className={`px-2 py-0.5 rounded-full ring-1 text-[11.5px] ${PMJAY_STYLE[activePatient.pmjayEligible || ''] || 'bg-white/5 text-slate-400 ring-white/10'}`}>
+                    {activePatient.pmjayEligible || 'Not Enrolled'}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 pt-2.5">
+                  <dt className="text-slate-500">Record ID</dt>
+                  <dd className="font-mono text-slate-400">{activePatient.id}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
           </div>
         </main>
       )}
