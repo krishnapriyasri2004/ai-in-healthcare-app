@@ -759,15 +759,17 @@ function InvalidateBridge() {
   return null
 }
 
-// Preload all models at module level so the browser fetches them immediately
-// on page load rather than waiting for the Suspense boundary to mount
+// Preload only the model visible on first paint (outer body) at module level so it
+// gets the full bandwidth. The hidden split-view layers are mounted (and fetched)
+// once it is on screen — see loadHiddenLayers in InteractiveAnatomyViewer.
 if (typeof window !== 'undefined') {
-  // FBX preloaded via useFBX at component mount time (no preload API for useFBX)
-  useGLTF.preload('/ai-in-healthcare/source/male-anatomy-senses.glb')
-  useGLTF.preload('/ai-in-healthcare/asset-01/scene-v1.glb')
-  useGLTF.preload('/ai-in-healthcare/asset-01/myology-v1.glb')
-  useGLTF.preload('/ai-in-healthcare/asset-01/free_pack_-_human_skeleton.glb')
   useGLTF.preload('/ai-in-healthcare/asset-01/joe__realistic_human_3d_model.glb')
+}
+
+// Renders nothing; fires once its Suspense boundary has resolved
+function OnReady({ onReady }: { onReady: () => void }) {
+  useEffect(() => { onReady() }, [onReady])
+  return null
 }
 
 // ---------------------------------------------------------
@@ -1982,6 +1984,12 @@ export function InteractiveAnatomyViewer({
     }
   }, [affectedOrganIds])
 
+  // Hidden split-view layers start loading once the outer body is ready,
+  // or immediately if the user switches to split view first
+  const [loadHiddenLayers, setLoadHiddenLayers] = useState(false)
+  const handleOuterBodyReady = useCallback(() => setLoadHiddenLayers(true), [])
+  const mountHiddenLayers = loadHiddenLayers || viewMode === 'split'
+
   // Mirror viewMode to the high-performance ref for useFrame access without dependency triggers
   useEffect(() => {
     isSplittedRef.current = viewMode === 'split'
@@ -2114,6 +2122,7 @@ export function InteractiveAnatomyViewer({
                 <directionalLight position={[8, 14, 6]} intensity={2.2} color="#ffffff" />
                 <directionalLight position={[-8, 8, -4]} intensity={1.0} color="#ddd8f0" />
 
+                  {mountHiddenLayers && (<>
                   {/* Column 2: Superficial Muscular System — myology-v1.glb */}
                   <Suspense fallback={null}>
                     <RealisticGLTFModel 
@@ -2194,6 +2203,7 @@ export function InteractiveAnatomyViewer({
                       onAdjustLabel={adjustOffset}
                     />
                   </Suspense>
+                  </>)}
 
                   {/* Column 1: Integumentary System (Skin) — joe__realistic_human_3d_model.glb */}
                   <Suspense fallback={null}>
@@ -2215,6 +2225,7 @@ export function InteractiveAnatomyViewer({
                       onAdjustLabel={adjustOffset}
                       renderOrder={10}
                     />
+                    <OnReady onReady={handleOuterBodyReady} />
                   </Suspense>
 
 

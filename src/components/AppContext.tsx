@@ -12,7 +12,7 @@ export interface Patient {
   vitals: { temp: string; hr: string; spo2: string; bp: string }
   history: Array<{ date: string; diagnosis: string; severity: string }>
   abhaId?: string
-  pmjayEligible?: 'Eligible' | 'Ineligible' | 'Under Verification'
+  pmjayEligible?: 'Eligible' | 'Ineligible' | 'Under Verification' | 'Not Enrolled'
   bloodSugar?: string
 }
 

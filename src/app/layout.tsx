@@ -55,11 +55,6 @@ export default function RootLayout({
         {/* Global Scanline Effect */}
         <div className="scanline"></div>
 
-        {/* Top Disclaimer Banner */}
-        <div className="fixed top-0 left-0 w-full z-[100] bg-blue-900/90 text-white text-center py-1.5 text-xs font-mono font-bold tracking-widest backdrop-blur-md border-b border-blue-500/50 flex justify-center items-center shadow-lg pointer-events-none">
-          <span className="text-blue-200 mr-2">⚠</span> AI-generated decision support — not a diagnosis.
-        </div>
-
         {/* Global Header */}
         <Header />
 

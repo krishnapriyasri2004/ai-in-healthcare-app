@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Users,
@@ -13,6 +13,7 @@ import {
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
 
   const [symptomsText, setSymptomsText] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -29,7 +30,6 @@ export function Sidebar() {
   const navItems = [
     { href: '/scan', label: 'DASHBOARD', icon: LayoutDashboard },
     { href: '/patients', label: 'PATIENT_DB', icon: Users },
-    { href: '/symptoms', label: 'AI_DIAGNOSTICS', icon: Sparkles },
     { href: '/view-anatomy', label: '3D_ANATOMY', icon: ScanLine },
   ]
 
@@ -39,7 +39,7 @@ export function Sidebar() {
         <div className="text-[10px] text-primary/60 tracking-widest mb-2 border-b border-white/5 pb-2">SYSTEM_MODULES</div>
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href || (item.href === '/scan' && pathname === '/')
 
           return (
             <Link
@@ -75,11 +75,7 @@ export function Sidebar() {
         <button
           onClick={() => {
             if (!symptomsText.trim() || isAnalyzing) return
-            if (pathname === '/scan') {
-              window.dispatchEvent(new CustomEvent('sidebar-analyze', { detail: { symptoms: symptomsText } }))
-            } else {
-              window.location.href = `/ai-in-healthcare/scan?symptoms=${encodeURIComponent(symptomsText)}`
-            }
+            router.push(`/view-anatomy?symptoms=${encodeURIComponent(symptomsText)}`)
             setSymptomsText('')
           }}
           disabled={!symptomsText.trim() || isAnalyzing}

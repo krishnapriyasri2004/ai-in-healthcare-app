@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, Shield } from 'lucide-react'
+import { Activity, AlertTriangle, Shield } from 'lucide-react'
 
 export function Header() {
   return (
@@ -36,8 +36,14 @@ export function Header() {
         </div>
       </div>
 
+      {/* AI disclaimer (previously a fixed banner that covered this header) */}
+      <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-400/25 text-amber-200 text-[11px] font-medium">
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
+        AI-generated decision support — not a diagnosis
+      </div>
+
       {/* Connectivity Status Badges */}
-      <div className="hidden xl:flex items-center gap-4 text-[9px] font-mono">
+      <div className="hidden 2xl:flex items-center gap-4 text-[9px] font-mono">
         {['HIS', 'PACS', 'LIS', 'RIS', 'ABHA'].map((sys) => (
           <div key={sys} className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-variant/50 border border-white/10">
             <span className="text-on-surface-variant/70">{sys}</span>
@@ -50,8 +56,8 @@ export function Header() {
       {/* Date/Time and Doctor Profile */}
       <div className="flex items-center gap-6">
         <div className="hidden md:flex flex-col items-end font-mono text-[10px]">
-          <span className="text-on-surface">04 July 2025</span>
-          <span className="text-on-surface-variant mt-0.5 tracking-wider">10:30 AM</span>
+          <span className="text-on-surface" suppressHydrationWarning>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+          <span className="text-on-surface-variant mt-0.5 tracking-wider" suppressHydrationWarning>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         
         <div className="flex items-center gap-2.5">

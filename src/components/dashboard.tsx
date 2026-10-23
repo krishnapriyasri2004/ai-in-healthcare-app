@@ -2,171 +2,69 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Heart, Activity, Users, AlertTriangle, Clock,
-  TrendingUp, TrendingDown, Sparkles, ChevronRight,
-  CheckCircle2, Circle, Stethoscope, Thermometer,
-  Droplets, Wind, Brain, ArrowRight, Calendar,
-  ShieldCheck, Zap, Minus, BarChart2, ScanLine,
-  Download, Table, Bed
+  TrendingUp, TrendingDown, ChevronRight,
+  CheckCircle2, Thermometer, Droplets, Wind, Brain,
+  ArrowRight, Calendar, ShieldCheck, Minus, BarChart2,
+  ScanLine, Download, Bed, UserPlus, Search, X,
 } from 'lucide-react'
 import { useAppContext } from '@/components/AppContext'
+import { downloadPatientsCsv } from '@/lib/export-patients'
 
 // ── Static Data ────────────────────────────────────────────────────────────
 
-const STATS = [
-  {
-    label: "Today's Patients",
-    value: '32',
-    sub: '+12% vs yesterday',
-    icon: Users,
-    trend: 'up',
-    accent: {
-      border: 'border-cyan-500/20',
-      bg: 'bg-cyan-950/10',
-      iconBg: 'bg-cyan-950/50 border border-cyan-500/20',
-      icon: 'text-cyan-400',
-      value: 'text-white',
-      trend: 'text-emerald-400',
-    }
-  },
-  {
-    label: 'Critical Patients',
-    value: '4',
-    sub: '+1 new since 10 AM',
-    icon: AlertTriangle,
-    trend: 'alert',
-    accent: {
-      border: 'border-red-500/25',
-      bg: 'bg-red-950/10',
-      iconBg: 'bg-red-950/50 border border-red-500/20',
-      icon: 'text-red-400',
-      value: 'text-white',
-      trend: 'text-red-400',
-    }
-  },
-  {
-    label: 'Waiting Patients',
-    value: '8',
-    sub: '-2 in last hour',
-    icon: Clock,
-    trend: 'down',
-    accent: {
-      border: 'border-amber-500/20',
-      bg: 'bg-amber-950/10',
-      iconBg: 'bg-amber-950/50 border border-amber-500/20',
-      icon: 'text-amber-400',
-      value: 'text-white',
-      trend: 'text-emerald-400',
-    }
-  },
-  {
-    label: 'Admissions',
-    value: '14',
-    sub: '+3 today',
-    icon: Activity,
-    trend: 'up',
-    accent: {
-      border: 'border-emerald-500/20',
-      bg: 'bg-emerald-950/10',
-      iconBg: 'bg-emerald-950/50 border border-emerald-500/20',
-      icon: 'text-emerald-400',
-      value: 'text-white',
-      trend: 'text-emerald-400',
-    }
-  },
-  {
-    label: 'Discharges',
-    value: '9',
-    sub: 'Target: 12 by 5 PM',
-    icon: CheckCircle2,
-    trend: 'neutral',
-    accent: {
-      border: 'border-slate-500/20',
-      bg: 'bg-slate-950/10',
-      iconBg: 'bg-slate-950/50 border border-slate-500/20',
-      icon: 'text-slate-400',
-      value: 'text-white',
-      trend: 'text-slate-400',
-    }
-  },
-  {
-    label: 'Available Beds',
-    value: '18',
-    sub: '82% occupancy rate',
-    icon: Bed,
-    trend: 'neutral',
-    accent: {
-      border: 'border-blue-500/20',
-      bg: 'bg-blue-950/10',
-      iconBg: 'bg-blue-950/50 border border-blue-500/20',
-      icon: 'text-blue-400',
-      value: 'text-white',
-      trend: 'text-blue-400',
-    }
-  },
-  {
-    label: 'Average Waiting Time',
-    value: '18m',
-    sub: '-4 min avg waiting',
-    icon: Clock,
-    trend: 'down',
-    accent: {
-      border: 'border-violet-500/20',
-      bg: 'bg-violet-950/10',
-      iconBg: 'bg-violet-950/50 border border-violet-500/20',
-      icon: 'text-violet-400',
-      value: 'text-white',
-      trend: 'text-emerald-400',
-    }
-  },
-  {
-    label: 'AI Recommendations',
-    value: '27',
-    sub: '94% clinical accuracy',
-    icon: Brain,
-    trend: 'up',
-    accent: {
-      border: 'border-fuchsia-500/20',
-      bg: 'bg-fuchsia-950/10',
-      iconBg: 'bg-fuchsia-950/50 border border-fuchsia-500/20',
-      icon: 'text-fuchsia-400',
-      value: 'text-white',
-      trend: 'text-emerald-400',
-    }
-  }
+type Trend = 'up' | 'down' | 'alert' | 'neutral'
+
+const STATS: Array<{ label: string; value: string; sub: string; icon: typeof Users; trend: Trend; tone: string }> = [
+  { label: "Today's Patients", value: '32', sub: '+12% vs yesterday', icon: Users, trend: 'up', tone: 'cyan' },
+  { label: 'Critical Patients', value: '4', sub: '+1 since 10 AM', icon: AlertTriangle, trend: 'alert', tone: 'red' },
+  { label: 'Waiting', value: '8', sub: '-2 in last hour', icon: Clock, trend: 'down', tone: 'amber' },
+  { label: 'Admissions', value: '14', sub: '+3 today', icon: Activity, trend: 'up', tone: 'emerald' },
+  { label: 'Discharges', value: '9', sub: 'Target 12 by 5 PM', icon: CheckCircle2, trend: 'neutral', tone: 'slate' },
+  { label: 'Available Beds', value: '18', sub: '82% occupancy', icon: Bed, trend: 'neutral', tone: 'blue' },
+  { label: 'Avg. Wait Time', value: '18m', sub: '-4 min vs avg', icon: Clock, trend: 'down', tone: 'violet' },
+  { label: 'AI Recommendations', value: '27', sub: '94% accuracy', icon: Brain, trend: 'up', tone: 'fuchsia' },
 ]
+
+// Full class strings so Tailwind can see them
+const TONES: Record<string, { chip: string; icon: string }> = {
+  cyan:    { chip: 'bg-cyan-500/10 ring-cyan-400/20',       icon: 'text-cyan-300' },
+  red:     { chip: 'bg-red-500/10 ring-red-400/20',         icon: 'text-red-300' },
+  amber:   { chip: 'bg-amber-500/10 ring-amber-400/20',     icon: 'text-amber-300' },
+  emerald: { chip: 'bg-emerald-500/10 ring-emerald-400/20', icon: 'text-emerald-300' },
+  slate:   { chip: 'bg-slate-500/10 ring-slate-400/20',     icon: 'text-slate-300' },
+  blue:    { chip: 'bg-blue-500/10 ring-blue-400/20',       icon: 'text-blue-300' },
+  violet:  { chip: 'bg-violet-500/10 ring-violet-400/20',   icon: 'text-violet-300' },
+  fuchsia: { chip: 'bg-fuchsia-500/10 ring-fuchsia-400/20', icon: 'text-fuchsia-300' },
+}
+
+const TREND_BADGE: Record<Trend, { label: string; icon: typeof Minus; cls: string }> = {
+  up:      { label: 'Up',       icon: TrendingUp,   cls: 'text-emerald-300 bg-emerald-500/10' },
+  down:    { label: 'Improved', icon: TrendingDown, cls: 'text-emerald-300 bg-emerald-500/10' },
+  alert:   { label: 'Alert',    icon: AlertTriangle, cls: 'text-red-300 bg-red-500/10' },
+  neutral: { label: 'Stable',   icon: Minus,        cls: 'text-slate-300 bg-white/5' },
+}
 
 const ALERTS = [
   {
-    id: 1,
-    name: 'Rajesh Khanna',
-    age: 45,
-    condition: 'Suspected STEMI',
+    id: 1, name: 'Rajesh Khanna', age: 45, condition: 'Suspected STEMI',
     detail: 'ST elevation on 12-lead ECG. Severe retrosternal pain radiating to left arm.',
-    level: 'critical',
-    time: '2 min ago',
-    vitals: { hr: '104', spo2: '94', bp: '150/95', temp: '36.8' }
+    level: 'critical', time: '2 min ago',
+    vitals: { hr: '104', spo2: '94', bp: '150/95', temp: '36.8' },
   },
   {
-    id: 2,
-    name: 'Meena Iyer',
-    age: 67,
-    condition: 'Hypertensive Crisis',
+    id: 2, name: 'Meena Iyer', age: 67, condition: 'Hypertensive Crisis',
     detail: 'BP 210/120 with visual disturbances. Papilloedema suspected.',
-    level: 'critical',
-    time: '9 min ago',
-    vitals: { hr: '96', spo2: '97', bp: '210/120', temp: '37.1' }
+    level: 'critical', time: '9 min ago',
+    vitals: { hr: '96', spo2: '97', bp: '210/120', temp: '37.1' },
   },
   {
-    id: 3,
-    name: 'Priya Sharma',
-    age: 29,
-    condition: 'Dengue Grade II — Falling Platelets',
+    id: 3, name: 'Priya Sharma', age: 29, condition: 'Dengue Grade II — Falling Platelets',
     detail: 'Platelet count 85,000. Haematocrit rising. Capillary leak risk.',
-    level: 'warning',
-    time: '24 min ago',
-    vitals: { hr: '98', spo2: '97', bp: '105/70', temp: '39.4' }
+    level: 'warning', time: '24 min ago',
+    vitals: { hr: '98', spo2: '97', bp: '105/70', temp: '39.4' },
   },
 ]
 
@@ -187,529 +85,454 @@ const RECENT_DX = [
 ]
 
 const WARD_VITALS = [
-  { label: 'Avg Heart Rate', value: '84', unit: 'bpm', icon: Heart, color: 'text-rose-400', borderColor: 'border-rose-500/20', bg: 'bg-rose-950/20' },
-  { label: 'Avg SpO\u2082', value: '96', unit: '%', icon: Wind, color: 'text-sky-400', borderColor: 'border-sky-500/20', bg: 'bg-sky-950/20' },
-  { label: 'Avg Temperature', value: '37.4', unit: '\u00b0C', icon: Thermometer, color: 'text-amber-400', borderColor: 'border-amber-500/20', bg: 'bg-amber-950/20' },
-  { label: 'Avg Blood Pressure', value: '128/82', unit: 'mmHg', icon: Droplets, color: 'text-violet-400', borderColor: 'border-violet-500/20', bg: 'bg-violet-950/20' },
+  { label: 'Heart Rate', value: '84', unit: 'bpm', icon: Heart, color: 'text-rose-300', bar: 'bg-rose-400' },
+  { label: 'SpO₂', value: '96', unit: '%', icon: Wind, color: 'text-sky-300', bar: 'bg-sky-400' },
+  { label: 'Temperature', value: '37.4', unit: '°C', icon: Thermometer, color: 'text-amber-300', bar: 'bg-amber-400' },
+  { label: 'Blood Pressure', value: '128/82', unit: 'mmHg', icon: Droplets, color: 'text-violet-300', bar: 'bg-violet-400' },
 ]
+const SPARK = [40, 60, 50, 70, 55, 80, 65]
 
-// ── Micro bar chart data (sparkline simulation) ────────────────────────────
 const HOURLY_PATIENTS = [2, 3, 5, 4, 6, 5, 7, 8, 6, 9, 7, 8]
 const maxBar = Math.max(...HOURLY_PATIENTS)
+
+const QUICK_ACTIONS = [
+  { href: '/patients', icon: UserPlus, title: 'Patient Workspace', desc: 'Records, vitals and new admissions', tone: 'violet' },
+  { href: '/view-anatomy', icon: ScanLine, title: '3D Anatomy Viewer', desc: 'Map symptoms onto the body model', tone: 'emerald' },
+]
+
+// ── Small building blocks ──────────────────────────────────────────────────
+
+const initials = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+
+function Card({ className = '', children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`rounded-2xl border border-white/[0.07] bg-white/[0.025] ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function CardHeader({ icon: Icon, title, meta, action }: {
+  icon: typeof Users; title: string; meta?: React.ReactNode; action?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <Icon className="w-4 h-4 text-slate-400 shrink-0" />
+        <h2 className="text-[14px] font-semibold text-white truncate">{title}</h2>
+        {meta && <span className="text-[11px] text-slate-500 truncate">{meta}</span>}
+      </div>
+      {action}
+    </div>
+  )
+}
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export function Dashboard() {
-  const { patients } = useAppContext()
+  const router = useRouter()
+  const { patients, setSelectedPatientId } = useAppContext()
   const [dismissedAlerts, setDismissedAlerts] = useState<number[]>([])
+  const [registryQuery, setRegistryQuery] = useState('')
+
   const now = new Date()
   const hour = now.getHours()
-  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   const activeAlerts = ALERTS.filter(a => !dismissedAlerts.includes(a.id))
+  const registry = patients.filter(p =>
+    `${p.name} ${p.id} ${p.symptoms}`.toLowerCase().includes(registryQuery.toLowerCase())
+  )
+
+  const openPatient = (id?: string) => {
+    if (id) setSelectedPatientId(id)
+    router.push('/patients')
+  }
 
   return (
-    <div className="w-full min-h-full bg-[#020817] text-slate-100 font-sans">
-      <div className="max-w-[1400px] mx-auto px-8 py-8 space-y-7">
+    <div className="w-full min-h-full bg-[radial-gradient(ellipse_at_top,_rgba(14,116,144,0.10),_transparent_55%)] text-slate-100 font-sans">
+      <div className="max-w-[1400px] mx-auto px-5 sm:px-8 py-8 space-y-6">
 
         {/* ── HEADER ───────────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1.5">{dateStr}</p>
-            <h1 className="text-[26px] font-black text-white tracking-tight leading-none">
-              {greeting}, <span className="text-cyan-400">Dr. Srinidhi</span>
+            <p className="text-[12px] text-slate-500 mb-1.5">{dateStr}</p>
+            <h1 className="text-[28px] font-bold text-white tracking-tight leading-tight">
+              {greeting}, <span className="text-cyan-300">Dr. Srinidhi</span>
             </h1>
-            <p className="text-sm text-slate-400 mt-2 font-light">
+            <p className="text-[14px] text-slate-400 mt-1.5">
               {activeAlerts.length > 0
-                ? <><span className="text-white font-semibold">{activeAlerts.length} alert{activeAlerts.length !== 1 ? 's' : ''}</span> require your attention &mdash; <span className="text-white font-semibold">6 appointments</span> scheduled today.</>
-                : <>All patients are stable. <span className="text-white font-semibold">6 appointments</span> scheduled today.</>
+                ? <><span className="text-white font-medium">{activeAlerts.length} alert{activeAlerts.length !== 1 ? 's' : ''}</span> need your attention · <span className="text-white font-medium">{SCHEDULE.length} appointments</span> today</>
+                : <>All patients are stable · <span className="text-white font-medium">{SCHEDULE.length} appointments</span> today</>
               }
             </p>
           </div>
-          <div className="flex items-center gap-2.5 mt-1">
-            <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0a1628]/80 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold font-mono tracking-wide">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              ABDM Sync Active
-            </div>
-            <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0a1628]/80 border border-blue-500/20 text-slate-400 text-[11px] font-bold font-mono tracking-wide">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-              HIPAA Secure
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-emerald-500/10 ring-1 ring-emerald-400/20 text-emerald-300 text-[12px] font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> ABDM sync active
+            </span>
+            <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/5 ring-1 ring-white/10 text-slate-300 text-[12px] font-medium">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-300" /> HIPAA secure
+            </span>
+            <Link
+              href="/patients"
+              className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-cyan-400 text-slate-950 text-[12px] font-semibold hover:bg-cyan-300 transition"
+            >
+              <UserPlus className="w-3.5 h-3.5" /> New patient
+            </Link>
           </div>
         </div>
 
         {/* ── STAT CARDS ───────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {STATS.map((stat) => {
             const Icon = stat.icon
+            const tone = TONES[stat.tone]
+            const badge = TREND_BADGE[stat.trend]
+            const BadgeIcon = badge.icon
             return (
-              <div
-                key={stat.label}
-                className={`relative rounded-2xl border p-5 flex flex-col justify-between gap-4 overflow-hidden ${stat.accent.border} ${stat.accent.bg}`}
-              >
-                {/* Top glow line */}
-                <div className={`absolute top-0 left-6 right-6 h-px ${stat.accent.icon.replace('text-', 'bg-')}/30`} />
-
+              <Card key={stat.label} className="p-4 sm:p-5 flex flex-col gap-4 hover:border-white/[0.12] transition-colors">
                 <div className="flex items-center justify-between">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${stat.accent.iconBg}`}>
-                    <Icon className={`w-[18px] h-[18px] ${stat.accent.icon}`} />
+                  <div className={`w-9 h-9 rounded-xl ring-1 flex items-center justify-center ${tone.chip}`}>
+                    <Icon className={`w-[18px] h-[18px] ${tone.icon}`} />
                   </div>
-                  <div className={`flex items-center gap-1 text-[11px] font-semibold ${stat.accent.trend}`}>
-                    {stat.trend === 'up' && <><TrendingUp className="w-3.5 h-3.5" /> Up</>}
-                    {stat.trend === 'down' && <><TrendingDown className="w-3.5 h-3.5" /> Improved</>}
-                    {stat.trend === 'alert' && <><Zap className="w-3.5 h-3.5 animate-pulse" /> Alert</>}
-                    {stat.trend === 'neutral' && <><Minus className="w-3.5 h-3.5" /> Stable</>}
-                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${badge.cls}`}>
+                    <BadgeIcon className="w-3 h-3" /> {badge.label}
+                  </span>
                 </div>
-
                 <div>
-                  <div className={`text-[32px] font-black tracking-tight leading-none ${stat.accent.value}`}>{stat.value}</div>
-                  <div className="text-[12px] font-semibold text-slate-300 mt-1">{stat.label}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5 font-mono">{stat.sub}</div>
+                  <div className="text-[28px] font-bold text-white tracking-tight leading-none tabular-nums">{stat.value}</div>
+                  <div className="text-[13px] font-medium text-slate-300 mt-2">{stat.label}</div>
+                  <div className="text-[12px] text-slate-500 mt-0.5">{stat.sub}</div>
                 </div>
-              </div>
+              </Card>
             )
           })}
         </div>
 
-        {/* ── CRITICAL ALERTS ──────────────────────────────────────────────── */}
+        {/* ── CLINICAL ALERTS ──────────────────────────────────────────────── */}
         {activeAlerts.length > 0 && (
-          <div className="space-y-3">
+          <section className="space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-1 h-4 rounded-full bg-red-500" />
-              <h2 className="text-[13px] font-bold text-white uppercase tracking-widest">Clinical Alerts</h2>
-              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-black font-mono">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <h2 className="text-[15px] font-semibold text-white">Clinical alerts</h2>
+              <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500/15 text-red-300 text-[11px] font-semibold flex items-center justify-center">
                 {activeAlerts.length}
-              </div>
+              </span>
             </div>
 
-            <div className="space-y-2.5">
-              {activeAlerts.map(alert => (
-                <div
-                  key={alert.id}
-                  className={`rounded-2xl border flex items-center gap-5 p-4 ${
-                    alert.level === 'critical'
-                      ? 'bg-red-950/10 border-red-500/25'
-                      : 'bg-amber-950/10 border-amber-500/25'
-                  }`}
-                >
-                  {/* Severity indicator */}
-                  <div className="shrink-0 flex flex-col items-center gap-1.5">
-                    <div className={`w-2.5 h-2.5 rounded-full shadow-lg ${
-                      alert.level === 'critical'
-                        ? 'bg-red-500 shadow-red-500/50 animate-pulse'
-                        : 'bg-amber-500 shadow-amber-500/50'
-                    }`} />
-                    <div className={`text-[8px] font-black font-mono uppercase tracking-widest ${
-                      alert.level === 'critical' ? 'text-red-500' : 'text-amber-500'
-                    }`}>{alert.level === 'critical' ? 'CRIT' : 'WARN'}</div>
-                  </div>
+            <div className="grid gap-3">
+              {activeAlerts.map(alert => {
+                const critical = alert.level === 'critical'
+                return (
+                  <div
+                    key={alert.id}
+                    className={`relative overflow-hidden rounded-2xl border bg-white/[0.025] p-4 pl-5 flex flex-col xl:flex-row xl:items-center gap-4 ${
+                      critical ? 'border-red-500/25' : 'border-amber-500/25'
+                    }`}
+                  >
+                    <div className={`absolute left-0 inset-y-0 w-1 ${critical ? 'bg-red-500' : 'bg-amber-500'}`} />
 
-                  <div className="w-px h-10 bg-white/5 shrink-0" />
-
-                  {/* Patient info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[14px] font-bold text-white">{alert.name}</span>
-                      <span className="text-slate-500 text-xs font-mono">· {alert.age}y</span>
-                      <span className="text-[10px] font-mono text-slate-600 ml-2">{alert.time}</span>
-                    </div>
-                    <div className={`text-[12px] font-semibold mb-0.5 ${
-                      alert.level === 'critical' ? 'text-red-300' : 'text-amber-300'
-                    }`}>{alert.condition}</div>
-                    <div className="text-[11px] text-slate-400">{alert.detail}</div>
-                  </div>
-
-                  {/* Vitals row */}
-                  <div className="shrink-0 grid grid-cols-4 gap-3 text-center">
-                    {[
-                      { k: 'HR', v: alert.vitals.hr, u: 'bpm', c: 'text-rose-300' },
-                      { k: 'SpO\u2082', v: alert.vitals.spo2, u: '%', c: 'text-sky-300' },
-                      { k: 'BP', v: alert.vitals.bp, u: '', c: 'text-violet-300' },
-                      { k: 'Temp', v: alert.vitals.temp, u: '\u00b0C', c: 'text-amber-300' },
-                    ].map(vt => (
-                      <div key={vt.k} className="bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/5">
-                        <div className="text-[8px] text-slate-600 font-mono uppercase mb-0.5">{vt.k}</div>
-                        <div className={`text-[12px] font-black ${vt.c}`}>{vt.v}{vt.u}</div>
+                    {/* Patient */}
+                    <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-semibold shrink-0 ${
+                        critical ? 'bg-red-500/15 text-red-200' : 'bg-amber-500/15 text-amber-200'
+                      }`}>
+                        {initials(alert.name)}
                       </div>
-                    ))}
-                  </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-[15px] font-semibold text-white">{alert.name}</span>
+                          <span className="text-[12px] text-slate-500">{alert.age} yrs</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                            critical ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'
+                          }`}>{critical ? 'Critical' : 'Warning'}</span>
+                          <span className="text-[12px] text-slate-500">· {alert.time}</span>
+                        </div>
+                        <div className={`text-[13px] font-medium mt-1 ${critical ? 'text-red-300' : 'text-amber-300'}`}>{alert.condition}</div>
+                        <div className="text-[12.5px] text-slate-400 mt-0.5">{alert.detail}</div>
+                      </div>
+                    </div>
 
-                  <div className="w-px h-10 bg-white/5 shrink-0" />
+                    {/* Vitals */}
+                    <div className="grid grid-cols-4 gap-2 shrink-0">
+                      {[
+                        { k: 'HR', v: alert.vitals.hr, u: 'bpm' },
+                        { k: 'SpO₂', v: alert.vitals.spo2, u: '%' },
+                        { k: 'BP', v: alert.vitals.bp, u: '' },
+                        { k: 'Temp', v: alert.vitals.temp, u: '°C' },
+                      ].map(vt => (
+                        <div key={vt.k} className="rounded-xl bg-black/30 ring-1 ring-white/5 px-3 py-2 min-w-[72px]">
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wide">{vt.k}</div>
+                          <div className="text-[14px] font-semibold text-white tabular-nums mt-0.5">
+                            {vt.v}<span className="text-[10px] text-slate-500 font-normal ml-0.5">{vt.u}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
-                  {/* Actions */}
-                  <div className="shrink-0 flex flex-col gap-2">
-                    <Link
-                      href="/patients"
-                      className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition text-center whitespace-nowrap"
-                    >
-                      View Patient
-                    </Link>
-                    <button
-                      onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
-                      className="px-4 py-1.5 text-slate-600 hover:text-slate-400 border border-transparent text-[10px] font-bold uppercase tracking-wider transition cursor-pointer text-center"
-                    >
-                      Dismiss
-                    </button>
+                    {/* Actions */}
+                    <div className="flex xl:flex-col gap-2 shrink-0">
+                      <button
+                        onClick={() => openPatient(patients.find(p => p.name === alert.name)?.id)}
+                        className="h-9 px-4 rounded-xl bg-white text-slate-950 text-[12px] font-semibold hover:bg-slate-200 transition cursor-pointer"
+                      >
+                        View patient
+                      </button>
+                      <button
+                        onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
+                        className="h-9 px-4 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 text-[12px] font-medium transition cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* ── PATIENT REGISTRY TABLE (REAL VIEW & SCROLLABLE) ── */}
-        <section className="mb-10 relative z-10">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <Table className="w-4 h-4 text-cyan-400" />
-              <h2 className="text-[13px] font-bold text-white uppercase tracking-wider">Patient Registry & Clinical Records</h2>
+        {/* ── PATIENT REGISTRY ─────────────────────────────────────────────── */}
+        <Card className="overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-5 pt-5 pb-4">
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 text-slate-400" />
+              <h2 className="text-[14px] font-semibold text-white">Patient registry</h2>
+              <span className="text-[11px] text-slate-500">{patients.length} records</span>
             </div>
-            <button
-              onClick={() => {
-                const headers = ['Patient ID', 'Name', 'Age', 'Gender', 'Symptoms', 'Clinical Notes', 'Heart Rate (BPM)', 'SpO2 (%)', 'Temperature (°C)', 'Blood Pressure', 'ABHA ID', 'PM-JAY Eligibility', 'Blood Sugar (mg/dL)'];
-                const rows = patients.map(p => [
-                  p.id,
-                  p.name,
-                  p.age,
-                  p.gender,
-                  `"${p.symptoms.replace(/"/g, '""')}"`,
-                  `"${p.notes.replace(/"/g, '""')}"`,
-                  p.vitals.hr,
-                  p.vitals.spo2,
-                  p.vitals.temp,
-                  p.vitals.bp,
-                  p.abhaId || 'N/A',
-                  p.pmjayEligible || 'N/A',
-                  p.bloodSugar || 'N/A'
-                ]);
-                const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.setAttribute('href', url);
-                link.setAttribute('download', `patient_registry_${new Date().toISOString().split('T')[0]}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 hover:bg-emerald-900/40 transition text-emerald-400 text-xs font-bold font-mono tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.1)] cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" /> DOWNLOAD RECORDS (EXCEL)
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 md:w-64">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={registryQuery}
+                  onChange={e => setRegistryQuery(e.target.value)}
+                  placeholder="Search patients…"
+                  className="w-full h-9 pl-9 pr-8 rounded-xl bg-black/30 border border-white/10 text-[13px] text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15 transition"
+                />
+                {registryQuery && (
+                  <button onClick={() => setRegistryQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white cursor-pointer" aria-label="Clear search">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => downloadPatientsCsv(patients)}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/25 text-emerald-300 text-[12px] font-medium hover:bg-emerald-500/15 transition cursor-pointer whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </button>
+            </div>
           </div>
 
-          {/* Scrollable Table Container */}
-          <div className="glass-panel border border-white/5 bg-[#070f24]/40 rounded-2xl overflow-hidden shadow-lg">
-            <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-black/60 border-b border-white/10 text-gray-400 font-mono uppercase tracking-wider text-[10px]">
-                    <th className="p-4 font-semibold">Patient ID</th>
-                    <th className="p-4 font-semibold">Full Name</th>
-                    <th className="p-4 font-semibold">Age / Sex</th>
-                    <th className="p-4 font-semibold text-center">Temp</th>
-                    <th className="p-4 font-semibold text-center">HR</th>
-                    <th className="p-4 font-semibold text-center">SpO₂</th>
-                    <th className="p-4 font-semibold text-center">BP</th>
-                    <th className="p-4 font-semibold">Primary Symptoms Preview</th>
-                    <th className="p-4 font-semibold text-right">Verification</th>
+          <div className="max-h-[340px] overflow-auto custom-scrollbar border-t border-white/[0.06]">
+            <table className="w-full text-left text-[13px] min-w-[860px]">
+              <thead className="sticky top-0 z-10 bg-[#0b0f17]">
+                <tr className="text-[11px] text-slate-500 uppercase tracking-wide">
+                  <th className="px-5 py-3 font-medium">Patient</th>
+                  <th className="px-3 py-3 font-medium">Age / Sex</th>
+                  <th className="px-3 py-3 font-medium text-right">Temp</th>
+                  <th className="px-3 py-3 font-medium text-right">HR</th>
+                  <th className="px-3 py-3 font-medium text-right">SpO₂</th>
+                  <th className="px-3 py-3 font-medium text-right">BP</th>
+                  <th className="px-3 py-3 font-medium">Presenting symptoms</th>
+                  <th className="px-5 py-3 font-medium text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {registry.map((p) => (
+                  <tr key={p.id} onClick={() => openPatient(p.id)} className="hover:bg-white/[0.03] transition-colors cursor-pointer">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-cyan-500/10 text-cyan-200 text-[11px] font-semibold flex items-center justify-center shrink-0">
+                          {initials(p.name)}
+                        </div>
+                        <div>
+                          <div className="font-medium text-white">{p.name}</div>
+                          <div className="text-[11px] text-slate-500 font-mono">{p.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-300">{p.age} · {p.gender}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-200">{p.vitals.temp}°C</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-200">{p.vitals.hr}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-200">{p.vitals.spo2}%</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-slate-200">{p.vitals.bp}</td>
+                    <td className="px-3 py-3 text-slate-400 max-w-[280px] truncate" title={p.symptoms}>{p.symptoms}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-[11px] font-medium">
+                        <CheckCircle2 className="w-3 h-3" /> ABHA synced
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {patients.map((p) => (
-                    <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-4 font-mono text-cyan-400 font-semibold">{p.id}</td>
-                      <td className="p-4 font-bold text-white text-sm">{p.name}</td>
-                      <td className="p-4 text-gray-300">{p.age}y / {p.gender}</td>
-                      <td className="p-4 text-center font-mono text-amber-300 font-bold">{p.vitals.temp}°C</td>
-                      <td className="p-4 text-center font-mono text-rose-300 font-bold">{p.vitals.hr} bpm</td>
-                      <td className="p-4 text-center font-mono text-sky-300 font-bold">{p.vitals.spo2}%</td>
-                      <td className="p-4 text-center font-mono text-violet-300 font-bold">{p.vitals.bp}</td>
-                      <td className="p-4 text-gray-400 max-w-xs truncate" title={p.symptoms}>{p.symptoms}</td>
-                      <td className="p-4 text-right">
-                        <span className="inline-block px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold font-mono uppercase tracking-wider">
-                          ABHA Sync
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+                {registry.length === 0 && (
+                  <tr><td colSpan={8} className="px-5 py-10 text-center text-slate-500">No patients match “{registryQuery}”.</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </section>
+        </Card>
 
         {/* ── MAIN GRID ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
-          {/* Schedule — 4 cols */}
-          <div className="col-span-4 bg-[#070f24]/70 border border-blue-950/50 rounded-2xl p-5 flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <h2 className="text-[13px] font-bold text-white">Today's Schedule</h2>
-              </div>
-              <span className="text-[10px] text-slate-600 font-mono">{SCHEDULE.length} total</span>
-            </div>
-
-            <div className="space-y-1.5">
+          {/* Schedule */}
+          <Card className="lg:col-span-4 flex flex-col">
+            <CardHeader icon={Calendar} title="Today's schedule" meta={`${SCHEDULE.length} appointments`} />
+            <ol className="px-5 pb-5 relative">
               {SCHEDULE.map((apt, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                    apt.status === 'active'
-                      ? 'bg-cyan-500/8 border border-cyan-500/25 shadow-[inset_0_0_12px_rgba(6,182,212,0.04)]'
-                      : apt.status === 'done'
-                      ? 'opacity-35'
-                      : 'border border-transparent hover:bg-white/[0.025]'
-                  }`}
-                >
-                  <span className={`text-[11px] font-black font-mono w-11 shrink-0 ${
-                    apt.status === 'active' ? 'text-cyan-400' : 'text-slate-500'
-                  }`}>{apt.time}</span>
-
-                  <div className="w-px h-7 bg-blue-950/60 shrink-0" />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-semibold text-white leading-tight truncate">{apt.name}</div>
-                    <div className="text-[10px] text-slate-500 truncate mt-0.5">{apt.type}</div>
+                <li key={idx} className="relative flex gap-4 pb-4 last:pb-0">
+                  {/* timeline rail */}
+                  {idx < SCHEDULE.length - 1 && <span className="absolute left-[5px] top-4 bottom-0 w-px bg-white/10" />}
+                  <span className={`relative mt-1.5 w-[11px] h-[11px] rounded-full shrink-0 ring-4 ring-[#0a0d14] ${
+                    apt.status === 'active' ? 'bg-cyan-400' : apt.status === 'done' ? 'bg-emerald-500/60' : 'bg-slate-700'
+                  }`} />
+                  <div className={`flex-1 min-w-0 rounded-xl px-3 py-2 -mt-1 ${
+                    apt.status === 'active' ? 'bg-cyan-500/10 ring-1 ring-cyan-400/25' : ''
+                  } ${apt.status === 'done' ? 'opacity-50' : ''}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-medium text-white truncate">{apt.name}</span>
+                      <span className={`text-[12px] tabular-nums shrink-0 ${apt.status === 'active' ? 'text-cyan-300 font-semibold' : 'text-slate-500'}`}>
+                        {apt.status === 'active' ? 'Now' : apt.time}
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-slate-500 truncate mt-0.5">{apt.type}</div>
                   </div>
-
-                  <div className="shrink-0">
-                    {apt.status === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-500/70" />}
-                    {apt.status === 'active' && (
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                        <span className="text-[9px] font-bold font-mono text-cyan-400 uppercase">Now</span>
-                      </div>
-                    )}
-                    {apt.status === 'upcoming' && <Circle className="w-3.5 h-3.5 text-slate-700" />}
-                  </div>
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ol>
+          </Card>
 
-          {/* Centre — 8 cols */}
-          <div className="col-span-8 flex flex-col gap-5">
+          <div className="lg:col-span-8 flex flex-col gap-4 sm:gap-6">
 
             {/* Ward Vitals */}
-            <div className="bg-[#070f24]/70 border border-blue-950/50 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-slate-400" />
-                  <h2 className="text-[13px] font-bold text-white">Ward Vitals Overview</h2>
-                </div>
-                <span className="text-[10px] text-slate-600 font-mono">Average across 24 patients</span>
-              </div>
-              <div className="grid grid-cols-4 gap-3">
+            <Card>
+              <CardHeader icon={Activity} title="Ward vitals" meta="Average across 24 patients" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 pb-5">
                 {WARD_VITALS.map((v) => {
                   const Icon = v.icon
                   return (
-                    <div
-                      key={v.label}
-                      className={`rounded-xl border ${v.borderColor} ${v.bg} p-4 flex flex-col gap-3`}
-                    >
+                    <div key={v.label} className="rounded-xl bg-black/25 ring-1 ring-white/[0.06] p-4 flex flex-col gap-3">
                       <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-slate-400">{v.label}</span>
                         <Icon className={`w-4 h-4 ${v.color}`} />
-                        <div className="flex gap-0.5 items-end">
-                          {[40, 60, 50, 70, 55, 80, 65].map((h, i) => (
-                            <div
-                              key={i}
-                              className={`w-1 rounded-sm opacity-40 ${v.color.replace('text-', 'bg-')}`}
-                              style={{ height: `${(h / 80) * 20}px` }}
-                            />
+                      </div>
+                      <div className="flex items-end justify-between gap-2">
+                        <div>
+                          <span className="text-[22px] font-semibold text-white leading-none tabular-nums">{v.value}</span>
+                          <span className="text-[11px] text-slate-500 ml-1">{v.unit}</span>
+                        </div>
+                        <div className="flex gap-[3px] items-end h-5">
+                          {SPARK.map((h, i) => (
+                            <div key={i} className={`w-[3px] rounded-full opacity-50 ${v.bar}`} style={{ height: `${(h / 80) * 100}%` }} />
                           ))}
                         </div>
-                      </div>
-                      <div>
-                        <div className={`text-[22px] font-black leading-none ${v.color}`}>{v.value}</div>
-                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{v.unit}</div>
-                        <div className="text-[10px] text-slate-600 mt-1">{v.label}</div>
                       </div>
                     </div>
                   )
                 })}
               </div>
-            </div>
+            </Card>
 
-            {/* Recent AI Diagnoses */}
-            <div className="bg-[#070f24]/70 border border-blue-950/50 rounded-2xl p-5 flex flex-col gap-4 flex-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-violet-400" />
-                  <h2 className="text-[13px] font-bold text-white">Recent AI Diagnoses</h2>
-                  <span className="text-[9px] font-bold font-mono text-slate-600 uppercase tracking-widest ml-1">Gemini 2.5</span>
-                </div>
-                <Link
-                  href="/symptoms"
-                  className="flex items-center gap-1.5 text-[10px] text-cyan-400 hover:text-cyan-300 font-mono uppercase tracking-wider transition"
-                >
-                  New Analysis <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
-
-              <div className="space-y-2">
-                {RECENT_DX.map((dx, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-4 px-4 py-3 bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-white/[0.07] rounded-xl transition group cursor-default"
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      dx.flag ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)] animate-pulse' : 'bg-slate-700'
-                    }`} />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12px] font-semibold text-white truncate">{dx.condition}</span>
-                        {dx.flag && (
-                          <span className="shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-red-950/60 border border-red-500/30 text-red-400 font-mono tracking-widest">
-                            RED FLAG
-                          </span>
-                        )}
+            {/* Recent AI Insights */}
+            <Card className="flex-1">
+              <CardHeader
+                icon={Brain}
+                title="Recent AI insights"
+                meta="Gemini 2.5"
+                action={
+                  <Link href="/view-anatomy" className="inline-flex items-center gap-1 text-[12px] text-cyan-300 hover:text-cyan-200 font-medium transition">
+                    Open 3D anatomy <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                }
+              />
+              <div className="px-5 pb-5 space-y-2">
+                {RECENT_DX.map((dx, idx) => {
+                  const barColor = dx.confidence >= 90 ? 'bg-red-400' : dx.confidence >= 80 ? 'bg-amber-400' : 'bg-emerald-400'
+                  return (
+                    <div key={idx} className="flex items-center gap-4 rounded-xl bg-black/20 ring-1 ring-white/[0.05] px-4 py-3 hover:ring-white/10 transition">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-medium text-white truncate">{dx.condition}</span>
+                          {dx.flag && (
+                            <span className="shrink-0 px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 text-[10px] font-semibold uppercase tracking-wide">Red flag</span>
+                          )}
+                        </div>
+                        <div className="text-[12px] text-slate-500 mt-0.5">{dx.patient} · {dx.organ} · {dx.time}</div>
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{dx.patient} <span className="text-slate-700 mx-1">·</span> {dx.organ}</div>
-                    </div>
-
-                    {/* Confidence bar */}
-                    <div className="shrink-0 flex items-center gap-3">
-                      <div className="w-24 h-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            dx.confidence >= 90 ? 'bg-red-500' : dx.confidence >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`}
-                          style={{ width: `${dx.confidence}%` }}
-                        />
+                      <div className="hidden sm:block w-28 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${dx.confidence}%` }} />
                       </div>
-                      <div className={`text-[13px] font-black w-10 text-right ${
-                        dx.confidence >= 90 ? 'text-red-400' : dx.confidence >= 80 ? 'text-amber-400' : 'text-emerald-400'
-                      }`}>{dx.confidence}%</div>
+                      <div className="text-[13px] font-semibold text-white w-10 text-right tabular-nums">{dx.confidence}%</div>
                     </div>
-
-                    <div className="text-[10px] text-slate-600 font-mono w-12 text-right shrink-0">{dx.time}</div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
 
-        {/* ── PATIENT LOAD CHART + QUICK ACTIONS ──────────────────────────── */}
-        <div className="grid grid-cols-12 gap-6">
+        {/* ── PATIENT LOAD + QUICK ACTIONS ─────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
-          {/* Patient load sparkline chart */}
-          <div className="col-span-5 bg-[#070f24]/70 border border-blue-950/50 rounded-2xl p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-slate-400" />
-                <h2 className="text-[13px] font-bold text-white">Hourly Patient Load</h2>
-              </div>
-              <span className="text-[10px] text-slate-600 font-mono">Last 12 hours</span>
-            </div>
-
-            <div className="flex items-end gap-2 h-20">
-              {HOURLY_PATIENTS.map((val, i) => {
-                const heightPct = (val / maxBar) * 100
-                const isCurrent = i === HOURLY_PATIENTS.length - 1
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full relative flex items-end" style={{ height: '64px' }}>
+          <Card className="lg:col-span-7">
+            <CardHeader icon={BarChart2} title="Hourly patient load" meta="Last 12 hours" />
+            <div className="px-5 pb-5">
+              <div className="flex items-end gap-2 h-32">
+                {HOURLY_PATIENTS.map((val, i) => {
+                  const isCurrent = i === HOURLY_PATIENTS.length - 1
+                  const h = (i + 7) % 24
+                  return (
+                    <div key={i} className="flex-1 h-full flex flex-col items-center justify-end gap-1.5 group">
+                      <span className="text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition tabular-nums">{val}</span>
                       <div
-                        className={`w-full rounded-t-md transition-all ${
-                          isCurrent ? 'bg-cyan-500/70' : 'bg-blue-900/60'
-                        }`}
-                        style={{ height: `${heightPct}%` }}
+                        className={`w-full rounded-md transition-colors ${isCurrent ? 'bg-cyan-400' : 'bg-slate-700/70 group-hover:bg-slate-600'}`}
+                        style={{ height: `${(val / maxBar) * 75}%` }}
                       />
+                      <span className="text-[10px] text-slate-500 tabular-nums">{h < 10 ? `0${h}` : h}</span>
                     </div>
-                    <span className="text-[8px] font-mono text-slate-700">
-                      {(i + 7) % 24 < 10 ? `0${(i + 7) % 24}` : (i + 7) % 24}h
-                    </span>
+                  )
+                })}
+              </div>
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.06] text-[12px] text-slate-500">
+                <span>Peak 09:00 – 12:00</span>
+                <span>Avg 6 patients / hr</span>
+              </div>
+            </div>
+          </Card>
+
+          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {QUICK_ACTIONS.map((action) => {
+              const Icon = action.icon
+              const tone = TONES[action.tone]
+              return (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] hover:bg-white/[0.04] hover:border-white/[0.14] p-5 flex flex-col justify-between gap-6 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className={`w-10 h-10 rounded-xl ring-1 flex items-center justify-center ${tone.chip}`}>
+                      <Icon className={`w-5 h-5 ${tone.icon}`} />
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-white group-hover:translate-x-0.5 transition" />
                   </div>
-                )
-              })}
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-blue-950/30 text-[10px] text-slate-600 font-mono">
-              <span>Peak: 09:00 — 12:00</span>
-              <span>Avg: 6 patients/hr</span>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="col-span-7 flex flex-col gap-3">
-            <h2 className="text-[13px] font-bold text-white">Quick Actions</h2>
-            <div className="grid grid-cols-3 gap-3 flex-1">
-              {[
-                {
-                  href: '/symptoms',
-                  icon: Sparkles,
-                  title: 'AI Diagnostic Assistant',
-                  desc: 'Submit symptoms — Gemini differential diagnosis',
-                  accent: 'border-cyan-500/20 hover:border-cyan-500/35 hover:shadow-[0_0_24px_rgba(6,182,212,0.07)]',
-                  iconBg: 'bg-cyan-950/50 border border-cyan-500/20',
-                  iconColor: 'text-cyan-400',
-                  arrowColor: 'group-hover:text-cyan-400',
-                },
-                {
-                  href: '/patients',
-                  icon: Users,
-                  title: 'Patient Workspace',
-                  desc: 'Electronic health records, vitals and case notes',
-                  accent: 'border-violet-500/20 hover:border-violet-500/35 hover:shadow-[0_0_24px_rgba(139,92,246,0.07)]',
-                  iconBg: 'bg-violet-950/50 border border-violet-500/20',
-                  iconColor: 'text-violet-400',
-                  arrowColor: 'group-hover:text-violet-400',
-                },
-                {
-                  href: '/view-anatomy',
-                  icon: ScanLine,
-                  title: 'Anatomy Viewer',
-                  desc: '3D body mapping — organs labelled after AI diagnosis',
-                  accent: 'border-emerald-500/20 hover:border-emerald-500/35 hover:shadow-[0_0_24px_rgba(16,185,129,0.07)]',
-                  iconBg: 'bg-emerald-950/50 border border-emerald-500/20',
-                  iconColor: 'text-emerald-400',
-                  arrowColor: 'group-hover:text-emerald-400',
-                },
-              ].map((action) => {
-                const Icon = action.icon
-                return (
-                  <Link
-                    key={action.href}
-                    href={action.href}
-                    className={`group flex flex-col gap-4 p-4 bg-[#070f24]/70 border rounded-2xl transition-all duration-200 ${action.accent}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${action.iconBg}`}>
-                        <Icon className={`w-5 h-5 ${action.iconColor}`} />
-                      </div>
-                      <ChevronRight className={`w-4 h-4 text-slate-700 transition-colors ${action.arrowColor}`} />
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-bold text-white">{action.title}</div>
-                      <div className="text-[10px] text-slate-500 mt-1 leading-relaxed">{action.desc}</div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+                  <div>
+                    <div className="text-[14px] font-semibold text-white">{action.title}</div>
+                    <div className="text-[12px] text-slate-500 mt-1 leading-relaxed">{action.desc}</div>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </div>
 
         {/* ── FOOTER ───────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between pt-5 border-t border-blue-950/30 text-[10px] text-slate-700 font-mono">
-          <div className="flex items-center gap-4">
-            <span className="text-slate-400 font-bold">AROGYA AI</span>
-            <Minus className="w-3 h-3" />
-            <span>ABDM Compliant</span>
-            <Minus className="w-3 h-3" />
-            <span>HIPAA Secure</span>
-            <Minus className="w-3 h-3" />
-            <span>FHIR Compatible</span>
-          </div>
-          <span>Gemini 2.5 Clinical Engine &nbsp;·&nbsp; Ver 2.6.1 &nbsp;·&nbsp; SSL Encrypted</span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-5 border-t border-white/[0.06] text-[11px] text-slate-600">
+          <span><span className="text-slate-400 font-semibold">Arogya AI</span> · ABDM compliant · HIPAA secure · FHIR compatible</span>
+          <span>Gemini 2.5 clinical engine · v2.6.1</span>
         </div>
 
       </div>
