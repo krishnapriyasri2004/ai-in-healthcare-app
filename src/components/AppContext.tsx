@@ -44,8 +44,8 @@ const INITIAL_PATIENTS: Patient[] = [
     pmjayEligible: 'Eligible',
     bloodSugar: '184',
     history: [
-      { date: '2026-05-10', diagnosis: 'Essential Hypertension', severity: 'Medium' },
-      { date: '2026-02-14', diagnosis: 'Type 2 Diabetes Mellitus', severity: 'Medium' }
+      { date: '2026-10-15', diagnosis: 'Essential Hypertension', severity: 'Medium' },
+      { date: '2026-10-06', diagnosis: 'Type 2 Diabetes Mellitus', severity: 'Medium' }
     ]
   },
   {
@@ -60,7 +60,7 @@ const INITIAL_PATIENTS: Patient[] = [
     pmjayEligible: 'Under Verification',
     bloodSugar: '95',
     history: [
-      { date: '2026-06-01', diagnosis: 'Acute Pharyngitis', severity: 'Low' }
+      { date: '2026-10-18', diagnosis: 'Acute Pharyngitis', severity: 'Low' }
     ]
   },
   {
@@ -75,7 +75,7 @@ const INITIAL_PATIENTS: Patient[] = [
     pmjayEligible: 'Eligible',
     bloodSugar: '110',
     history: [
-      { date: '2026-04-12', diagnosis: 'Asthma Exacerbation', severity: 'Medium' }
+      { date: '2026-10-09', diagnosis: 'Asthma Exacerbation', severity: 'Medium' }
     ]
   }
 ]
